@@ -1,0 +1,45 @@
+{
+  "name": "pi-conductor",
+  "version": "0.1.0",
+  "description": "A Pi delegation router that keeps the main chat as cockpit and routes coding work to right-sized subagents.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "subagents",
+    "delegation",
+    "coding-agent"
+  ],
+  "license": "MIT",
+  "files": [
+    "extensions",
+    "skills",
+    "prompts",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0",
+    "typebox": "*"
+  }
+}
