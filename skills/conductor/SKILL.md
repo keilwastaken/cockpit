@@ -11,7 +11,7 @@ Use Conductor when coding work should be delegated through an execution profile/
 
 1. Keep the parent chat responsible for intent, clarification, planning, review, and final explanation.
 2. Use `/conductor route <task>` or the `conductor_handoff` tool to classify the task.
-3. Use `/conductor handoff [instant|rapid|verified|deep] <task>` to generate a clean handoff.
+3. Use `/conductor handoff [instant|rapid|verified] <task>` to generate a clean handoff.
 4. Do not broaden the delegated scope beyond the handoff.
 5. Treat generated handoffs as Phase 1 recommendation-only artifacts; actual subagent launch remains manual until guarded launch support is implemented.
 
@@ -19,8 +19,7 @@ Use Conductor when coding work should be delegated through an execution profile/
 
 - `instant`: linear direct-worker profile for exact-file tasks; no scout/context pass; compact return.
 - `rapid`: linear direct-worker profile for narrow low-risk tasks; optional scout only if targets are unclear; bounded edits.
-- `verified`: orchestrated profile for bounded multi-file work; scout/context recommended; verification required.
-- `deep`: orchestrated profile for broad work; scout, plan, execute, verify, and review/fix-loop guardrails.
+- `verified`: orchestrated profile for broad or bounded work; scout, plan, execute, verify, and review/fix-loop guardrails.
 - `need-decision`: clarify before delegation.
 - `cockpit-only`: answer or plan in the parent chat.
 

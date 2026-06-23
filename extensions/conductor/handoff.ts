@@ -11,8 +11,7 @@ const executionProfile = (tier: NonNullable<RouteDecision["tier"]>, config: Cond
 	const descriptions: Record<NonNullable<RouteDecision["tier"]>, string> = {
 		instant: "linear direct worker; exact files; no scout; compact return",
 		rapid: "linear direct worker; bounded edits; optional scout if targets are unclear",
-		verified: "orchestrated bounded flow; scout/context recommended; verification required",
-		deep: "orchestrated deep flow; scout, plan, execute, verify, and review recommended",
+		verified: "full orchestrated flow; scout, plan, execute, verify, and review recommended",
 	};
 	const shape = profile.topology === "linear" ? "linear direct-worker profile" : "orchestrated profile";
 	return [

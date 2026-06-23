@@ -1,4 +1,4 @@
-export type ConductorTier = "instant" | "rapid" | "verified" | "deep";
+export type ConductorTier = "instant" | "rapid" | "verified";
 
 export type ExecutionTopology = "linear" | "orchestrated";
 export type ExecutionGuard = "none" | "optional" | "recommended" | "required";
@@ -25,13 +25,11 @@ export type ConductorConfig = {
 		rapid: string[];
 		verified: string;
 		reviewer: string;
-		deep: string;
 	};
 	models: {
 		instant: string;
 		rapid: string;
 		verified: string;
-		deep: string;
 	};
 	profiles: Record<ConductorTier, ExecutionProfile>;
 	routing: {
@@ -50,10 +48,7 @@ export type ConductorConfig = {
 			maxEstimatedLines: number;
 			requirePlan: boolean;
 		};
-		deep: {
-			requireExplicitApproval: boolean;
-			maxReviewRounds: number;
-		};
+
 	};
 	safety: {
 		oneWriterAtATime: boolean;

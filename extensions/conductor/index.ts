@@ -8,7 +8,7 @@ import { shouldBlockToolCall } from "./safety.js";
 import { runSetup } from "./setup.js";
 import type { ConductorTier } from "./types.js";
 
-const tiers = ["instant", "rapid", "verified", "deep"] as const;
+const tiers = ["instant", "rapid", "verified"] as const;
 const parseTier = (value: string): ConductorTier | undefined => (tiers.includes(value as ConductorTier) ? (value as ConductorTier) : undefined);
 
 const parseTierAndTask = (args: string): { tier?: ConductorTier; task: string } => {
@@ -23,7 +23,7 @@ const help = [
 	"- /conductor setup",
 	"- /conductor status",
 	"- /conductor route <task>",
-	"- /conductor handoff [instant|rapid|verified|deep] <task>",
+	"- /conductor handoff [instant|rapid|verified] <task>",
 	"- /conductor strict on|off (writes global config)",
 ].join("\n");
 
@@ -72,11 +72,9 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					`Rapid agents: ${config.agents.rapid.join(", ")}`,
 					`Verified agent: ${config.agents.verified}`,
 					`Reviewer agent: ${config.agents.reviewer}`,
-					`Deep worker agent: ${config.agents.deep}`,
 					`Instant model preference: ${config.models.instant || "inherit agent default"}`,
 					`Rapid model preference: ${config.models.rapid || "inherit agent default"}`,
 					`Verified model preference: ${config.models.verified || "inherit agent default"}`,
-					`Deep model preference: ${config.models.deep || "current parent chat model"}`,
 					`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
 				].join("\n");
 				ctx.ui.notify(text, "info");
@@ -96,7 +94,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 			if (subcommand === "handoff" || subcommand === "brief") {
 				const { tier, task } = parseTierAndTask(body);
 				if (!task) {
-					ctx.ui.notify("Usage: /conductor handoff [instant|rapid|verified|deep] <task>", "warning");
+					ctx.ui.notify("Usage: /conductor handoff [instant|rapid|verified] <task>", "warning");
 					return;
 				}
 				const decision = routeTask(task, config, tier);
@@ -142,7 +140,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		],
 		parameters: Type.Object({
 			task: Type.String({ description: "Coding task to classify and prepare for delegation" }),
-			tier: Type.Optional(Type.Union([Type.Literal("instant"), Type.Literal("rapid"), Type.Literal("verified"), Type.Literal("deep")])),
+			tier: Type.Optional(Type.Union([Type.Literal("instant"), Type.Literal("rapid"), Type.Literal("verified")])),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());

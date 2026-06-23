@@ -59,14 +59,12 @@ export function routeTask(task: string, config: ConductorConfig, forcedTier?: Co
 	const chooseAgent = (tier: ConductorTier) => {
 		if (tier === "instant") return config.agents.instant[0];
 		if (tier === "rapid") return config.agents.rapid[0];
-		if (tier === "verified") return config.agents.verified;
-		return config.agents.deep;
+		return config.agents.verified;
 	};
 	const chooseModel = (tier: ConductorTier) => {
 		if (tier === "instant") return config.models.instant || undefined;
 		if (tier === "rapid") return config.models.rapid || undefined;
-		if (tier === "verified") return config.models.verified || undefined;
-		return config.models.deep || undefined;
+		return config.models.verified || undefined;
 	};
 
 	if (forcedTier) {
@@ -152,12 +150,12 @@ export function routeTask(task: string, config: ConductorConfig, forcedTier?: Co
 		return { route: "need-decision", requiresApproval: false, reasons, risks, signals };
 	}
 
-	reasons.push("Task is broad, high-risk, or likely needs an orchestrated execution profile.");
+	reasons.push("Task is broad, high-risk, or likely needs the fully orchestrated verified profile.");
 	return {
-		route: "deep",
-		tier: "deep",
-		suggestedAgent: chooseAgent("deep"),
-		suggestedModel: chooseModel("deep"),
+		route: "verified",
+		tier: "verified",
+		suggestedAgent: chooseAgent("verified"),
+		suggestedModel: chooseModel("verified"),
 		requiresApproval: true,
 		reasons,
 		risks,

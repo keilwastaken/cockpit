@@ -13,8 +13,9 @@ test("package exposes pi resources", async () => {
 
 test("user-facing command uses handoff terminology and canonical flow names", async () => {
   const index = await readFile(new URL("extensions/conductor/index.ts", root), "utf8");
-  assert.match(index, /\/conductor handoff \[instant\|rapid\|verified\|deep\]/);
-  for (const flow of ["instant", "rapid", "verified", "deep"]) {
+  assert.match(index, /\/conductor handoff \[instant\|rapid\|verified\]/);
+  assert.doesNotMatch(index, /Type\.Literal\("deep"\)/);
+  for (const flow of ["instant", "rapid", "verified"]) {
     assert.match(index, new RegExp(`Type\\.Literal\\("${flow}"\\)`));
   }
   assert.doesNotMatch(index, /normalizeTier/);
@@ -22,7 +23,7 @@ test("user-facing command uses handoff terminology and canonical flow names", as
 });
 
 test("behavior-aligned prompt files are exposed", async () => {
-  for (const file of ["instant-linear.md", "rapid-linear.md", "verified-orchestrated.md", "deep-orchestrated.md"]) {
+  for (const file of ["instant-linear.md", "rapid-linear.md", "verified-orchestrated.md"]) {
     const content = await readFile(new URL(`prompts/${file}`, root), "utf8");
     assert.match(content, /Execution Profile/);
   }

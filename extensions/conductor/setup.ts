@@ -106,13 +106,11 @@ export async function runSetup(ctx: ExtensionCommandContext): Promise<string> {
 			rapid: splitAgents(rapid || config.agents.rapid.join(", ")),
 			verified: verified?.trim() || config.agents.verified,
 			reviewer: reviewer?.trim() || config.agents.reviewer,
-			deep: config.agents.deep,
 		},
 		models: {
 			instant: instantModel,
 			rapid: rapidModel,
 			verified: verifiedModel,
-			deep: "",
 		},
 	};
 
