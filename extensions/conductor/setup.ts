@@ -89,6 +89,8 @@ export async function runSetup(ctx: ExtensionCommandContext): Promise<string> {
 
 	const modelChoices = await getModelChoices(ctx);
 
+	const micro = await ctx.ui.input("Micro executor agents", config.agents.micro.join(", "));
+	const microModel = await selectModel(ctx, "Micro tier model", config.models.micro, modelChoices);
 	const small = await ctx.ui.input("Small executor agents", config.agents.small.join(", "));
 	const smallModel = await selectModel(ctx, "Small tier model", config.models.small, modelChoices);
 	const medium = await ctx.ui.input("Medium worker agent", config.agents.medium);
@@ -100,12 +102,14 @@ export async function runSetup(ctx: ExtensionCommandContext): Promise<string> {
 		...config,
 		strictMode: strictChoice !== "off",
 		agents: {
+			micro: splitAgents(micro || config.agents.micro.join(", ")),
 			small: splitAgents(small || config.agents.small.join(", ")),
 			medium: medium?.trim() || config.agents.medium,
 			reviewer: reviewer?.trim() || config.agents.reviewer,
 			fullAuto: "review-loop",
 		},
 		models: {
+			micro: microModel,
 			small: smallModel,
 			medium: mediumModel,
 			fullAuto: "",
