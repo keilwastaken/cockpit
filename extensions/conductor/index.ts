@@ -135,7 +135,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		],
 		parameters: Type.Object({
 			task: Type.String({ description: "Coding task to classify and prepare for delegation" }),
-			tier: Type.Optional(Type.Union([Type.Literal("micro"), Type.Literal("small"), Type.Literal("medium"), Type.Literal("full-auto")])), 
+			tier: Type.Optional(Type.Union([Type.Literal("micro"), Type.Literal("small"), Type.Literal("medium"), Type.Literal("full-auto")])),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
