@@ -21,7 +21,6 @@ Use Conductor when coding work should be delegated through an execution profile/
 - `rapid`: linear direct-worker profile for narrow low-risk tasks; optional scout only if targets are unclear; bounded edits.
 - `verified`: orchestrated profile for bounded multi-file work; scout/context recommended; verification required.
 - `deep`: orchestrated profile for broad work; scout, plan, execute, verify, and review/fix-loop guardrails.
-- Legacy aliases remain accepted for compatibility: `micro` → `instant`, `small` → `rapid`, `medium` → `verified`, `full-auto` → `deep`.
 - `need-decision`: clarify before delegation.
 - `cockpit-only`: answer or plan in the parent chat.
 

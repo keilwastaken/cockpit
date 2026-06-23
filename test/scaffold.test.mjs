@@ -14,8 +14,10 @@ test("package exposes pi resources", async () => {
 test("user-facing command uses handoff terminology and canonical flow names", async () => {
   const index = await readFile(new URL("extensions/conductor/index.ts", root), "utf8");
   assert.match(index, /\/conductor handoff \[instant\|rapid\|verified\|deep\]/);
-  assert.match(index, /micro: "instant"/);
-  assert.match(index, /"full-auto": "deep"/);
+  for (const flow of ["instant", "rapid", "verified", "deep"]) {
+    assert.match(index, new RegExp(`Type\\.Literal\\("${flow}"\\)`));
+  }
+  assert.doesNotMatch(index, /normalizeTier/);
   assert.doesNotMatch(index, /\/conductor packet/);
 });
 

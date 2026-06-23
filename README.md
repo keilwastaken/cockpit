@@ -52,8 +52,6 @@ The public names are execution profiles/topology constraints, not model-size lab
 - `verified`: orchestrated bounded flow; scout/context recommended; verification required; max worker visits 2
 - `deep`: orchestrated deep flow; scout + plan + execute + verify + review; max worker visits 3
 
-Legacy aliases are accepted for compatibility: `micro` → `instant`, `small` → `rapid`, `medium` → `verified`, `full-auto` → `deep`.
-
 Default agent names are generic and configurable:
 
 - Instant agents: `delegate`

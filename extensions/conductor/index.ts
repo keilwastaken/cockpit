@@ -6,24 +6,14 @@ import { writeRunLog } from "./logs.js";
 import { formatDecision, routeTask } from "./routing.js";
 import { shouldBlockToolCall } from "./safety.js";
 import { runSetup } from "./setup.js";
-import type { ConductorTier, ConductorTierInput } from "./types.js";
+import type { ConductorTier } from "./types.js";
 
 const tiers = ["instant", "rapid", "verified", "deep"] as const;
-const tierAliases: Record<string, ConductorTier> = {
-	instant: "instant",
-	micro: "instant",
-	rapid: "rapid",
-	small: "rapid",
-	verified: "verified",
-	medium: "verified",
-	deep: "deep",
-	"full-auto": "deep",
-};
-const normalizeTier = (value: string): ConductorTier | undefined => tierAliases[value];
+const parseTier = (value: string): ConductorTier | undefined => (tiers.includes(value as ConductorTier) ? (value as ConductorTier) : undefined);
 
 const parseTierAndTask = (args: string): { tier?: ConductorTier; task: string } => {
 	const [first, ...rest] = args.trim().split(/\s+/);
-	const tier = first ? normalizeTier(first) : undefined;
+	const tier = first ? parseTier(first) : undefined;
 	if (tier) return { tier, task: rest.join(" ").trim() };
 	return { task: args.trim() };
 };
@@ -87,7 +77,6 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					`Rapid model preference: ${config.models.rapid || "inherit agent default"}`,
 					`Verified model preference: ${config.models.verified || "inherit agent default"}`,
 					`Deep model preference: ${config.models.deep || "current parent chat model"}`,
-					"Legacy aliases: micro→instant, small→rapid, medium→verified, full-auto→deep",
 					`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
 				].join("\n");
 				ctx.ui.notify(text, "info");
@@ -153,22 +142,11 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		],
 		parameters: Type.Object({
 			task: Type.String({ description: "Coding task to classify and prepare for delegation" }),
-			tier: Type.Optional(
-				Type.Union([
-					Type.Literal("instant"),
-					Type.Literal("rapid"),
-					Type.Literal("verified"),
-					Type.Literal("deep"),
-					Type.Literal("micro"),
-					Type.Literal("small"),
-					Type.Literal("medium"),
-					Type.Literal("full-auto"),
-				]),
-			),
+			tier: Type.Optional(Type.Union([Type.Literal("instant"), Type.Literal("rapid"), Type.Literal("verified"), Type.Literal("deep")])),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-			const tier = params.tier ? normalizeTier(params.tier as ConductorTierInput) : undefined;
+			const tier = params.tier as ConductorTier | undefined;
 			const decision = routeTask(params.task, config, tier);
 			const handoff = buildDelegationHandoff(params.task, decision, config);
 			const output = [formatDecision(decision), "", "Handoff:", formatHandoff(handoff)].join("\n");

@@ -1,6 +1,4 @@
 export type ConductorTier = "instant" | "rapid" | "verified" | "deep";
-export type LegacyConductorTier = "micro" | "small" | "medium" | "full-auto";
-export type ConductorTierInput = ConductorTier | LegacyConductorTier;
 
 export type ExecutionTopology = "linear" | "orchestrated";
 export type ExecutionGuard = "none" | "optional" | "recommended" | "required";

@@ -59,27 +59,12 @@ export const projectConfigPath = (cwd: string) => join(cwd, CONFIG_DIR_NAME, "co
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 
-const legacyKeys: Record<ConductorTier, string[]> = {
-	instant: ["micro"],
-	rapid: ["small"],
-	verified: ["medium"],
-	deep: ["deep", "fullAuto", "full-auto"],
-};
-
 const recordFor = (source: Record<string, unknown>, key: ConductorTier): Record<string, unknown> => {
-	for (const candidate of [key, ...legacyKeys[key]]) {
-		const value = source[candidate];
-		if (isRecord(value)) return value;
-	}
-	return {};
+	const value = source[key];
+	return isRecord(value) ? value : {};
 };
 
-const valueFor = (source: Record<string, unknown>, key: ConductorTier): unknown => {
-	for (const candidate of [key, ...legacyKeys[key]]) {
-		if (candidate in source) return source[candidate];
-	}
-	return undefined;
-};
+const valueFor = (source: Record<string, unknown>, key: ConductorTier): unknown => source[key];
 
 const stringArray = (value: unknown, fallback: string[]): string[] => {
 	if (!Array.isArray(value)) return fallback;
