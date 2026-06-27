@@ -2,12 +2,13 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
-import type { ConductorConfig, ConductorTier, ExecutionGuard, ExecutionTopology, RiskDomain } from "./types.js";
+import type { ConductorConfig, ConductorTier, ExecutionGuard, ExecutionIsolation, ExecutionTopology, RiskDomain } from "./types.js";
 
 const PROFILE_TIERS: ConductorTier[] = ["instant", "fast", "careful"];
 const TOPOLOGIES: ExecutionTopology[] = ["linear", "orchestrated"];
 const SCOUT_LEVELS: ExecutionGuard[] = ["none", "optional", "recommended", "required"];
 const VERIFICATION_LEVELS: Array<Exclude<ExecutionGuard, "none">> = ["optional", "recommended", "required"];
+const ISOLATION_LEVELS: ExecutionIsolation[] = ["same-tree", "worktree-recommended", "worktree-required"];
 
 export const DEFAULT_CONFIG: ConductorConfig = {
 	strictMode: true,
@@ -22,9 +23,9 @@ export const DEFAULT_CONFIG: ConductorConfig = {
 		careful: "",
 	},
 	profiles: {
-		instant: { topology: "linear", scout: "none", verification: "optional", review: false, maxWorkerVisits: 1 },
-		fast: { topology: "linear", scout: "optional", verification: "recommended", review: false, maxWorkerVisits: 1 },
-		careful: { topology: "orchestrated", scout: "required", verification: "required", review: true, maxWorkerVisits: 3 },
+		instant: { topology: "linear", scout: "none", verification: "optional", review: false, maxWorkerVisits: 1, isolation: "same-tree" },
+		fast: { topology: "linear", scout: "optional", verification: "recommended", review: false, maxWorkerVisits: 1, isolation: "worktree-recommended" },
+		careful: { topology: "orchestrated", scout: "required", verification: "required", review: true, maxWorkerVisits: 3, isolation: "worktree-required" },
 	},
 	routing: {
 		instant: {
@@ -113,6 +114,7 @@ const mergeProfiles = (raw: Record<string, unknown>, base: ConductorConfig["prof
 			verification: oneOf(profile.verification, VERIFICATION_LEVELS, base[tier].verification),
 			review: bool(profile.review, base[tier].review),
 			maxWorkerVisits: num(profile.maxWorkerVisits, base[tier].maxWorkerVisits),
+			isolation: oneOf(profile.isolation, ISOLATION_LEVELS, base[tier].isolation),
 		};
 	}
 

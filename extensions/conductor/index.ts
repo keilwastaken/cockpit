@@ -1,8 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { dirname } from "node:path";
 import { Type } from "typebox";
 import { loadConfig } from "./config.js";
 import { buildDelegationHandoff, formatHandoff } from "./handoff.js";
-import { writeRunLog } from "./logs.js";
+import { approveRun, createRunRegistryEntry, formatRunListLine, inspectRun, listRuns, readRunStatusText } from "./logs.js";
 import { formatDecision, routeTask } from "./routing.js";
 import { shouldBlockToolCall } from "./safety.js";
 import { runSetup } from "./setup.js";
@@ -27,7 +28,7 @@ function parseTierAndTask(args: string): { tier?: ConductorTier; task: string } 
 function formatStatus(config: ConductorConfig, paths: string[]): string {
 	const profileLine = (tier: ConductorTier) => {
 		const profile = config.profiles[tier];
-		return `${tier}: ${profile.topology}, scout ${profile.scout}, verify ${profile.verification}, review ${profile.review ? "yes" : "no"}, visits ${profile.maxWorkerVisits}`;
+		return `${tier}: ${profile.topology}, scout ${profile.scout}, verify ${profile.verification}, review ${profile.review ? "yes" : "no"}, visits ${profile.maxWorkerVisits}, isolation ${profile.isolation}`;
 	};
 
 	return [
@@ -45,36 +46,44 @@ function formatStatus(config: ConductorConfig, paths: string[]): string {
 }
 
 
-/** Build handoff output string from a RouteDecision, with optional log path when cwd provided */
+/** Build handoff output string from a RouteDecision. */
 function buildHandoffOutputString(decision: RouteDecision, task: string, config: ConductorConfig): string {
 	const handoff = buildDelegationHandoff(task, decision, config);
 	return [formatDecision(decision), "", "Handoff:", formatHandoff(handoff)].join("\n");
 }
 
-/** Build handoff output with decision, and optional log path when cwd provided */
+function formatInspectArtifacts(run: { handoffPath: string; notesPath: string; evidencePath: string; reviewPath: string; decisionsPath?: string }): string {
+	return [
+		`Handoff: ${run.handoffPath}`,
+		`Notes: ${run.notesPath}`,
+		`Evidence: ${run.evidencePath}`,
+		`Review: ${run.reviewPath}`,
+		...(run.decisionsPath ? [`Decisions: ${run.decisionsPath}`] : []),
+	].join("\n");
+}
+
+/** Build handoff output and persist run registry artifacts. */
 async function buildHandoffOutput(
 	task: string,
 	config: ConductorConfig,
-	tier?: ConductorTier,
-	cwd?: string
-): Promise<{ output: string; logPath: string; decision: RouteDecision }> {
+	tier: ConductorTier | undefined,
+	cwd: string
+): Promise<{ output: string; run: Awaited<ReturnType<typeof createRunRegistryEntry>>; decision: RouteDecision }> {
 	const decision = routeTask(task, config, tier);
-	const handoffOutput = buildHandoffOutputString(decision, task, config);
-
-	let logPath = "";
-	if (cwd) {
-		logPath = await writeRunLog(cwd, "handoff", handoffOutput);
-	}
-
-	return { output: handoffOutput, logPath, decision };
+	const output = buildHandoffOutputString(decision, task, config);
+	const run = await createRunRegistryEntry(cwd, task, decision, output);
+	return { output, run, decision };
 }
 
 const helpText = [
 	"Conductor commands:",
 	"- /conductor setup",
 	"- /conductor status",
+	"- /conductor runs",
+	"- /conductor inspect <run-id>",
 	"- /conductor route <task>",
 	"- /conductor handoff [instant|fast|careful] <task>",
+	"- /conductor launch --approve <run-id>",
 	"- /conductor strict on|off (writes global config)",
 ].join("\n");
 
@@ -134,14 +143,63 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "runs": {
+					const runs = await listRuns(ctx.cwd);
+					if (runs.length === 0) {
+						ctx.ui.notify("No Conductor runs yet.", "info");
+						return;
+					}
+					ctx.ui.notify(["Conductor runs:", ...runs.map((run) => `- ${formatRunListLine(run)}`)].join("\n"), "info");
+					return;
+				}
+
+				case "inspect": {
+					if (!body) {
+						ctx.ui.notify("Usage: /conductor inspect <run-id>", "warning");
+						return;
+					}
+					const result = await inspectRun(ctx.cwd, body);
+					if ("warning" in result) {
+						ctx.ui.notify(result.warning, "warning");
+						return;
+					}
+					const statusText = await readRunStatusText(result.run);
+					ctx.ui.notify([statusText.trimEnd(), "", formatInspectArtifacts(result.run)].join("\n"), "info");
+					return;
+				}
+
 				case "handoff": {
 					const { tier, task } = parseTierAndTask(body);
 					if (!task) {
 						ctx.ui.notify("Usage: /conductor handoff [instant|fast|careful] <task>", "warning");
 						return;
 					}
-					const { output, logPath } = await buildHandoffOutput(task, config, tier, ctx.cwd);
-					ctx.ui.notify(`${output}\n\nSaved: ${logPath}`, "info");
+					const { output, run } = await buildHandoffOutput(task, config, tier, ctx.cwd);
+					ctx.ui.notify(`${output}\n\nSaved run: ${dirname(run.handoffPath)}\nHandoff: ${run.handoffPath}`, "info");
+					return;
+				}
+
+				case "launch": {
+					const [flag, ...launchRest] = body.split(/\s+/);
+					const runId = launchRest.join(" ").trim();
+					if (flag !== "--approve" || !runId || launchRest.some((part) => part.startsWith("--"))) {
+						ctx.ui.notify("Usage: /conductor launch --approve <run-id>", "warning");
+						return;
+					}
+					const result = await inspectRun(ctx.cwd, runId);
+					if ("warning" in result) {
+						ctx.ui.notify(result.warning, "warning");
+						return;
+					}
+					const run = await approveRun(ctx.cwd, result.run);
+					ctx.ui.notify(
+						[
+							`Run ${run.id} approved; no worker launched yet.`,
+							`Next step: open ${run.handoffPath} and start the suggested agent/subagent workflow manually.`,
+							`Status updated at ${run.statusPath}.`,
+						].join("\n"),
+						"info"
+					);
 					return;
 				}
 
@@ -180,11 +238,11 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const tier = params.tier as ConductorTier | undefined;
-			const { output, logPath, decision } = await buildHandoffOutput(params.task, config, tier, ctx.cwd);
+			const { output, run, decision } = await buildHandoffOutput(params.task, config, tier, ctx.cwd);
 
 			return {
-				content: [{ type: "text", text: `${output}\n\nSaved: ${logPath}` }],
-				details: { decision, logPath },
+				content: [{ type: "text", text: `${output}\n\nSaved run: ${dirname(run.handoffPath)}\nHandoff: ${run.handoffPath}` }],
+				details: { decision, logPath: run.handoffPath, runId: run.id, statusPath: run.statusPath },
 			};
 		},
 	});

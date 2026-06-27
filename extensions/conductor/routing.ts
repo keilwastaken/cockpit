@@ -1,4 +1,4 @@
-import type { ConductorConfig, ConductorRoute, ConductorTier, RiskDomain, RouteDecision, TaskSignal } from "./types.js";
+import type { ConductorConfig, ConductorRoute, ConductorTier, HandoffQuality, RiskDomain, RouteDecision, TaskSignal } from "./types.js";
 
 /** File extension pattern to extract mentioned files */
 const FILE_PATTERN = /(?:^|\s)([\w@./-]+\.(?:ts|tsx|js|jsx|mjs|cjs|dart|py|rb|go|rs|java|kt|swift|md|json|yaml|yml|toml|css|scss|html|sh|sql))(?:\s|$|[,:;.])/g;
@@ -63,6 +63,34 @@ function missingContextQuestions(signals: TaskSignal): string[] {
 	return questions;
 }
 
+function summarizeMissing(items: string[]): string {
+	if (items.length === 0) return "ready";
+	if (items.length === 1) return `needs ${items[0]}`;
+	if (items.length === 2) return `needs ${items[0]} and ${items[1]}`;
+	return `needs ${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function handoffQuality(signals: TaskSignal): HandoffQuality {
+	const scopeIdentified = signals.mentionedFiles.length > 0 || /\b(?:extensions\/|test\/|src\/|package\.json|README|prompts\/|skills\/|conductor)\b/i.test(signals.text);
+	const validationRepresented = /\b(?:test|tests|validate|validation|verify|verification|lint|typecheck|check)\b/i.test(signals.text) || signals.requiresPlan;
+	const checks = [
+		{ id: "outcome", label: "Desired outcome is present", passed: !signals.isAmbiguous && signals.text.trim().length >= 8 },
+		{ id: "scope", label: "Scope/files or repo area are identified", passed: scopeIdentified },
+		{ id: "constraints", label: "Constraints/non-goals are represented or inferable", passed: true },
+		{ id: "validation", label: "Validation expectation is present or inferable", passed: validationRepresented },
+		{ id: "escalation", label: "Escalation/stop rules are represented", passed: true },
+		{ id: "evidence", label: "Evidence expectation is represented", passed: true },
+	] satisfies HandoffQuality["checks"];
+	const missing = checks.filter((check) => !check.passed).map((check) => check.id);
+	return {
+		score: checks.length - missing.length,
+		maxScore: checks.length,
+		checks,
+		missing,
+		summary: summarizeMissing(missing),
+	};
+}
+
 /** Suggest task refinement for improved delegation */
 function suggestedRefinement(task: string, signals: TaskSignal): string | undefined {
 	if (!signals.isAmbiguous && signals.mentionedFiles.length > 0) return undefined;
@@ -84,6 +112,7 @@ function confidenceFor(route: ConductorRoute, signals: TaskSignal, forced: boole
 function decisionBase(route: ConductorRoute, signals: TaskSignal, forced = false): Omit<RouteDecision, "route" | "requiresApproval" | "suggestedAgent" | "suggestedModel"> {
 	return {
 		confidence: confidenceFor(route, signals, forced),
+		handoffQuality: handoffQuality(signals),
 		missingContextQuestions: missingContextQuestions(signals),
 		suggestedRefinement: suggestedRefinement(signals.text, signals),
 		reasons: [],
@@ -294,6 +323,8 @@ export function formatDecision(decision: RouteDecision): string {
 		`Route confidence: ${Math.round(decision.confidence * 100)}%`,
 		`Requires approval: ${decision.requiresApproval ? "yes" : "no"}`,
 		`Estimated scope: ${decision.signals.estimatedFiles} file(s), ~${decision.signals.estimatedLines} line(s)`,
+		`Handoff quality: ${decision.handoffQuality.score}/${decision.handoffQuality.maxScore} (${decision.handoffQuality.summary})`,
+		decision.handoffQuality.missing.length > 0 ? `Missing handoff inputs:\n${decision.handoffQuality.missing.map((item) => `- ${item}`).join("\n")}` : undefined,
 		decision.signals.mentionedFiles.length > 0 ? `Mentioned files: ${decision.signals.mentionedFiles.join(", ")}` : undefined,
 		decision.reasons.length > 0 ? `Reasons:\n${decision.reasons.map((reason) => `- ${reason}`).join("\n")}` : undefined,
 		decision.risks.length > 0 ? `Risks:\n${decision.risks.map((risk) => `- ${risk}`).join("\n")}` : undefined,

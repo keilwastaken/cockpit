@@ -35,7 +35,7 @@ A working backlog for turning Pi Conductor into the cockpit for delegated, revie
   - [x] validation expectations
   - [x] escalation rules
   - [x] required return format
-- [ ] Add outcome-oriented rewriting for `/conductor handoff <profile> <task>`.
+- [x] Add outcome-oriented rewriting for `/conductor handoff <profile> <task>`.
 - [ ] Consider future command: `/conductor refine <task>`.
 
 ### Evidence contracts
@@ -87,59 +87,57 @@ A working backlog for turning Pi Conductor into the cockpit for delegated, revie
 
 ### Guarded launch support
 
-- [ ] Add explicit approval flow before mutation.
-- [ ] Consider command flow:
-  - [ ] `/conductor handoff fast <task>`
-  - [ ] `/conductor launch --approve`
+- [x] Add explicit approval flow before mutation.
+- [x] Command flow: `/conductor launch --approve <run-id>`.
 - [ ] Enforce file boundaries for launched runs.
 - [ ] Enforce stop rules during launched runs where possible.
 - [ ] Add budget/iteration limits for launched work.
 
 ### Fresh-context review
 
-- [ ] Define `careful` as scout → plan → execute → fresh-context review → repair → evidence.
-- [ ] Ensure worker self-check is allowed but not sufficient for careful status.
+- [x] Define `careful` as scout → plan → execute → fresh-context review → repair → evidence.
+- [x] Ensure worker self-check is allowed but not sufficient for careful status.
 - [ ] Launch reviewer in fresh context.
 - [ ] Auto-repair mechanical correctness issues.
-- [ ] Escalate product/design ambiguity to the human.
+- [x] Escalate product/design ambiguity to the human.
 
 ### Run registry and status visibility
 
-- [ ] Add run state tracking under `.pi/conductor/runs/<timestamp>/`.
-- [ ] Store run artifacts:
-  - [ ] `handoff.md`
-  - [ ] `status.json`
-  - [ ] `notes.md`
-  - [ ] `evidence.md`
-  - [ ] `review.md`
-  - [ ] `decisions.md`
-- [ ] Track states:
-  - [ ] drafted
-  - [ ] approved
-  - [ ] running
-  - [ ] blocked
-  - [ ] needs decision
-  - [ ] reviewing
-  - [ ] repairing
-  - [ ] validating
-  - [ ] done
-  - [ ] failed
-- [ ] Consider commands:
-  - [ ] `/conductor runs`
-  - [ ] `/conductor status`
-  - [ ] `/conductor inspect <run>`
+- [x] Add run state tracking under `.pi/conductor/runs/<timestamp>/`.
+- [x] Store run artifacts:
+  - [x] `handoff.md`
+  - [x] `status.json`
+  - [x] `notes.md`
+  - [x] `evidence.md`
+  - [x] `review.md`
+  - [x] `decisions.md`
+- [x] Track states:
+  - [x] drafted
+  - [x] approved
+  - [x] running
+  - [x] blocked
+  - [x] needs decision
+  - [x] reviewing
+  - [x] repairing
+  - [x] validating
+  - [x] done
+  - [x] failed
+- [x] Consider commands:
+  - [x] `/conductor runs`
+  - [x] `/conductor status`
+  - [x] `/conductor inspect <run>`
 
 ### Worktree isolation
 
-- [ ] Add isolation metadata to profiles:
-  - [ ] `same-tree`
-  - [ ] `worktree-recommended`
-  - [ ] `worktree-required`
-- [ ] Profile defaults:
-  - [ ] `instant`: same tree allowed
-  - [ ] `fast`: worktree recommended for edits
-  - [ ] `careful`: worktree default/required
-- [ ] Emit worktree recommendation in handoffs before implementing full worktree management.
+- [x] Add isolation metadata to profiles:
+  - [x] `same-tree`
+  - [x] `worktree-recommended`
+  - [x] `worktree-required`
+- [x] Profile defaults:
+  - [x] `instant`: same tree allowed
+  - [x] `fast`: worktree recommended for edits
+  - [x] `careful`: worktree default/required
+- [x] Emit worktree recommendation in handoffs before implementing full worktree management.
 - [ ] Later: create/clean isolated worktrees for mutating delegated runs.
 
 ## Longer-term / Phase 3+

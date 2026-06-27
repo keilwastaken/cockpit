@@ -12,7 +12,7 @@ const EVIDENCE_BY_TIER: Record<ConductorTier, readonly string[]> = {
 	careful: [
 		"Changed files",
 		"Tests run",
-		"Review findings",
+		"Fresh-context review findings",
 		"Fixes applied",
 		"E2E/manual evidence where relevant",
 		"Screenshots/logs if UI-relevant",
@@ -24,11 +24,26 @@ const EVIDENCE_BY_TIER: Record<ConductorTier, readonly string[]> = {
 const PROFILE_DESCRIPTIONS: Record<ConductorTier, string> = {
 	instant: "linear direct worker; exact files; no scout; compact return",
 	fast: "linear direct worker; bounded edits; optional scout if targets are unclear",
-	careful: "full orchestrated flow; scout, plan, execute, verify, and review recommended",
+	careful: "full orchestrated flow; scout, plan, execute, fresh-context review, repair, and evidence required",
 };
 
 const bullets = (lines: readonly string[]): string[] => lines.map((line) => `- ${line}`);
 const section = (title: string, lines: readonly string[]): string[] => [`${title}:`, ...bullets(lines)];
+
+const isolationGuidance: Record<ConductorConfig["profiles"][ConductorTier]["isolation"], string> = {
+	"same-tree": "Work in the current tree unless the task clearly needs isolation.",
+	"worktree-recommended": "Prefer a git worktree for edits if one is already available; otherwise stay in-tree and note the recommendation.",
+	"worktree-required": "Use an isolated git worktree for edits when worktree support exists; do not create one from this handoff.",
+};
+
+const handoffQualityChecklist = (decision: RouteDecision): string[] => {
+	const quality = decision.handoffQuality;
+	return [
+		`Score: ${quality.score}/${quality.maxScore}`,
+		...quality.checks.map((check) => `${check.passed ? "✓" : "✗"} ${check.label}`),
+		quality.missing.length > 0 ? `Missing inputs: ${quality.missing.join(", ")}` : "All checklist inputs are represented.",
+	];
+};
 
 const executionProfile = (tier: ConductorTier, config: ConductorConfig): string[] => {
 	const profile = config.profiles[tier];
@@ -41,6 +56,7 @@ const executionProfile = (tier: ConductorTier, config: ConductorConfig): string[
 	return [
 		`${tier}: ${shape}; ${PROFILE_DESCRIPTIONS[tier]}.`,
 		`Topology: ${profile.topology}; scout: ${profile.scout}; verification: ${profile.verification}; review: ${profile.review ? "yes" : "no"}; max worker visits: ${profile.maxWorkerVisits}.`,
+		`Isolation recommendation: ${profile.isolation}. ${isolationGuidance[profile.isolation]}`,
 		guidance,
 	];
 };
@@ -55,8 +71,20 @@ export function buildDelegationHandoff(task: string, decision: RouteDecision, co
 		"",
 		`Conductor route: ${decision.route}`,
 		`Route confidence: ${Math.round(decision.confidence * 100)}%`,
+		`Handoff quality: ${decision.handoffQuality.score}/${decision.handoffQuality.maxScore} (${decision.handoffQuality.summary})`,
 		decision.suggestedAgent ? `Suggested agent: ${decision.suggestedAgent}` : undefined,
 		decision.suggestedModel ? `Preferred model: ${decision.suggestedModel}` : undefined,
+		"",
+		...section("Manager-style work order", [
+			`Outcome: ${taskText}`,
+			"Context: Parent chat retains scope/review/user decisions.",
+			"Constraints: minimal task-scoped diff; preserve behavior outside scope.",
+			"Non-goals: no unrelated redesign or file changes.",
+			"Validation: use available narrow checks; report if unavailable.",
+			"Escalation: product/API/design/security/deployment ambiguity goes to human.",
+		]),
+		"",
+		...section("Handoff quality checklist", handoffQualityChecklist(decision)),
 		"",
 		...section("Desired outcome", [
 			`Complete the requested outcome: ${taskText}`,
@@ -76,6 +104,17 @@ export function buildDelegationHandoff(task: string, decision: RouteDecision, co
 		]),
 		"",
 		...section("Execution profile", executionProfile(tier, config)),
+		...(tier === "careful"
+			? [
+				"",
+				...section("Fresh-context review expectations", [
+					"Do a fresh-context review after execution: review the diff and task outcome without depending on the original implementation context.",
+					"Worker self-check is allowed, but it is not sufficient for careful status.",
+					"Record review findings, apply required fixes, and include review evidence in the final return.",
+					"Escalate product/design ambiguity to the human instead of guessing.",
+				]),
+			]
+			: []),
 		"",
 		...section("Non-goals", [
 			"Do not redesign architecture beyond this task.",

@@ -3,15 +3,30 @@ export type ConductorTier = "instant" | "fast" | "careful";
 export type ExecutionTopology = "linear" | "orchestrated";
 export type ExecutionGuard = "none" | "optional" | "recommended" | "required";
 
+export type ExecutionIsolation = "same-tree" | "worktree-recommended" | "worktree-required";
+
 export type ExecutionProfile = {
 	topology: ExecutionTopology;
 	scout: ExecutionGuard;
 	verification: Exclude<ExecutionGuard, "none">;
 	review: boolean;
 	maxWorkerVisits: number;
+	isolation: ExecutionIsolation;
 };
 
 export type ConductorRoute = ConductorTier | "cockpit-only" | "need-decision";
+
+export type ConductorRunState =
+	| "drafted"
+	| "approved"
+	| "running"
+	| "blocked"
+	| "needs decision"
+	| "reviewing"
+	| "repairing"
+	| "validating"
+	| "done"
+	| "failed";
 
 export type RiskDomain = "auth" | "security" | "persistence" | "deployment" | "architecture" | "unknown";
 
@@ -64,6 +79,20 @@ export type TaskSignal = {
 	mechanicalEdit: boolean;
 };
 
+export type HandoffQualityCheck = {
+	id: "outcome" | "scope" | "constraints" | "validation" | "escalation" | "evidence";
+	label: string;
+	passed: boolean;
+};
+
+export type HandoffQuality = {
+	score: number;
+	maxScore: number;
+	checks: HandoffQualityCheck[];
+	missing: string[];
+	summary: string;
+};
+
 export type RouteDecision = {
 	route: ConductorRoute;
 	suggestedAgent?: string;
@@ -71,6 +100,7 @@ export type RouteDecision = {
 	tier?: ConductorTier;
 	requiresApproval: boolean;
 	confidence: number;
+	handoffQuality: HandoffQuality;
 	missingContextQuestions: string[];
 	suggestedRefinement?: string;
 	reasons: string[];
@@ -81,4 +111,23 @@ export type RouteDecision = {
 export type DelegationHandoff = {
 	decision: RouteDecision;
 	prompt: string;
+};
+
+export type ConductorRunStatus = {
+	id: string;
+	state: ConductorRunState;
+	createdAt: string;
+	updatedAt: string;
+	approvedAt?: string;
+	task: string;
+	route: ConductorRoute;
+	tier?: ConductorTier;
+	suggestedAgent?: string;
+	suggestedModel?: string;
+	handoffPath: string;
+	statusPath: string;
+	notesPath: string;
+	evidencePath: string;
+	reviewPath: string;
+	decisionsPath?: string;
 };

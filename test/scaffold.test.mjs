@@ -14,6 +14,9 @@ test("package exposes pi resources", async () => {
 test("user-facing command uses handoff terminology and canonical flow names", async () => {
   const index = await readFile(new URL("extensions/conductor/index.ts", root), "utf8");
   assert.match(index, /\/conductor handoff \[instant\|fast\|careful\]/);
+  assert.match(index, /\/conductor launch --approve <run-id>/);
+  assert.match(index, /\/conductor runs/);
+  assert.match(index, /\/conductor inspect <run-id>/);
   assert.doesNotMatch(index, /Type\.Literal\("deep"\)/);
   for (const flow of ["instant", "fast", "careful"]) {
     assert.match(index, new RegExp(`Type\\.Literal\\("${flow}"\\)`));
@@ -34,12 +37,46 @@ test("phase 1 route and handoff evidence language is present", async () => {
   assert.match(routing, /Route confidence/);
   assert.match(routing, /Missing context questions/);
   assert.match(routing, /Suggested refinement/);
+  assert.match(routing, /Handoff quality/);
+  assert.match(routing, /Missing handoff inputs/);
+
+  const config = await readFile(new URL("extensions/conductor/config.ts", root), "utf8");
+  assert.match(config, /same-tree/);
+  assert.match(config, /worktree-recommended/);
+  assert.match(config, /worktree-required/);
 
   const handoff = await readFile(new URL("extensions/conductor/handoff.ts", root), "utf8");
+  assert.match(handoff, /Manager-style work order/);
+  assert.match(handoff, /Outcome:/);
+  assert.match(handoff, /Context: Parent chat retains scope\/review\/user decisions\./);
+  assert.match(handoff, /Constraints: minimal task-scoped diff; preserve behavior outside scope\./);
+  assert.match(handoff, /Non-goals: no unrelated redesign or file changes\./);
+  assert.match(handoff, /Validation: use available narrow checks; report if unavailable\./);
+  assert.match(handoff, /Escalation: product\/API\/design\/security\/deployment ambiguity goes to human\./);
+  assert.match(handoff, /Handoff quality checklist/);
   assert.match(handoff, /Desired outcome/);
+  assert.match(handoff, /Isolation recommendation:/);
+  assert.match(handoff, /fresh-context review/);
+  assert.match(handoff, /Worker self-check is allowed/);
+  assert.match(handoff, /Escalate product\/design ambiguity to the human/);
+  assert.match(handoff, /Fresh-context review findings/);
+  assert.match(handoff, /same-tree/);
+  assert.match(handoff, /worktree-recommended/);
+  assert.match(handoff, /worktree-required/);
   assert.match(handoff, /Escalate to human if/);
   assert.match(handoff, /Required evidence/);
   assert.match(handoff, /## Mental model update/);
+
+  const readme = await readFile(new URL("README.md", root), "utf8");
+  assert.match(readme, /careful.*fresh-context review/i);
+  assert.match(readme, /Worker self-check is allowed/i);
+  assert.match(readme, /Product\/design ambiguity escalates to the human/i);
+  assert.match(readme, /\/conductor launch --approve <run-id>/);
+
+  const prompt = await readFile(new URL("prompts/careful-orchestrated.md", root), "utf8");
+  assert.match(prompt, /fresh-context review/);
+  assert.match(prompt, /Worker self-check is allowed/i);
+  assert.match(prompt, /product\/design ambiguity/i);
 });
 
 test("cleanup guardrails: no deprecated aliases or stub text in source files", async () => {
