@@ -1,135 +1,95 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { dirname } from "node:path";
 import { Type } from "typebox";
-import { loadConfig } from "./config.js";
-import { buildDelegationHandoff, formatHandoff } from "./handoff.js";
-import { approveRun, createRunRegistryEntry, formatRunListLine, inspectRun, listRuns, readRunStatusText } from "./logs.js";
+import { loadConfig, saveGlobalConfig } from "./config.js";
+import type { ConductorConfig } from "./config.js";
+import { delegates } from "./delegates/registry.js";
 import { formatDecision, routeTask } from "./routing.js";
 import { shouldBlockToolCall } from "./safety.js";
-import { runSetup } from "./setup.js";
-import type { ConductorConfig, ConductorTier, RouteDecision } from "./types.js";
 
-const Tiers: readonly ConductorTier[] = ["instant", "fast", "careful"] as const;
-
-/** Parse a tier string, returning undefined if not valid */
-function parseTier(value: string): ConductorTier | undefined {
-	return Tiers.includes(value as ConductorTier) ? (value as ConductorTier) : undefined;
-}
-
-/** Parse "[tier] <task>" input format */
-function parseTierAndTask(args: string): { tier?: ConductorTier; task: string } {
-	const [first, ...rest] = args.trim().split(/\s+/);
-	const tier = first ? parseTier(first) : undefined;
-	if (tier) return { tier, task: rest.join(" ").trim() };
-	return { task: args.trim() };
-}
-
-/** Format status output for config overview */
-function formatStatus(config: ConductorConfig, paths: string[]): string {
-	const profileLine = (tier: ConductorTier) => {
-		const profile = config.profiles[tier];
-		return `${tier}: ${profile.topology}, scout ${profile.scout}, verify ${profile.verification}, review ${profile.review ? "yes" : "no"}, visits ${profile.maxWorkerVisits}, isolation ${profile.isolation}`;
-	};
-
-	return [
-		`Strict mode: ${config.strictMode ? "on" : "off"}`,
-		"Execution profiles:",
-		...Tiers.map(profileLine),
-		`Instant agents: ${config.agents.instant.join(", ")}`,
-		`Fast agents: ${config.agents.fast.join(", ")}`,
-		`Careful agent: ${config.agents.careful}`,
-		`Instant model preference: ${config.models.instant || "inherit agent default"}`,
-		`Fast model preference: ${config.models.fast || "inherit agent default"}`,
-		`Careful model preference: ${config.models.careful || "inherit agent default"}`,
-		`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
-	].join("\n");
-}
-
-
-/** Build handoff output string from a RouteDecision. */
-function buildHandoffOutputString(decision: RouteDecision, task: string, config: ConductorConfig): string {
-	const handoff = buildDelegationHandoff(task, decision, config);
-	return [formatDecision(decision), "", "Handoff:", formatHandoff(handoff)].join("\n");
-}
-
-function formatInspectArtifacts(run: { handoffPath: string; notesPath: string; evidencePath: string; reviewPath: string; decisionsPath?: string }): string {
-	return [
-		`Handoff: ${run.handoffPath}`,
-		`Notes: ${run.notesPath}`,
-		`Evidence: ${run.evidencePath}`,
-		`Review: ${run.reviewPath}`,
-		...(run.decisionsPath ? [`Decisions: ${run.decisionsPath}`] : []),
-	].join("\n");
-}
-
-/** Build handoff output and persist run registry artifacts. */
-async function buildHandoffOutput(
-	task: string,
-	config: ConductorConfig,
-	tier: ConductorTier | undefined,
-	cwd: string
-): Promise<{ output: string; run: Awaited<ReturnType<typeof createRunRegistryEntry>>; decision: RouteDecision }> {
-	const decision = routeTask(task, config, tier);
-	const output = buildHandoffOutputString(decision, task, config);
-	const run = await createRunRegistryEntry(cwd, task, decision, output);
-	return { output, run, decision };
-}
-
-const helpText = [
-	"Conductor commands:",
-	"- /conductor setup",
+const HELP_TEXT = [
+	"Conductor instant commands:",
 	"- /conductor status",
-	"- /conductor runs",
-	"- /conductor inspect <run-id>",
+	"- /conductor setup",
 	"- /conductor route <task>",
-	"- /conductor handoff [instant|fast|careful] <task>",
-	"- /conductor launch --approve <run-id>",
-	"- /conductor strict on|off (writes global config)",
+	"- /conductor instant <simple plan mentioning one file>",
+	"- /conductor strict on|off",
 ].join("\n");
+const instantResultText = (result: { blockedReason?: string; finalOutput: string; stderr: string }): string =>
+	result.blockedReason ?? (result.finalOutput || result.stderr || "Instant delegate finished without output.");
+
+const modelId = (model: { provider: string; id: string }) => `${model.provider}/${model.id}`;
+const fileFromPlan = (plan: string, config: ConductorConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
+
+async function chooseInstantModel(ctx: { modelRegistry: { getAvailable(): Array<{ provider: string; id: string; name?: string }> }; ui: { select(title: string, options: string[]): Promise<string | undefined>; notify(message: string, level?: "info" | "warning" | "error" | "success"): void } }, config: ConductorConfig) {
+	const models = ctx.modelRegistry.getAvailable();
+	if (models.length === 0) {
+		ctx.ui.notify("No configured Pi models found. Use /login or configure models first, then run /conductor setup.", "warning");
+		return undefined;
+	}
+
+	const inherit = "Inherit current Pi default";
+	const choices = [inherit, ...models.map((model) => `${modelId(model)}${model.name ? ` — ${model.name}` : ""}`)];
+	const selected = await ctx.ui.select("Choose the model for instant delegates", choices);
+	if (!selected) return undefined;
+
+	const model = selected === inherit ? "" : selected.split(" — ")[0];
+	return {
+		...config,
+		delegateFlows: {
+			...config.delegateFlows,
+			instant: { ...config.delegateFlows.instant, model, thinking: "off" },
+		},
+	};
+}
 
 export default function conductorExtension(pi: ExtensionAPI) {
-	// Session start: set status bar indicator
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-		ctx.ui.setStatus("conductor", `conductor: strict ${config.strictMode ? "on" : "off"}`);
+		const flow = config.delegateFlows.instant;
+		ctx.ui.setStatus("conductor", `instant: ${flow.model || "default"} [${flow.tools.join(",")}] ${config.strictMode ? "strict" : ""}`.trim());
 	});
 
-	// Tool call safety gate
 	pi.on("tool_call", async (event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-		const reason = shouldBlockToolCall(event, config);
+		const reason = shouldBlockToolCall(event, config, ctx.cwd);
 		if (reason) return { block: true, reason };
 	});
 
-	// Command registration with dispatch pattern
 	pi.registerCommand("conductor", {
-		description: "Recommend execution profiles for coding work",
+		description: "Route tiny coding tasks to the instant delegate",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
-			if (!trimmed) {
-				ctx.ui.notify(helpText, "info");
+			if (!trimmed || trimmed === "help") {
+				ctx.ui.notify(HELP_TEXT, "info");
 				return;
 			}
+
 			const [subcommand, ...rest] = trimmed.split(/\s+/);
 			const body = rest.join(" ").trim();
 			const { config, paths } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const flow = config.delegateFlows.instant;
 
-			// Dispatch to subcommand handlers
 			switch (subcommand) {
-				case "help":
-					ctx.ui.notify(helpText, "info");
+				case "status":
+				case "config":
+					ctx.ui.notify([
+						"Conductor is instant-only.",
+						`Strict mode: ${config.strictMode ? "on" : "off"}`,
+						`Instant model: ${flow.model || "inherit current Pi default"}`,
+						`Instant thinking: ${flow.thinking}`,
+						`Instant flow tools: ${flow.tools.join(", ")}`,
+						`Instant limit: ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
+						`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
+					].join("\n"), "info");
 					return;
 
 				case "setup": {
-					const message = await runSetup(ctx);
-					ctx.ui.notify(message, "info");
-					return;
-				}
-
-				case "status":
-				case "config": {
-					const text = formatStatus(config, paths);
-					ctx.ui.notify(text, "info");
+					const updated = await chooseInstantModel(ctx, config);
+					if (!updated) return;
+					const path = await saveGlobalConfig(updated);
+					const instant = updated.delegateFlows.instant;
+					ctx.ui.setStatus("conductor", `instant: ${instant.model || "default"} [${instant.tools.join(",")}] ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.notify(`Instant model ${instant.model || "will inherit the current Pi default"}; thinking is forced off. Saved ${path}`, "info");
 					return;
 				}
 
@@ -138,68 +98,21 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						ctx.ui.notify("Usage: /conductor route <task>", "warning");
 						return;
 					}
-					const decision = routeTask(body, config);
-					ctx.ui.notify(formatDecision(decision), "info");
+					ctx.ui.notify(formatDecision(routeTask(body, config)), "info");
 					return;
 				}
 
-				case "runs": {
-					const runs = await listRuns(ctx.cwd);
-					if (runs.length === 0) {
-						ctx.ui.notify("No Conductor runs yet.", "info");
-						return;
-					}
-					ctx.ui.notify(["Conductor runs:", ...runs.map((run) => `- ${formatRunListLine(run)}`)].join("\n"), "info");
-					return;
-				}
-
-				case "inspect": {
+				case "instant": {
 					if (!body) {
-						ctx.ui.notify("Usage: /conductor inspect <run-id>", "warning");
+						ctx.ui.notify("Usage: /conductor instant <simple plan mentioning one file>", "warning");
 						return;
 					}
-					const result = await inspectRun(ctx.cwd, body);
-					if ("warning" in result) {
-						ctx.ui.notify(result.warning, "warning");
-						return;
-					}
-					const statusText = await readRunStatusText(result.run);
-					ctx.ui.notify([statusText.trimEnd(), "", formatInspectArtifacts(result.run)].join("\n"), "info");
-					return;
-				}
-
-				case "handoff": {
-					const { tier, task } = parseTierAndTask(body);
-					if (!task) {
-						ctx.ui.notify("Usage: /conductor handoff [instant|fast|careful] <task>", "warning");
-						return;
-					}
-					const { output, run } = await buildHandoffOutput(task, config, tier, ctx.cwd);
-					ctx.ui.notify(`${output}\n\nSaved run: ${dirname(run.handoffPath)}\nHandoff: ${run.handoffPath}`, "info");
-					return;
-				}
-
-				case "launch": {
-					const [flag, ...launchRest] = body.split(/\s+/);
-					const runId = launchRest.join(" ").trim();
-					if (flag !== "--approve" || !runId || launchRest.some((part) => part.startsWith("--"))) {
-						ctx.ui.notify("Usage: /conductor launch --approve <run-id>", "warning");
-						return;
-					}
-					const result = await inspectRun(ctx.cwd, runId);
-					if ("warning" in result) {
-						ctx.ui.notify(result.warning, "warning");
-						return;
-					}
-					const run = await approveRun(ctx.cwd, result.run);
-					ctx.ui.notify(
-						[
-							`Run ${run.id} approved; no worker launched yet.`,
-							`Next step: open ${run.handoffPath} and start the suggested agent/subagent workflow manually.`,
-							`Status updated at ${run.statusPath}.`,
-						].join("\n"),
-						"info"
-					);
+					const result = await delegates.instant.run({ plan: body, file: fileFromPlan(body, config) }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
 					return;
 				}
 
@@ -209,40 +122,47 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						ctx.ui.notify("Usage: /conductor strict on|off", "warning");
 						return;
 					}
-					const { saveGlobalConfig } = await import("./config.js");
 					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("conductor", `conductor: strict ${desired}`);
+					ctx.ui.setStatus("conductor", `instant: ${flow.model || "default"} [${flow.tools.join(",")}] strict ${desired}`);
 					ctx.ui.notify(`Conductor strict mode ${desired}; saved ${path}`, "info");
 					return;
 				}
 
 				default:
-					ctx.ui.notify(helpText, "warning");
+					ctx.ui.notify(HELP_TEXT, "warning");
 			}
 		},
 	});
 
-	// Tool registration for programmatic handoff creation
 	pi.registerTool({
-		name: "conductor_handoff",
-		label: "Conductor Handoff",
-		description: "Classify a coding task and produce a safe delegation handoff for a subagent. Does not launch the subagent.",
-		promptSnippet: "Create a safe Conductor delegation handoff for coding work",
+		name: "conductor_delegate",
+		label: "Instant Conductor Delegate",
+		description: "Run the instant delegate flow for one tiny, exact code edit from a cockpit-supplied plan.",
+		promptSnippet: "Run an instant delegate flow",
 		promptGuidelines: [
-			"Use conductor_handoff before delegating coding edits when Conductor strict mode is active or when the user asks to route work to a subagent.",
+			"Use conductor_delegate only after the cockpit has a concrete one-file plan for a tiny, low-risk edit.",
+			"Always pass the exact file, and pass line when known, so the instant delegate does not discover scope.",
+			"Do not use conductor_delegate for security, persistence, deployment, architecture, or ambiguous product decisions.",
 		],
 		parameters: Type.Object({
-			task: Type.String({ description: "Coding task to classify and prepare for delegation" }),
-			tier: Type.Optional(Type.Union([Type.Literal("instant"), Type.Literal("fast"), Type.Literal("careful")])),
+			flow: Type.Optional(Type.Literal("instant", { description: "Only instant is supported" })),
+			plan: Type.String({ description: "Simple cockpit plan for the instant delegate to execute" }),
+			file: Type.String({ description: "The single file the instant delegate may read/edit" }),
+			line: Type.Optional(Type.Number({ description: "Target line number when the cockpit knows it" })),
 		}),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-			const tier = params.tier as ConductorTier | undefined;
-			const { output, run, decision } = await buildHandoffOutput(params.task, config, tier, ctx.cwd);
+			const result = await delegates.instant.run({ plan: params.plan, file: params.file, line: params.line }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
 
 			return {
-				content: [{ type: "text", text: `${output}\n\nSaved run: ${dirname(run.handoffPath)}\nHandoff: ${run.handoffPath}` }],
-				details: { decision, logPath: run.handoffPath, runId: run.id, statusPath: run.statusPath },
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
 			};
 		},
 	});
