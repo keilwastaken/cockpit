@@ -19,7 +19,7 @@ const MECHANICAL_EDIT = /\b(rename|typo|copy|text|comment|format|one-line|small 
 
 const hasRepoScope = (text: string): boolean => REPO_SCOPE_PATTERN.test(text);
 
-type ConductorRoute = "instant" | "fast" | "cockpit-only" | "need-decision";
+type ConductorRoute = "instant" | "fast" | "normal" | "cockpit-only" | "need-decision";
 
 function analyzeTask(task: string) {
 	const mentionedFiles = Array.from(task.matchAll(FILE_PATTERN), (match) => match[1]).filter(Boolean);
@@ -55,7 +55,7 @@ function missingContextQuestions(signals: TaskSignal): string[] {
 }
 
 function confidenceFor(route: ConductorRoute, signals: TaskSignal, forced: boolean): number {
-	let confidence = route === "instant" ? 0.9 : route === "fast" ? 0.8 : route === "cockpit-only" ? 0.75 : 0.45;
+	let confidence = route === "instant" ? 0.9 : route === "fast" ? 0.8 : route === "normal" ? 0.7 : route === "cockpit-only" ? 0.75 : 0.45;
 	if (forced) confidence = Math.min(confidence, 0.65);
 	if (signals.isAmbiguous) confidence -= 0.25;
 	if (signals.mentionedFiles.length === 0 && signals.tasksLooksLikeCoding) confidence -= 0.1;
@@ -80,13 +80,19 @@ function fitsFast(signals: TaskSignal, config: ConductorConfig): boolean {
 	return !signals.isAmbiguous && !disallowedDomain && signals.estimatedFiles <= flow.maxFiles && signals.estimatedLines <= flow.maxEstimatedLines;
 }
 
+function fitsNormal(signals: TaskSignal, config: ConductorConfig): boolean {
+	const flow = config.delegateFlows.normal;
+	const disallowedDomain = signals.riskDomains.find((domain) => config.disallowDomains.includes(domain));
+	return !signals.isAmbiguous && !disallowedDomain && signals.estimatedFiles <= flow.maxFiles && signals.estimatedLines <= flow.maxEstimatedLines;
+}
+
 function makeDecision(route: ConductorRoute, config: ConductorConfig, signals: TaskSignal, forced = false, reasons: string[] = [], risks: string[] = []) {
-	const tier = route === "instant" || route === "fast" ? route : undefined;
+	const tier = route === "instant" || route === "fast" || route === "normal" ? route : undefined;
 	return {
 		route,
 		tier,
 		suggestedAgent: tier ? config.delegateFlows[tier].agent : undefined,
-		requiresApproval: route === "instant" || route === "fast",
+		requiresApproval: route === "instant" || route === "fast" || route === "normal",
 		confidence: confidenceFor(route, signals, forced),
 		missingContextQuestions: missingContextQuestions(signals),
 		suggestedRefinement: suggestedRefinement(signals.text, signals),
@@ -115,6 +121,10 @@ export function routeTask(task: string, config: ConductorConfig, forcedInstant =
 
 	if (fitsFast(signals, config)) {
 		return makeDecision("fast", config, signals, false, ["Task is small, semantic, and fits fast delegate thresholds."], risks);
+	}
+
+	if (fitsNormal(signals, config)) {
+		return makeDecision("normal", config, signals, false, ["Task is bounded, multi-file, and fits normal delegate thresholds."], risks);
 	}
 
 	return makeDecision("need-decision", config, signals, false, ["Clarify, use a heavier flow later, or handle this in the main chat."], risks);

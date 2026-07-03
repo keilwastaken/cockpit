@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "research", "planner"],
+	agents: ["instant", "fast", "research", "normal", "planner"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -34,11 +34,22 @@ const DEFAULT_CONFIG = {
 			description: "Read-only quick codebase research brief with optional web context for planner handoff.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "web_search", "web_fetch"],
-			thinking: "low",
+			thinking: "minimal",
 			maxFiles: 7,
 			maxEstimatedLines: 0,
 			maxTurns: 5,
 			timeoutMs: 180000,
+		},
+		normal: {
+			agent: "normal",
+			description: "Bounded coding executor using the base delegate model with medium thinking.",
+			model: "",
+			tools: ["ls", "find", "grep", "read", "edit", "write", "bash"],
+			thinking: "medium",
+			maxFiles: 6,
+			maxEstimatedLines: 600,
+			maxTurns: 8,
+			timeoutMs: 300000,
 		},
 		planner: {
 			agent: "planner",
@@ -59,6 +70,7 @@ const DEFAULT_CONFIG = {
 };
 
 export type ConductorConfig = typeof DEFAULT_CONFIG;
+type DelegateFlowConfig = ConductorConfig["delegateFlows"][keyof ConductorConfig["delegateFlows"]];
 
 const globalConfigPath = () => join(homedir(), CONFIG_DIR_NAME, "conductor", "config.json");
 const projectConfigPath = (cwd: string) => join(cwd, CONFIG_DIR_NAME, "conductor", "config.json");
@@ -72,76 +84,83 @@ const stringArray = (value: unknown, fallback: string[]): string[] => {
 const numberValue = (value: unknown, fallback: number): number => (typeof value === "number" && Number.isFinite(value) ? value : fallback);
 const stringValue = (value: unknown, fallback: string): string => (typeof value === "string" && value.trim() ? value : fallback);
 
+function rawFlow(rawFlows: Record<string, unknown>, name: string): Record<string, unknown> {
+	const value = rawFlows[name];
+	return isRecord(value) ? value : {};
+}
+
+function normalizeDelegateFlow(
+	raw: Record<string, unknown>,
+	base: DelegateFlowConfig,
+	options: {
+		agent?: string;
+		model: string;
+		thinking: string;
+		maxFiles?: number;
+		maxEstimatedLines?: number;
+	},
+): DelegateFlowConfig {
+	return {
+		...base,
+		...raw,
+		agent: stringValue(raw.agent, options.agent ?? base.agent),
+		description: stringValue(raw.description, base.description),
+		model: stringValue(raw.model, options.model),
+		tools: stringArray(raw.tools, base.tools),
+		thinking: options.thinking,
+		maxFiles: numberValue(raw.maxFiles, options.maxFiles ?? base.maxFiles),
+		maxEstimatedLines: numberValue(raw.maxEstimatedLines, options.maxEstimatedLines ?? base.maxEstimatedLines),
+		maxTurns: numberValue(raw.maxTurns, base.maxTurns),
+		timeoutMs: numberValue(raw.timeoutMs, base.timeoutMs),
+	};
+}
+
 const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 	if (!isRecord(raw)) return structuredClone(base);
 
 	const rawFlows = isRecord(raw.delegateFlows) ? raw.delegateFlows : {};
-	const rawInstant = isRecord(rawFlows.instant) ? rawFlows.instant : {};
-	const rawFast = isRecord(rawFlows.fast) ? rawFlows.fast : {};
-	const rawResearch = isRecord(rawFlows.research) ? rawFlows.research : {};
-	const rawPlanner = isRecord(rawFlows.planner) ? rawFlows.planner : {};
+	const rawInstant = rawFlow(rawFlows, "instant");
+	const rawFast = rawFlow(rawFlows, "fast");
+	const rawResearch = rawFlow(rawFlows, "research");
+	const rawNormal = rawFlow(rawFlows, "normal");
+	const rawPlanner = rawFlow(rawFlows, "planner");
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
 	const baseResearch = base.delegateFlows.research;
+	const baseNormal = base.delegateFlows.normal;
 	const basePlanner = base.delegateFlows.planner;
-	const instant = {
-		...baseInstant,
-		...rawInstant,
-		agent: stringValue(rawInstant.agent, stringArray(raw.agents, [baseInstant.agent])[0] ?? baseInstant.agent),
-		description: stringValue(rawInstant.description, baseInstant.description),
-		model: stringValue(rawInstant.model, baseInstant.model),
-		tools: stringArray(rawInstant.tools, baseInstant.tools),
+
+	const instant = normalizeDelegateFlow(rawInstant, baseInstant, {
+		agent: stringArray(raw.agents, [baseInstant.agent])[0] ?? baseInstant.agent,
+		model: baseInstant.model,
 		thinking: "off",
-		maxFiles: numberValue(rawInstant.maxFiles, numberValue(raw.maxFiles, baseInstant.maxFiles)),
-		maxEstimatedLines: numberValue(rawInstant.maxEstimatedLines, numberValue(raw.maxEstimatedLines, baseInstant.maxEstimatedLines)),
-		maxTurns: numberValue(rawInstant.maxTurns, baseInstant.maxTurns),
-		timeoutMs: numberValue(rawInstant.timeoutMs, baseInstant.timeoutMs),
-	};
-	const fast = {
-		...baseFast,
-		...rawFast,
-		agent: stringValue(rawFast.agent, baseFast.agent),
-		description: stringValue(rawFast.description, baseFast.description),
+		maxFiles: numberValue(raw.maxFiles, baseInstant.maxFiles),
+		maxEstimatedLines: numberValue(raw.maxEstimatedLines, baseInstant.maxEstimatedLines),
+	});
+	const fast = normalizeDelegateFlow(rawFast, baseFast, {
 		model: instant.model,
-		tools: stringArray(rawFast.tools, baseFast.tools),
 		thinking: "low",
-		maxFiles: numberValue(rawFast.maxFiles, baseFast.maxFiles),
-		maxEstimatedLines: numberValue(rawFast.maxEstimatedLines, baseFast.maxEstimatedLines),
-		maxTurns: numberValue(rawFast.maxTurns, baseFast.maxTurns),
-		timeoutMs: numberValue(rawFast.timeoutMs, baseFast.timeoutMs),
-	};
-	const research = {
-		...baseResearch,
-		...rawResearch,
-		agent: stringValue(rawResearch.agent, baseResearch.agent),
-		description: stringValue(rawResearch.description, baseResearch.description),
+	});
+	const research = normalizeDelegateFlow(rawResearch, baseResearch, {
 		model: instant.model,
-		tools: stringArray(rawResearch.tools, baseResearch.tools),
-		thinking: "low",
-		maxFiles: numberValue(rawResearch.maxFiles, baseResearch.maxFiles),
-		maxEstimatedLines: numberValue(rawResearch.maxEstimatedLines, baseResearch.maxEstimatedLines),
-		maxTurns: numberValue(rawResearch.maxTurns, baseResearch.maxTurns),
-		timeoutMs: numberValue(rawResearch.timeoutMs, baseResearch.timeoutMs),
-	};
-	const planner = {
-		...basePlanner,
-		...rawPlanner,
-		agent: stringValue(rawPlanner.agent, basePlanner.agent),
-		description: stringValue(rawPlanner.description, basePlanner.description),
-		model: stringValue(rawPlanner.model, basePlanner.model),
-		tools: stringArray(rawPlanner.tools, basePlanner.tools),
+		thinking: "minimal",
+	});
+	const normal = normalizeDelegateFlow(rawNormal, baseNormal, {
+		model: instant.model,
+		thinking: "medium",
+	});
+	const planner = normalizeDelegateFlow(rawPlanner, basePlanner, {
+		model: basePlanner.model,
 		thinking: stringValue(rawPlanner.thinking, basePlanner.thinking),
-		maxFiles: numberValue(rawPlanner.maxFiles, basePlanner.maxFiles),
-		maxEstimatedLines: numberValue(rawPlanner.maxEstimatedLines, basePlanner.maxEstimatedLines),
-		maxTurns: numberValue(rawPlanner.maxTurns, basePlanner.maxTurns),
-		timeoutMs: numberValue(rawPlanner.timeoutMs, basePlanner.timeoutMs),
-	};
+	});
+	const agents = stringArray(raw.agents, []);
+
 	return {
 		...base,
 		...(raw as Partial<ConductorConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: stringArray(raw.agents, [instant.agent, fast.agent, research.agent, planner.agent]),
-		delegateFlows: { instant, fast, research, planner },
+		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent])),
+		delegateFlows: { instant, fast, research, normal, planner },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),

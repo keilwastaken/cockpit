@@ -14,6 +14,7 @@ const HELP_TEXT = [
 	"- /conductor instant <simple plan mentioning one file>",
 	"- /conductor fast <small semantic task>",
 	"- /conductor research <task>",
+	"- /conductor normal <implementation plan>",
 	"- /conductor plan <task + optional research brief>",
 	"- /conductor strict on|off",
 ].join("\n");
@@ -32,7 +33,7 @@ async function chooseDelegateModel(ctx: { modelRegistry: { getAvailable(): Array
 
 	const inherit = "Inherit current Pi default";
 	const choices = [inherit, ...models.map((model) => `${modelId(model)}${model.name ? ` — ${model.name}` : ""}`)];
-	const selected = await ctx.ui.select("Choose the delegate model (fast defaults to instant)", choices);
+	const selected = await ctx.ui.select("Choose the base delegate model (fast/research/normal inherit it)", choices);
 	if (!selected) return undefined;
 
 	const model = selected === inherit ? "" : selected.split(" — ")[0];
@@ -41,8 +42,9 @@ async function chooseDelegateModel(ctx: { modelRegistry: { getAvailable(): Array
 		delegateFlows: {
 			...config.delegateFlows,
 			instant: { ...config.delegateFlows.instant, model, thinking: "off" },
-			fast: { ...config.delegateFlows.fast, model, thinking: "low" },
-			research: { ...config.delegateFlows.research, model, thinking: "low" },
+			fast: { ...config.delegateFlows.fast, model: "", thinking: "low" },
+			research: { ...config.delegateFlows.research, model: "", thinking: "minimal" },
+			normal: { ...config.delegateFlows.normal, model: "", thinking: "medium" },
 			planner: { ...config.delegateFlows.planner, thinking: config.delegateFlows.planner.thinking },
 		},
 	};
@@ -52,7 +54,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 		const flow = config.delegateFlows.instant;
-		ctx.ui.setStatus("conductor", `instant/fast/research/planner: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
+		ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -62,7 +64,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("conductor", {
-		description: "Route tiny coding tasks to the instant delegate",
+		description: "Route coding workflow tasks through Conductor delegate flows",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed || trimmed === "help") {
@@ -76,19 +78,21 @@ export default function conductorExtension(pi: ExtensionAPI) {
 			const flow = config.delegateFlows.instant;
 			const fastFlow = config.delegateFlows.fast;
 			const researchFlow = config.delegateFlows.research;
+			const normalFlow = config.delegateFlows.normal;
 			const plannerFlow = config.delegateFlows.planner;
 
 			switch (subcommand) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
-						"Conductor flows: instant, fast, research, planner.",
+						"Conductor flows: instant, fast, research, normal, planner.",
 						`Strict mode: ${config.strictMode ? "on" : "off"}`,
-						`Delegate model: ${flow.model || "inherit current Pi default"}`,
+						`Base delegate model: ${flow.model || "inherit current Pi default"}`,
 						`Planner model: ${plannerFlow.model || "inherit current Pi default"}`,
-						`Instant: thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
-						`Fast: thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
-						`Research: thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
+						`Instant: model ${flow.model || "default"}; thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
+						`Fast: model ${fastFlow.model || "default"}; thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
+						`Research: model ${researchFlow.model || "default"}; thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
+						`Normal: model ${normalFlow.model || "default"}; thinking ${normalFlow.thinking}; tools ${normalFlow.tools.join(", ")}; limit ${normalFlow.maxFiles} files, ~${normalFlow.maxEstimatedLines} lines`,
 						`Planner: thinking ${plannerFlow.thinking}; tools ${plannerFlow.tools.join(", ")}; verification read budget ${plannerFlow.maxFiles} files`,
 						`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
 					].join("\n"), "info");
@@ -99,8 +103,8 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
 					const instant = updated.delegateFlows.instant;
-					ctx.ui.setStatus("conductor", `instant/fast/research/planner: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
-					ctx.ui.notify(`Delegate model ${instant.model || "will inherit the current Pi default"}; fast and research use the same model, planner inherits the current Pi default unless configured separately. Saved ${path}`, "info");
+					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.notify(`Base delegate model ${instant.model || "will inherit the current Pi default"}; fast/research/normal inherit it by default with low/minimal/medium thinking. Planner inherits the current Pi default unless configured separately. Saved ${path}`, "info");
 					return;
 				}
 
@@ -155,6 +159,20 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "normal": {
+					if (!body) {
+						ctx.ui.notify("Usage: /conductor normal <implementation plan>", "warning");
+						return;
+					}
+					const result = await delegates.normal.run({ plan: body }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
+					return;
+				}
+
 				case "plan":
 				case "planner": {
 					if (!body) {
@@ -177,7 +195,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						return;
 					}
 					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("conductor", `instant/fast/research/planner: ${flow.model || "default"} strict ${desired}`);
+					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${flow.model || "default"} strict ${desired}`);
 					ctx.ui.notify(`Conductor strict mode ${desired}; saved ${path}`, "info");
 					return;
 				}
@@ -270,6 +288,37 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const result = await delegates.research.run({ plan: params.plan }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
+
+			return {
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "conductor_normal",
+		label: "Normal Conductor Delegate",
+		description: "Run the normal coding delegate: same base delegate model as fast, medium thinking, bounded implementation from a plan.",
+		promptSnippet: "Run a normal coding delegate flow",
+		promptGuidelines: [
+			"Use conductor_normal after planning for bounded multi-file implementation work.",
+			"Pass the planner's Coder Instructions or implementation plan; keep the prompt operational and scoped.",
+			"Do not use it for unplanned broad refactors or risky product/security/deployment decisions.",
+		],
+		parameters: Type.Object({
+			flow: Type.Optional(Type.Literal("normal", { description: "Only normal is supported" })),
+			plan: Type.String({ description: "Implementation plan or coding instructions for the normal delegate" }),
+		}),
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const result = await delegates.normal.run({ plan: params.plan }, config, {
 				cwd: ctx.cwd,
 				projectTrusted: ctx.isProjectTrusted(),
 				signal,
