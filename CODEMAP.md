@@ -87,7 +87,7 @@ Important defaults:
 - `strictMode: false`
 - `instant` tools: `read`, `edit`; thinking `off`; max 1 file / ~30 lines / 60s.
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
-- `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `low`; max 5 fully-read files / 180s.
+- `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `low`; max 7 fully-read files / 180s.
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
@@ -152,7 +152,7 @@ Fast boundary: child may do targeted local discovery and write/edit the requeste
 - Uses the same model chosen for instant/fast, with `--thinking low`.
 - Runs child Pi with no session, no skills/templates/context files, and a read-only tool allowlist: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`.
 - Does not pass `--no-extensions` so extension-provided web tools can be available, while `--tools` keeps the child constrained to the research allowlist.
-- Prompt instructs the child to inspect local code first, respect `.gitignore`, read at most 5 files fully, use web only for relevant external contracts/current docs, and return a structured Research Brief with confidence metadata.
+- Prompt instructs the child to inspect local code first, respect `.gitignore`, read at most 7 files fully, use web only for relevant external contracts/current docs, and return a structured Research Brief with confidence metadata.
 - Returns `INSUFFICIENT_CONTEXT: need deeper search` rather than inventing files/APIs/behavior when local and optional external context is insufficient.
 
 Research boundary: child is read-only and should produce evidence for the planner, not a solution plan or code changes.

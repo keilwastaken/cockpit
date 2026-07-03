@@ -35,7 +35,7 @@ const DEFAULT_CONFIG = {
 			model: "",
 			tools: ["ls", "find", "grep", "read", "web_search", "web_fetch"],
 			thinking: "low",
-			maxFiles: 5,
+			maxFiles: 7,
 			maxEstimatedLines: 0,
 			maxTurns: 5,
 			timeoutMs: 180000,
