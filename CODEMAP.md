@@ -2,11 +2,12 @@
 
 ## Project purpose
 
-`pi-cockpit` is a small TypeScript Pi package that adds a Cockpit extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports six delegate flows:
+`cockpit` is a small TypeScript Pi package that adds a Cockpit extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports seven delegate flows:
 
 - `instant` — tightly scoped one-file edits from a cockpit-supplied plan.
 - `fast` — small semantic tasks with limited local discovery, intended for work like codemaps.
 - `research` — read-only local-first codebase research briefs for planner handoff, with optional web context when available.
+- `ideate` — read-only divergent ideation council for unclear features, refactors, and implementation/product direction.
 - `normal` — medium-thinking bounded coding execution from an implementation plan.
 - `planner` — high-reasoning read-only implementation plans for coding-agent handoff.
 - `reviewer` — read-only diff review with severity buckets and feedback weight for cockpit routing.
@@ -29,6 +30,7 @@
 │           ├── instant.ts           # instant delegate validation + prompt + run flow
 │           ├── fast.ts              # fast delegate validation + prompt + run flow
 │           ├── research.ts          # read-only research brief validation + prompt + run flow
+│           ├── ideate.ts            # divergent ideation council validation + prompt + run flow
 │           ├── normal.ts            # bounded coding executor validation + prompt + run flow
 │           ├── planner.ts           # high-reasoning implementation plan validation + prompt + run flow
 │           └── reviewer.ts          # read-only diff reviewer validation + prompt + run flow
@@ -63,6 +65,7 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 - `cockpit_delegate` tool: tool-facing instant delegate runner.
 - `cockpit_fast` tool: tool-facing fast delegate runner.
 - `cockpit_research` tool: tool-facing read-only research delegate runner.
+- `cockpit_ideate` tool: tool-facing divergent ideation delegate runner.
 - `cockpit_normal` tool: tool-facing normal coding delegate runner.
 - `cockpit_plan` tool: tool-facing read-only planner delegate runner.
 - `cockpit_review` tool: tool-facing read-only reviewer delegate runner.
@@ -78,6 +81,7 @@ Registered `/cockpit` subcommands:
 - `/cockpit instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
 - `/cockpit fast <task>` — run the fast delegate directly.
 - `/cockpit research <task>` — run the read-only research delegate directly.
+- `/cockpit ideate <unclear feature/refactor/product direction>` — run the read-only ideation delegate directly.
 - `/cockpit normal <implementation plan>` — run the normal coding delegate directly.
 - `/cockpit plan <task + optional research brief>` — run the read-only planner delegate directly.
 - `/cockpit review <task + plan + change summary>` — run the read-only reviewer delegate directly.
@@ -89,6 +93,7 @@ Registered tools:
 - `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; runs `delegates.instant`.
 - `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; runs `delegates.fast`.
 - `cockpit_research` — accepts `plan` and optional `flow: "research"`; runs `delegates.research`.
+- `cockpit_ideate` — accepts `plan` and optional `flow: "ideate"`; runs `delegates.ideate`.
 - `cockpit_normal` — accepts `plan` and optional `flow: "normal"`; runs `delegates.normal`.
 - `cockpit_plan` — accepts `plan` and optional `flow: "planner"`; runs `delegates.planner`.
 - `cockpit_review` — accepts `plan` and optional `flow: "reviewer"`; runs `delegates.reviewer`.
@@ -108,13 +113,14 @@ Important defaults:
 - `instant` tools: `read`, `edit`; thinking `off`; max 1 file / ~30 lines / 60s.
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
 - `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `minimal`; max 7 fully-read files / 180s.
+- `ideate` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `high`; max 8 fully-read files / 300s.
 - `normal` tools: `ls`, `find`, `grep`, `read`, `edit`, `write`, `bash`; thinking `medium`; max 6 files / ~600 lines / 300s.
 - `planner` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `xhigh`; max 3 verification files / 240s.
 - `reviewer` tools: `ls`, `find`, `grep`, `read`, `bash`; thinking `high`; max 10 fully-read files / 240s.
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by research/planning/review workers (`research`, `planner`, `reviewer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review workers (`ideate`, `research`, `planner`, `reviewer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
 
 ## Routing model
 
@@ -188,13 +194,25 @@ Fast boundary: child may do targeted local discovery and write/edit the requeste
 `extensions/cockpit/delegates/research.ts`:
 
 - Requires a non-empty task.
-- Usually uses the configured judgment model, with `--thinking minimal`.
+- Usually uses the configured reasoning model, with `--thinking minimal`.
 - Runs child Pi with no session, no skills/templates/context files, and a read-only tool allowlist: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`.
 - Does not pass `--no-extensions` so extension-provided web tools can be available, while `--tools` keeps the child constrained to the research allowlist.
 - Prompt instructs the child to inspect local code first, respect `.gitignore`, read at most 7 files fully, use web only for relevant external contracts/current docs, and return a structured Research Brief with confidence metadata, Evidence Quality, and Research Tour.
 - Returns `INSUFFICIENT_CONTEXT: need deeper search` rather than inventing files/APIs/behavior when local and optional external context is insufficient.
 
 Research boundary: child is read-only and should produce evidence for the planner, not a solution plan or code changes.
+
+### Ideate delegate
+
+`extensions/cockpit/delegates/ideate.ts`:
+
+- Requires a non-empty unclear feature, refactor, product direction, or implementation idea.
+- Usually uses the reasoning model and the hands model as separate perspectives when both are configured.
+- Runs three divergent read-only passes in parallel: pragmatic path, ambitious path, and risk/maintenance path.
+- Each pass runs child Pi with no session, no skills/templates/context files, and a read-only tool allowlist: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`.
+- A final synthesis pass compares variants into an `# Ideation Result` with best direction, option matrix, recommended next step, keep/drop/defer, and risks.
+
+Ideate boundary: child does not plan or implement. It clarifies what the user may want before handing a chosen direction to planner/codeflow.
 
 ### Normal delegate
 

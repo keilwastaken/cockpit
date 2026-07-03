@@ -16,6 +16,7 @@ const HELP_TEXT = [
 	"- /cockpit instant <simple plan mentioning one file>",
 	"- /cockpit fast <small semantic task>",
 	"- /cockpit research <task>",
+	"- /cockpit ideate <unclear feature/refactor/product direction>",
 	"- /cockpit normal <implementation plan>",
 	"- /cockpit plan <task + optional research brief>",
 	"- /cockpit review <task + plan + change summary>",
@@ -73,6 +74,7 @@ function applySetup(config: CockpitConfig, options: { handsModel: string; reason
 			fast: { ...config.delegateFlows.fast, model: handsModel, thinking: "low" },
 			normal: { ...config.delegateFlows.normal, model: handsModel, thinking: "medium" },
 			research: { ...config.delegateFlows.research, model: reasoningModel, thinking: "minimal" },
+			ideate: { ...config.delegateFlows.ideate, model: reasoningModel, thinking: config.delegateFlows.ideate.thinking },
 			planner: { ...config.delegateFlows.planner, model: reasoningModel, thinking: config.delegateFlows.planner.thinking },
 			reviewer: { ...config.delegateFlows.reviewer, model: reasoningModel, thinking: config.delegateFlows.reviewer.thinking },
 		},
@@ -94,7 +96,7 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 		"Cockpit keeps the main chat as the Oracle / Control Room.",
 		"Setup only needs two choices:",
 		"1. Hands model — inherited by instant, fast, and normal coding workers. Recommended: local model, or a strong coding model for heavier work.",
-		"2. Reasoning model — inherited by research, planner, and reviewer. Recommended: latest cloud reasoning model.",
+		"2. Reasoning model — inherited by ideate, research, planner, and reviewer. Recommended: latest cloud reasoning model.",
 		`Detected models: ${models.length} total, ${localModels.length} local-looking, ${cloudModels.length} cloud-looking.`,
 	].join("\n"), "info");
 
@@ -113,7 +115,7 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 		`Hands model: ${modelLabel(handsModel)}`,
 		"  instant, fast, normal inherit this model.",
 		`Reasoning model: ${modelLabel(reasoningModel)}`,
-		"  research, planner, reviewer inherit this model.",
+		"  ideate, research, planner, reviewer inherit this model.",
 		`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
 	].join("\n");
 	const confirmed = await ctx.ui.confirm("Save Cockpit setup?", summary);
@@ -150,20 +152,22 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 			const normalFlow = config.delegateFlows.normal;
 			const plannerFlow = config.delegateFlows.planner;
 			const reviewerFlow = config.delegateFlows.reviewer;
+			const ideateFlow = config.delegateFlows.ideate;
 
 			switch (subcommand) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
 						"Cockpit keeps the main chat as the Oracle / Control Room and routes work through isolated delegates.",
-						"Cockpit flows: instant, fast, research, normal, planner, reviewer.",
+						"Cockpit flows: instant, fast, research, ideate, normal, planner, reviewer.",
 						`Strict mode: ${config.strictMode ? "on" : "off"}`,
 						`Hands model: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}`,
-						`Reasoning model: research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}`,
+						`Reasoning model: ideate ${modelLabel(ideateFlow.model)}, research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}`,
 						`Recommendation: local model for hands; latest cloud reasoning model for research, planning, and review.`,
 						`Instant: thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
 						`Fast: thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
 						`Research: thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
+						`Ideate: thinking ${ideateFlow.thinking}; tools ${ideateFlow.tools.join(", ")}; read budget ${ideateFlow.maxFiles} files`,
 						`Normal: thinking ${normalFlow.thinking}; tools ${normalFlow.tools.join(", ")}; limit ${normalFlow.maxFiles} files, ~${normalFlow.maxEstimatedLines} lines`,
 						`Planner: thinking ${plannerFlow.thinking}; tools ${plannerFlow.tools.join(", ")}; verification read budget ${plannerFlow.maxFiles} files`,
 						`Reviewer: thinking ${reviewerFlow.thinking}; tools ${reviewerFlow.tools.join(", ")}; review read budget ${reviewerFlow.maxFiles} files`,
@@ -180,7 +184,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 						"Cockpit configured.",
 						`Config saved to: ${path}`,
 						`Hands model: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}`,
-						`Reasoning model: research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}`,
+						`Reasoning model: ideate ${modelLabel(updated.delegateFlows.ideate.model)}, research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}`,
 						`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
 						`Try: /cockpit codeflow "Add retry handling to an existing workflow"`,
 					].join("\n"), "info");
@@ -253,6 +257,20 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "ideate": {
+					if (!body) {
+						ctx.ui.notify("Usage: /cockpit ideate <unclear feature/refactor/product direction>", "warning");
+						return;
+					}
+					const result = await delegates.ideate.run({ plan: body }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
+					return;
+				}
+
 				case "normal": {
 					if (!body) {
 						ctx.ui.notify("Usage: /cockpit normal <implementation plan>", "warning");
@@ -304,7 +322,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 						return;
 					}
 					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("cockpit", `instant/fast/research/normal/planner/reviewer: ${flow.model || "default"} strict ${desired}`);
+					ctx.ui.setStatus("cockpit", `hands: ${modelLabel(normalFlow.model)}; reasoning: ${modelLabel(reviewerFlow.model)} strict ${desired}`);
 					ctx.ui.notify(`Cockpit strict mode ${desired}; saved ${path}`, "info");
 					return;
 				}
@@ -428,6 +446,37 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const result = await delegates.research.run({ plan: params.plan }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
+
+			return {
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "cockpit_ideate",
+		label: "Ideate Cockpit Delegate",
+		description: "Run the read-only ideate delegate: divergent multi-pass council for unclear features, refactors, and product/implementation direction.",
+		promptSnippet: "Run an ideation delegate flow",
+		promptGuidelines: [
+			"Use cockpit_ideate when the user wants to explore what to build before planning or implementation.",
+			"Good inputs are unclear features, refactors, UX directions, or tradeoff-heavy implementation choices.",
+			"The delegate returns divergent variants plus a synthesis. Do not treat it as an implementation plan; hand the chosen direction to cockpit_plan or cockpit_codeflow next.",
+		],
+		parameters: Type.Object({
+			flow: Type.Optional(Type.Literal("ideate", { description: "Only ideate is supported" })),
+			plan: Type.String({ description: "Unclear feature, refactor, product direction, or implementation idea to explore" }),
+		}),
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const result = await delegates.ideate.run({ plan: params.plan }, config, {
 				cwd: ctx.cwd,
 				projectTrusted: ctx.isProjectTrusted(),
 				signal,

@@ -1,4 +1,5 @@
 import { fastDelegate } from "./fast.js";
+import { ideateDelegate } from "./ideate.js";
 import { instantDelegate } from "./instant.js";
 import { normalDelegate } from "./normal.js";
 import { plannerDelegate } from "./planner.js";
@@ -12,6 +13,7 @@ export const delegates = {
 	normal: normalDelegate,
 	planner: plannerDelegate,
 	reviewer: reviewerDelegate,
+	ideate: ideateDelegate,
 };
 
-export { fastDelegate, instantDelegate, normalDelegate, plannerDelegate, researchDelegate, reviewerDelegate };
+export { fastDelegate, ideateDelegate, instantDelegate, normalDelegate, plannerDelegate, researchDelegate, reviewerDelegate };

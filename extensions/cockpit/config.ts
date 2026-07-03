@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "research", "normal", "planner", "reviewer"],
+	agents: ["instant", "fast", "research", "normal", "planner", "reviewer", "ideate"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -73,6 +73,17 @@ const DEFAULT_CONFIG = {
 			maxTurns: 6,
 			timeoutMs: 240000,
 		},
+		ideate: {
+			agent: "ideate",
+			description: "Read-only divergent ideation council for unclear features, refactors, and product/implementation direction.",
+			model: "",
+			tools: ["ls", "find", "grep", "read", "web_search", "web_fetch"],
+			thinking: "high",
+			maxFiles: 8,
+			maxEstimatedLines: 0,
+			maxTurns: 6,
+			timeoutMs: 300000,
+		},
 	},
 	maxFiles: 1,
 	maxEstimatedLines: 30,
@@ -136,12 +147,14 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const rawNormal = rawFlow(rawFlows, "normal");
 	const rawPlanner = rawFlow(rawFlows, "planner");
 	const rawReviewer = rawFlow(rawFlows, "reviewer");
+	const rawIdeate = rawFlow(rawFlows, "ideate");
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
 	const baseResearch = base.delegateFlows.research;
 	const baseNormal = base.delegateFlows.normal;
 	const basePlanner = base.delegateFlows.planner;
 	const baseReviewer = base.delegateFlows.reviewer;
+	const baseIdeate = base.delegateFlows.ideate;
 
 	const instant = normalizeDelegateFlow(rawInstant, baseInstant, {
 		agent: stringArray(raw.agents, [baseInstant.agent])[0] ?? baseInstant.agent,
@@ -170,14 +183,18 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 		model: baseReviewer.model,
 		thinking: stringValue(rawReviewer.thinking, baseReviewer.thinking),
 	});
+	const ideate = normalizeDelegateFlow(rawIdeate, baseIdeate, {
+		model: baseIdeate.model,
+		thinking: stringValue(rawIdeate.thinking, baseIdeate.thinking),
+	});
 	const agents = stringArray(raw.agents, []);
 
 	return {
 		...base,
 		...(raw as Partial<CockpitConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
-		delegateFlows: { instant, fast, research, normal, planner, reviewer },
+		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent, reviewer.agent, ideate.agent])),
+		delegateFlows: { instant, fast, research, normal, planner, reviewer, ideate },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),
