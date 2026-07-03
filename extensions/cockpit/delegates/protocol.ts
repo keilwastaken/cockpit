@@ -1,4 +1,4 @@
-export type DelegateFlowName = "instant" | "fast" | "research" | "normal" | "planner" | "reviewer" | "ideate" | "codeflow";
+export type DelegateFlowName = "instant" | "fast" | "ideate" | "brief" | "research" | "normal" | "planner" | "reviewer" | "codeflow";
 
 export type DelegateRunInput = {
 	plan: string;
