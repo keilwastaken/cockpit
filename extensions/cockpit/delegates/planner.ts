@@ -5,13 +5,13 @@ import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunRes
 function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfig): string {
 	const flow = config.delegateFlows.planner;
 	return [
-		"Planner delegate. Convert the Cockpit Brief, user task, and any Research Brief into a precise implementation plan for a coding agent.",
+		"Planner delegate. Convert the user task, human-approved direction, and any Research Brief into a precise implementation plan for a coding agent.",
 		`Input: ${taskAndResearch.trim()}`,
 		`Tools: ${flow.tools.join(", ") || "none"}. Use tools only to verify critical assumptions when the provided research is missing, low-confidence, or contradictory.`,
 		`Thinking: ${flow.thinking}. This is the high-leverage reasoning step; be careful and bounded.`,
 		"Do not edit files. Do not write files. Do not implement code. Do not run mutating commands.",
 		"Do not produce broad architecture proposals unless the task explicitly requires them.",
-		"Treat the Cockpit Brief as the intended product/design direction. Treat the Research Brief as discovered evidence, not absolute truth. Prefer actual code/test/config evidence over assumptions.",
+		"Treat the human-approved direction as the intended product/design direction. Treat the Research Brief as discovered evidence, not absolute truth. Prefer actual code/test/config evidence over assumptions.",
 		"If the research is low confidence or missing key context, either ask for deeper research or produce a constrained plan with explicit assumptions.",
 		"Planning focus:",
 		"- exact files likely to change",
@@ -78,7 +78,7 @@ function baseResult(input: DelegateRunInput, config: CockpitConfig): DelegateRun
 }
 
 function validatePlanner(input: DelegateRunInput): string | undefined {
-	if (!input.plan.trim()) return "Planner delegate needs a Cockpit Brief, task, and/or research brief.";
+	if (!input.plan.trim()) return "Planner delegate needs a task, human-approved direction, and/or research brief.";
 	return undefined;
 }
 

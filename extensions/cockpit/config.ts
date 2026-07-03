@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "ideate", "brief", "research", "normal", "planner", "reviewer"],
+	agents: ["instant", "fast", "ideate", "research", "normal", "planner", "reviewer"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -39,17 +39,6 @@ const DEFAULT_CONFIG = {
 			maxEstimatedLines: 0,
 			maxTurns: 5,
 			timeoutMs: 180000,
-		},
-		brief: {
-			agent: "brief",
-			description: "Read-only product/design brief writer that turns ideation or fuzzy goals into a planner-ready brief.",
-			model: "",
-			tools: ["ls", "find", "grep", "read"],
-			thinking: "high",
-			maxFiles: 5,
-			maxEstimatedLines: 0,
-			maxTurns: 5,
-			timeoutMs: 240000,
 		},
 		normal: {
 			agent: "normal",
@@ -155,7 +144,6 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const rawInstant = rawFlow(rawFlows, "instant");
 	const rawFast = rawFlow(rawFlows, "fast");
 	const rawResearch = rawFlow(rawFlows, "research");
-	const rawBrief = rawFlow(rawFlows, "brief");
 	const rawNormal = rawFlow(rawFlows, "normal");
 	const rawPlanner = rawFlow(rawFlows, "planner");
 	const rawReviewer = rawFlow(rawFlows, "reviewer");
@@ -163,7 +151,6 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
 	const baseResearch = base.delegateFlows.research;
-	const baseBrief = base.delegateFlows.brief;
 	const baseNormal = base.delegateFlows.normal;
 	const basePlanner = base.delegateFlows.planner;
 	const baseReviewer = base.delegateFlows.reviewer;
@@ -183,10 +170,6 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const research = normalizeDelegateFlow(rawResearch, baseResearch, {
 		model: instant.model,
 		thinking: "minimal",
-	});
-	const brief = normalizeDelegateFlow(rawBrief, baseBrief, {
-		model: baseBrief.model,
-		thinking: stringValue(rawBrief.thinking, baseBrief.thinking),
 	});
 	const normal = normalizeDelegateFlow(rawNormal, baseNormal, {
 		model: instant.model,
@@ -210,8 +193,8 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 		...base,
 		...(raw as Partial<CockpitConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: Array.from(new Set([...agents, instant.agent, fast.agent, ideate.agent, brief.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
-		delegateFlows: { instant, fast, ideate, brief, research, normal, planner, reviewer },
+		agents: Array.from(new Set([...agents, instant.agent, fast.agent, ideate.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
+		delegateFlows: { instant, fast, ideate, research, normal, planner, reviewer },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),
