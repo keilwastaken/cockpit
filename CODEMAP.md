@@ -72,7 +72,7 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 Registered `/cockpit` subcommands:
 
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
-- `/cockpit setup` — run the provider-neutral onboarding wizard: recommended local model for implementation workers, cloud model for judgment workers, strict mode prompt, and global config save.
+- `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, answer the strict mode prompt, and save global config.
 - `/cockpit route <task>` — analyze a task and print the selected route/profile.
 - `/cockpit codeflow <task>` — run the cockpit/oracle workflow: optional research, planner, selected executor, reviewer, and feedback routing.
 - `/cockpit instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
@@ -114,7 +114,7 @@ Important defaults:
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, offers recommended/all-local/all-cloud/custom modes, prompts for strict mode, previews the delegate map, and saves on confirmation. Recommended setup maps implementation workers (`instant`, `fast`, `normal`) to a local model and judgment workers (`research`, `planner`, `reviewer`) to a cloud model.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by research/planning/review workers (`research`, `planner`, `reviewer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
 
 ## Routing model
 
