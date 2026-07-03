@@ -5,17 +5,19 @@ import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunRes
 
 const DEFAULT_OUTPUT_FILE = "CODEMAP.md";
 
-function outputFileFor(input: DelegateRunInput): string {
-	const outputFile = input.outputFile?.trim() || DEFAULT_OUTPUT_FILE;
-	return outputFile === "CODEMAP" ? DEFAULT_OUTPUT_FILE : outputFile;
+function outputFileFor(input: DelegateRunInput): string | undefined {
+	const outputFile = input.outputFile?.trim();
+	const inferredCodemap = /\bCODEMAP(?:\.md)?\b|\bcodemap\b/i.test(input.plan);
+	const normalized = outputFile || (inferredCodemap ? DEFAULT_OUTPUT_FILE : undefined);
+	return normalized === "CODEMAP" ? DEFAULT_OUTPUT_FILE : normalized;
 }
 
-function buildFastPrompt(plan: string, outputFile: string, config: ConductorConfig): string {
+function buildFastPrompt(plan: string, outputFile: string | undefined, config: ConductorConfig): string {
 	const flow = config.delegateFlows.fast;
 	return [
 		"Fast delegate. Do a small semantic coding/documentation task in this child context.",
 		`Plan: ${plan.trim()}`,
-		`Primary output file: ${outputFile}`,
+		outputFile ? `Primary output file: ${outputFile}` : undefined,
 		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read for discovery; grep is ripgrep-backed.`,
 		`Thinking: ${flow.thinking}. Be quick, but reason enough to avoid shallow output.`,
 		`Scope: write/edit at most ${flow.maxFiles} file(s), ~${flow.maxEstimatedLines} changed lines total.`,
@@ -24,14 +26,14 @@ function buildFastPrompt(plan: string, outputFile: string, config: ConductorConf
 		"Do not modify source code unless the plan explicitly asks for it; for codemaps, write/update only the output file.",
 		"Stop without editing if this needs product/security/persistence/deployment decisions or a broad refactor.",
 		"Return compactly: Summary / Files Changed / Discovery Notes / Validation / Risks.",
-	].join("\n");
+	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig, outputFile: string): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: ConductorConfig, outputFile: string | undefined): DelegateRunResult {
 	return {
 		flow: "fast",
 		plan: input.plan.trim(),
-		allowedFiles: [outputFile],
+		allowedFiles: outputFile ? [outputFile] : [],
 		outputFile,
 		tools: config.delegateFlows.fast.tools,
 		exitCode: 0,

@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { runCodeflow } from "./codeflow.js";
 import { loadConfig, saveGlobalConfig } from "./config.js";
 import type { ConductorConfig } from "./config.js";
 import { delegates } from "./delegates/registry.js";
@@ -11,11 +12,13 @@ const HELP_TEXT = [
 	"- /conductor status",
 	"- /conductor setup",
 	"- /conductor route <task>",
+	"- /conductor codeflow <task>",
 	"- /conductor instant <simple plan mentioning one file>",
 	"- /conductor fast <small semantic task>",
 	"- /conductor research <task>",
 	"- /conductor normal <implementation plan>",
 	"- /conductor plan <task + optional research brief>",
+	"- /conductor review <task + plan + change summary>",
 	"- /conductor strict on|off",
 ].join("\n");
 const instantResultText = (result: { blockedReason?: string; finalOutput: string; stderr: string }): string =>
@@ -46,6 +49,7 @@ async function chooseDelegateModel(ctx: { modelRegistry: { getAvailable(): Array
 			research: { ...config.delegateFlows.research, model: "", thinking: "minimal" },
 			normal: { ...config.delegateFlows.normal, model: "", thinking: "medium" },
 			planner: { ...config.delegateFlows.planner, thinking: config.delegateFlows.planner.thinking },
+			reviewer: { ...config.delegateFlows.reviewer, thinking: config.delegateFlows.reviewer.thinking },
 		},
 	};
 }
@@ -54,7 +58,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 		const flow = config.delegateFlows.instant;
-		ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
+		ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner/reviewer: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -80,20 +84,24 @@ export default function conductorExtension(pi: ExtensionAPI) {
 			const researchFlow = config.delegateFlows.research;
 			const normalFlow = config.delegateFlows.normal;
 			const plannerFlow = config.delegateFlows.planner;
+			const reviewerFlow = config.delegateFlows.reviewer;
 
 			switch (subcommand) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
-						"Conductor flows: instant, fast, research, normal, planner.",
+						"Conductor flows: instant, fast, research, normal, planner, reviewer.",
 						`Strict mode: ${config.strictMode ? "on" : "off"}`,
 						`Base delegate model: ${flow.model || "inherit current Pi default"}`,
 						`Planner model: ${plannerFlow.model || "inherit current Pi default"}`,
+						`Reviewer model: ${reviewerFlow.model || "inherit current Pi default"}`,
+						`Recommendation: use a different model/provider for reviewer than coder to catch blind spots.`,
 						`Instant: model ${flow.model || "default"}; thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
 						`Fast: model ${fastFlow.model || "default"}; thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
 						`Research: model ${researchFlow.model || "default"}; thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
 						`Normal: model ${normalFlow.model || "default"}; thinking ${normalFlow.thinking}; tools ${normalFlow.tools.join(", ")}; limit ${normalFlow.maxFiles} files, ~${normalFlow.maxEstimatedLines} lines`,
 						`Planner: thinking ${plannerFlow.thinking}; tools ${plannerFlow.tools.join(", ")}; verification read budget ${plannerFlow.maxFiles} files`,
+						`Reviewer: thinking ${reviewerFlow.thinking}; tools ${reviewerFlow.tools.join(", ")}; review read budget ${reviewerFlow.maxFiles} files`,
 						`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
 					].join("\n"), "info");
 					return;
@@ -103,8 +111,8 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
 					const instant = updated.delegateFlows.instant;
-					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
-					ctx.ui.notify(`Base delegate model ${instant.model || "will inherit the current Pi default"}; fast/research/normal inherit it by default with low/minimal/medium thinking. Planner inherits the current Pi default unless configured separately. Saved ${path}`, "info");
+					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner/reviewer: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.notify(`Base delegate model ${instant.model || "will inherit the current Pi default"}; fast/research/normal inherit it by default with low/minimal/medium thinking. Planner and reviewer inherit the current Pi default unless configured separately. Recommended: use a different reviewer model/provider than coder. Saved ${path}`, "info");
 					return;
 				}
 
@@ -114,6 +122,21 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						return;
 					}
 					ctx.ui.notify(formatDecision(routeTask(body, config)), "info");
+					return;
+				}
+
+				case "codeflow":
+				case "code": {
+					if (!body) {
+						ctx.ui.notify("Usage: /conductor codeflow <task>", "warning");
+						return;
+					}
+					const result = await runCodeflow({ plan: body }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
 					return;
 				}
 
@@ -188,6 +211,21 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "review":
+				case "reviewer": {
+					if (!body) {
+						ctx.ui.notify("Usage: /conductor review <task + plan + change summary>", "warning");
+						return;
+					}
+					const result = await delegates.reviewer.run({ plan: body }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
+					return;
+				}
+
 				case "strict": {
 					const desired = body.toLowerCase();
 					if (desired !== "on" && desired !== "off") {
@@ -195,7 +233,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						return;
 					}
 					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner: ${flow.model || "default"} strict ${desired}`);
+					ctx.ui.setStatus("conductor", `instant/fast/research/normal/planner/reviewer: ${flow.model || "default"} strict ${desired}`);
 					ctx.ui.notify(`Conductor strict mode ${desired}; saved ${path}`, "info");
 					return;
 				}
@@ -203,6 +241,37 @@ export default function conductorExtension(pi: ExtensionAPI) {
 				default:
 					ctx.ui.notify(HELP_TEXT, "warning");
 			}
+		},
+	});
+
+	pi.registerTool({
+		name: "conductor_codeflow",
+		label: "Conductor Codeflow",
+		description: "Run the full cockpit-controlled codeflow: optional research, planner, selected executor, review loop, and feedback-weight routing.",
+		promptSnippet: "Run the Conductor codeflow",
+		promptGuidelines: [
+			"Use conductor_codeflow when the user asks to run the full codeflow or wants planning, coding, and review handled by Conductor.",
+			"Pass the original user task. The cockpit decides whether to research, which executor to use, and how to route reviewer feedback.",
+			"If the codeflow returns a human_decision or planner_revision route, stop and surface the final review output.",
+		],
+		parameters: Type.Object({
+			flow: Type.Optional(Type.Literal("codeflow", { description: "Only codeflow is supported" })),
+			plan: Type.String({ description: "Original user coding task for the full codeflow" }),
+		}),
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const result = await runCodeflow({ plan: params.plan }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
+
+			return {
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
+			};
 		},
 	});
 
@@ -319,6 +388,37 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const result = await delegates.normal.run({ plan: params.plan }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
+
+			return {
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "conductor_review",
+		label: "Reviewer Conductor Delegate",
+		description: "Run the read-only reviewer delegate over current changes or a git range, returning issue severities and feedback weight for cockpit routing.",
+		promptSnippet: "Run a reviewer delegate flow",
+		promptGuidelines: [
+			"Use conductor_review after coder work and before approval or the next task.",
+			"Include the original task, implementation plan, coder summary, validation results, and base/head range if known.",
+			"The reviewer returns feedback weight; the cockpit decides whether to approve, send to coder, replan, or ask the human.",
+		],
+		parameters: Type.Object({
+			flow: Type.Optional(Type.Literal("reviewer", { description: "Only reviewer is supported" })),
+			plan: Type.String({ description: "Review context: task, plan, coder summary, validation, and optional git range" }),
+		}),
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const result = await delegates.reviewer.run({ plan: params.plan }, config, {
 				cwd: ctx.cwd,
 				projectTrusted: ctx.isProjectTrusted(),
 				signal,

@@ -15,8 +15,9 @@ function buildNormalPrompt(plan: string, config: ConductorConfig): string {
 		"Bash rules: use bash only for safe validation commands and read-only discovery. Do not mutate files through shell redirection, sed -i, inline scripts, package installs, deletes, commits, pushes, deploys, publishes, or destructive commands.",
 		"Validation: run only the validation commands listed in the plan unless a narrow obvious command is necessary. Do not claim commands/tests passed unless they were run.",
 		"Repair: if validation fails, make at most one focused fix attempt, then report status.",
+		"Prepare the reviewer handoff as you work: what changed, validation, deviations, known risks, and suggested review tour/order.",
 		"Stop and report without further edits if required files/patterns are missing, scope exceeds the plan, or security/auth/persistence/deployment/product/architecture decisions are needed.",
-		"Return compactly: Summary / Files Changed / Validation / Deviations from Plan / Risks.",
+		"Return compactly: Summary / Files Changed / Validation / Deviations from Plan / Reviewer Handoff / Risks.",
 	].join("\n");
 }
 

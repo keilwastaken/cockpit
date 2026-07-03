@@ -1,4 +1,3 @@
-import { resolve } from "node:path";
 import type { ConductorConfig } from "./config.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -37,43 +36,7 @@ function blockedShellReason(command: string, config: ConductorConfig): string | 
 	return undefined;
 }
 
-function delegateAllowedFiles(cwd: string): Set<string> {
-	try {
-		const parsed = JSON.parse(process.env.PI_CONDUCTOR_ALLOWED_FILES ?? "[]");
-		if (!Array.isArray(parsed)) return new Set();
-		return new Set(parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((file) => resolve(cwd, file)));
-	} catch {
-		return new Set();
-	}
-}
-
-function pathInput(event: { input?: unknown }): string | undefined {
-	if (!isRecord(event.input)) return undefined;
-	return typeof event.input.path === "string" ? event.input.path : undefined;
-}
-
-function blockedInstantDelegateReason(event: { toolName?: string; input?: unknown }, config: ConductorConfig, cwd: string): string | undefined {
-	const toolName = event.toolName;
-	const allowedTools = new Set(config.delegateFlows.instant.tools);
-	if (!toolName) return undefined;
-	if (!allowedTools.has(toolName)) return `Instant delegate flow blocked unavailable tool: ${toolName}.`;
-
-	if (toolName === "read" || toolName === "edit") {
-		const inputPath = pathInput(event);
-		const allowedFiles = delegateAllowedFiles(cwd);
-		if (!inputPath) return `Instant delegate flow requires a path for ${toolName}.`;
-		if (!allowedFiles.has(resolve(cwd, inputPath))) return `Instant delegate flow blocked ${toolName} outside allowed file: ${inputPath}.`;
-	}
-
-	if (toolName === "bash" && isRecord(event.input)) {
-		const command = typeof event.input.command === "string" ? event.input.command : "";
-		return blockedShellReason(command, config);
-	}
-	return undefined;
-}
-
-export function shouldBlockToolCall(event: { toolName?: string; input?: unknown }, config: ConductorConfig, cwd = process.cwd()): string | undefined {
-	if (process.env.PI_CONDUCTOR_DELEGATE_FLOW === "instant") return blockedInstantDelegateReason(event, config, cwd);
+export function shouldBlockToolCall(event: { toolName?: string; input?: unknown }, config: ConductorConfig, _cwd = process.cwd()): string | undefined {
 	if (!config.strictMode) return undefined;
 	const toolName = event.toolName;
 	if (toolName === "edit" || toolName === "write") {

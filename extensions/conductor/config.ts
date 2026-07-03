@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "research", "normal", "planner"],
+	agents: ["instant", "fast", "research", "normal", "planner", "reviewer"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -60,6 +60,17 @@ const DEFAULT_CONFIG = {
 			maxFiles: 3,
 			maxEstimatedLines: 0,
 			maxTurns: 5,
+			timeoutMs: 240000,
+		},
+		reviewer: {
+			agent: "reviewer",
+			description: "Read-only diff reviewer with feedback weight for cockpit routing.",
+			model: "",
+			tools: ["ls", "find", "grep", "read", "bash"],
+			thinking: "high",
+			maxFiles: 10,
+			maxEstimatedLines: 0,
+			maxTurns: 6,
 			timeoutMs: 240000,
 		},
 	},
@@ -124,11 +135,13 @@ const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 	const rawResearch = rawFlow(rawFlows, "research");
 	const rawNormal = rawFlow(rawFlows, "normal");
 	const rawPlanner = rawFlow(rawFlows, "planner");
+	const rawReviewer = rawFlow(rawFlows, "reviewer");
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
 	const baseResearch = base.delegateFlows.research;
 	const baseNormal = base.delegateFlows.normal;
 	const basePlanner = base.delegateFlows.planner;
+	const baseReviewer = base.delegateFlows.reviewer;
 
 	const instant = normalizeDelegateFlow(rawInstant, baseInstant, {
 		agent: stringArray(raw.agents, [baseInstant.agent])[0] ?? baseInstant.agent,
@@ -153,14 +166,18 @@ const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 		model: basePlanner.model,
 		thinking: stringValue(rawPlanner.thinking, basePlanner.thinking),
 	});
+	const reviewer = normalizeDelegateFlow(rawReviewer, baseReviewer, {
+		model: baseReviewer.model,
+		thinking: stringValue(rawReviewer.thinking, baseReviewer.thinking),
+	});
 	const agents = stringArray(raw.agents, []);
 
 	return {
 		...base,
 		...(raw as Partial<ConductorConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent])),
-		delegateFlows: { instant, fast, research, normal, planner },
+		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
+		delegateFlows: { instant, fast, research, normal, planner, reviewer },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),
