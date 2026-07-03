@@ -72,7 +72,7 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 Registered `/cockpit` subcommands:
 
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
-- `/cockpit setup` — select a base delegate model from Pi's model registry and save global config.
+- `/cockpit setup` — run the provider-neutral onboarding wizard: recommended local model for implementation workers, cloud model for judgment workers, strict mode prompt, and global config save.
 - `/cockpit route <task>` — analyze a task and print the selected route/profile.
 - `/cockpit codeflow <task>` — run the cockpit/oracle workflow: optional research, planner, selected executor, reviewer, and feedback routing.
 - `/cockpit instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
@@ -114,7 +114,7 @@ Important defaults:
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. Basic setup chooses one base delegate model for `instant`; `fast`, `research`, and `normal` inherit that model unless their flow config explicitly overrides `model`. `planner` and `reviewer` remain independently configurable and default to the current Pi model. Setup/status messaging recommends using a different reviewer model/provider than the coder.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, offers recommended/all-local/all-cloud/custom modes, prompts for strict mode, previews the delegate map, and saves on confirmation. Recommended setup maps implementation workers (`instant`, `fast`, `normal`) to a local model and judgment workers (`research`, `planner`, `reviewer`) to a cloud model.
 
 ## Routing model
 
@@ -188,7 +188,7 @@ Fast boundary: child may do targeted local discovery and write/edit the requeste
 `extensions/cockpit/delegates/research.ts`:
 
 - Requires a non-empty task.
-- Uses the same base delegate model chosen for instant/fast/normal, with `--thinking minimal`.
+- Usually uses the configured judgment model, with `--thinking minimal`.
 - Runs child Pi with no session, no skills/templates/context files, and a read-only tool allowlist: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`.
 - Does not pass `--no-extensions` so extension-provided web tools can be available, while `--tools` keeps the child constrained to the research allowlist.
 - Prompt instructs the child to inspect local code first, respect `.gitignore`, read at most 7 files fully, use web only for relevant external contracts/current docs, and return a structured Research Brief with confidence metadata, Evidence Quality, and Research Tour.
@@ -201,7 +201,7 @@ Research boundary: child is read-only and should produce evidence for the planne
 `extensions/cockpit/delegates/normal.ts`:
 
 - Requires a non-empty implementation plan or coding instruction.
-- Inherits the base delegate model by default, with `--thinking medium`.
+- Usually uses the configured implementation model, with `--thinking medium`.
 - Runs child Pi with no session/extensions/skills/templates/context files, configured model, and normal tools: `ls`, `find`, `grep`, `read`, `edit`, `write`, `bash`.
 - Prompt tells the child to act as a terse coding executor, follow planner Coder Instructions, avoid redesign/scope expansion, use edit/write for file changes, and use bash only for safe validation/read-only discovery.
 - Limits scope to at most configured file/line counts and asks for compact Summary / Files Changed / Validation / Deviations / Reviewer Handoff / Risks output so the reviewer gets a clean change summary and suggested review tour.

@@ -27,38 +27,146 @@ const instantResultText = (result: { blockedReason?: string; finalOutput: string
 const modelId = (model: { provider: string; id: string }) => `${model.provider}/${model.id}`;
 const fileFromPlan = (plan: string, config: CockpitConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
 
-async function chooseDelegateModel(ctx: { modelRegistry: { getAvailable(): Array<{ provider: string; id: string; name?: string }> }; ui: { select(title: string, options: string[]): Promise<string | undefined>; notify(message: string, level?: "info" | "warning" | "error" | "success"): void } }, config: CockpitConfig) {
+type AvailableModel = { provider: string; id: string; name?: string };
+type SetupContext = {
+	modelRegistry: { getAvailable(): AvailableModel[] };
+	ui: {
+		select(title: string, options: string[]): Promise<string | undefined>;
+		confirm(title: string, message?: string): Promise<boolean>;
+		notify(message: string, level?: "info" | "warning" | "error" | "success"): void;
+	};
+};
+
+const INHERIT_MODEL = "Inherit current Pi default";
+const SETUP_RECOMMENDED = "Recommended — local model implements, cloud model plans/researches/reviews";
+const SETUP_ALL_LOCAL = "All local — use a local model for every delegate";
+const SETUP_ALL_CLOUD = "All cloud — use a cloud model for every delegate";
+const SETUP_CUSTOM = "Custom — choose each delegate model";
+
+const localProviderPattern = /^(local|ollama|lmstudio|llama|llamacpp|llama\.cpp|kobold|vllm|mlx|jan|text-generation-webui)$/i;
+const cloudProviderPattern = /^(openai|anthropic|google|gemini|mistral|cohere|groq|xai|openrouter|azure|bedrock|vertex)$/i;
+const modelChoice = (model: AvailableModel) => `${modelId(model)}${model.name ? ` — ${model.name}` : ""}`;
+const selectedModelId = (selected: string): string => (selected === INHERIT_MODEL ? "" : selected.split(" — ")[0] ?? "");
+const modelLabel = (model: string): string => model || "inherit current Pi default";
+const isLocalModel = (model: AvailableModel): boolean => localProviderPattern.test(model.provider);
+const isCloudModel = (model: AvailableModel): boolean => cloudProviderPattern.test(model.provider) && !isLocalModel(model);
+
+async function chooseModel(ctx: SetupContext, title: string, models: AvailableModel[], allowInherit = true): Promise<string | undefined> {
+	const choices = [...(allowInherit ? [INHERIT_MODEL] : []), ...models.map(modelChoice)];
+	const selected = await ctx.ui.select(title, choices);
+	return selected ? selectedModelId(selected) : undefined;
+}
+
+function applySetup(config: CockpitConfig, options: { implementationModel: string; judgmentModel: string; strictMode: boolean }): CockpitConfig {
+	const { implementationModel, judgmentModel, strictMode } = options;
+	return {
+		...config,
+		strictMode,
+		delegateFlows: {
+			...config.delegateFlows,
+			instant: { ...config.delegateFlows.instant, model: implementationModel, thinking: "off" },
+			fast: { ...config.delegateFlows.fast, model: implementationModel, thinking: "low" },
+			normal: { ...config.delegateFlows.normal, model: implementationModel, thinking: "medium" },
+			research: { ...config.delegateFlows.research, model: judgmentModel, thinking: "minimal" },
+			planner: { ...config.delegateFlows.planner, model: judgmentModel, thinking: config.delegateFlows.planner.thinking },
+			reviewer: { ...config.delegateFlows.reviewer, model: judgmentModel, thinking: config.delegateFlows.reviewer.thinking },
+		},
+	};
+}
+
+async function chooseCustomSetup(ctx: SetupContext, config: CockpitConfig, models: AvailableModel[], strictMode: boolean): Promise<CockpitConfig | undefined> {
+	const instant = await chooseModel(ctx, "Choose model for instant implementation worker", models);
+	if (instant === undefined) return undefined;
+	const fast = await chooseModel(ctx, "Choose model for fast implementation worker", models);
+	if (fast === undefined) return undefined;
+	const normal = await chooseModel(ctx, "Choose model for normal implementation worker", models);
+	if (normal === undefined) return undefined;
+	const research = await chooseModel(ctx, "Choose model for research worker", models);
+	if (research === undefined) return undefined;
+	const planner = await chooseModel(ctx, "Choose model for planner worker", models);
+	if (planner === undefined) return undefined;
+	const reviewer = await chooseModel(ctx, "Choose model for reviewer worker", models);
+	if (reviewer === undefined) return undefined;
+
+	return {
+		...config,
+		strictMode,
+		delegateFlows: {
+			...config.delegateFlows,
+			instant: { ...config.delegateFlows.instant, model: instant, thinking: "off" },
+			fast: { ...config.delegateFlows.fast, model: fast, thinking: "low" },
+			normal: { ...config.delegateFlows.normal, model: normal, thinking: "medium" },
+			research: { ...config.delegateFlows.research, model: research, thinking: "minimal" },
+			planner: { ...config.delegateFlows.planner, model: planner, thinking: config.delegateFlows.planner.thinking },
+			reviewer: { ...config.delegateFlows.reviewer, model: reviewer, thinking: config.delegateFlows.reviewer.thinking },
+		},
+	};
+}
+
+async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise<CockpitConfig | undefined> {
 	const models = ctx.modelRegistry.getAvailable();
 	if (models.length === 0) {
-		ctx.ui.notify("No configured Pi models found. Use /login or configure models first, then run /cockpit setup.", "warning");
+		ctx.ui.notify("No configured Pi models found. Configure at least one model first, then run /cockpit setup.", "warning");
 		return undefined;
 	}
 
-	const inherit = "Inherit current Pi default";
-	const choices = [inherit, ...models.map((model) => `${modelId(model)}${model.name ? ` — ${model.name}` : ""}`)];
-	const selected = await ctx.ui.select("Choose the base delegate model (fast/research/normal inherit it)", choices);
-	if (!selected) return undefined;
+	const localModels = models.filter(isLocalModel);
+	const cloudModels = models.filter(isCloudModel);
+	ctx.ui.notify([
+		"Cockpit keeps the main chat as the Oracle / Control Room.",
+		"Delegates do isolated work: implementation workers edit code; judgment workers plan, research, and review.",
+		"Recommended setup: local model for implementation workers; cloud model for planning, research, and review.",
+		`Detected models: ${models.length} total, ${localModels.length} local-looking, ${cloudModels.length} cloud-looking.`,
+	].join("\n"), "info");
 
-	const model = selected === inherit ? "" : selected.split(" — ")[0];
-	return {
-		...config,
-		delegateFlows: {
-			...config.delegateFlows,
-			instant: { ...config.delegateFlows.instant, model, thinking: "off" },
-			fast: { ...config.delegateFlows.fast, model: "", thinking: "low" },
-			research: { ...config.delegateFlows.research, model: "", thinking: "minimal" },
-			normal: { ...config.delegateFlows.normal, model: "", thinking: "medium" },
-			planner: { ...config.delegateFlows.planner, thinking: config.delegateFlows.planner.thinking },
-			reviewer: { ...config.delegateFlows.reviewer, thinking: config.delegateFlows.reviewer.thinking },
-		},
-	};
+	const mode = await ctx.ui.select("Choose Cockpit setup mode", [SETUP_RECOMMENDED, SETUP_ALL_LOCAL, SETUP_ALL_CLOUD, SETUP_CUSTOM]);
+	if (!mode) return undefined;
+
+	const strictMode = await ctx.ui.confirm(
+		"Enable Cockpit strict mode?",
+		"Recommended: yes. Strict mode prevents the main chat from directly editing files, keeping the Oracle clean and forcing code mutation through delegates.",
+	);
+
+	let updated: CockpitConfig | undefined;
+	if (mode === SETUP_CUSTOM) {
+		updated = await chooseCustomSetup(ctx, config, models, strictMode);
+	} else {
+		const implementationPool = mode === SETUP_ALL_CLOUD ? cloudModels : mode === SETUP_ALL_LOCAL ? localModels : localModels;
+		const judgmentPool = mode === SETUP_ALL_LOCAL ? localModels : mode === SETUP_ALL_CLOUD ? cloudModels : cloudModels;
+		const implementationModel = await chooseModel(
+			ctx,
+			implementationPool.length > 0 ? "Choose local model for implementation workers" : "Choose model for implementation workers",
+			implementationPool.length > 0 ? implementationPool : models,
+		);
+		if (implementationModel === undefined) return undefined;
+		const judgmentModel = await chooseModel(
+			ctx,
+			judgmentPool.length > 0 ? "Choose cloud model for planning, research, and review" : "Choose model for planning, research, and review",
+			judgmentPool.length > 0 ? judgmentPool : models,
+		);
+		if (judgmentModel === undefined) return undefined;
+		updated = applySetup(config, { implementationModel, judgmentModel, strictMode });
+	}
+
+	if (!updated) return undefined;
+	const summary = [
+		"Cockpit setup summary:",
+		`instant    → ${modelLabel(updated.delegateFlows.instant.model)}`,
+		`fast       → ${modelLabel(updated.delegateFlows.fast.model)}`,
+		`normal     → ${modelLabel(updated.delegateFlows.normal.model)}`,
+		`research   → ${modelLabel(updated.delegateFlows.research.model)}`,
+		`planner    → ${modelLabel(updated.delegateFlows.planner.model)}`,
+		`reviewer   → ${modelLabel(updated.delegateFlows.reviewer.model)}`,
+		`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
+	].join("\n");
+	const confirmed = await ctx.ui.confirm("Save Cockpit setup?", summary);
+	return confirmed ? updated : undefined;
 }
 
 export default function cockpitExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-		const flow = config.delegateFlows.instant;
-		ctx.ui.setStatus("cockpit", `instant/fast/research/normal/planner/reviewer: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
+		ctx.ui.setStatus("cockpit", `impl: ${modelLabel(config.delegateFlows.normal.model)}; judgment: ${modelLabel(config.delegateFlows.reviewer.model)} ${config.strictMode ? "strict" : ""}`.trim());
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -90,16 +198,16 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
+						"Cockpit keeps the main chat as the Oracle / Control Room and routes work through isolated delegates.",
 						"Cockpit flows: instant, fast, research, normal, planner, reviewer.",
 						`Strict mode: ${config.strictMode ? "on" : "off"}`,
-						`Base delegate model: ${flow.model || "inherit current Pi default"}`,
-						`Planner model: ${plannerFlow.model || "inherit current Pi default"}`,
-						`Reviewer model: ${reviewerFlow.model || "inherit current Pi default"}`,
-						`Recommendation: use a different model/provider for reviewer than coder to catch blind spots.`,
-						`Instant: model ${flow.model || "default"}; thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
-						`Fast: model ${fastFlow.model || "default"}; thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
-						`Research: model ${researchFlow.model || "default"}; thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
-						`Normal: model ${normalFlow.model || "default"}; thinking ${normalFlow.thinking}; tools ${normalFlow.tools.join(", ")}; limit ${normalFlow.maxFiles} files, ~${normalFlow.maxEstimatedLines} lines`,
+						`Implementation workers: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}`,
+						`Judgment workers: research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}`,
+						`Recommendation: local model for implementation workers; cloud model for planning, research, and review.`,
+						`Instant: thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
+						`Fast: thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
+						`Research: thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
+						`Normal: thinking ${normalFlow.thinking}; tools ${normalFlow.tools.join(", ")}; limit ${normalFlow.maxFiles} files, ~${normalFlow.maxEstimatedLines} lines`,
 						`Planner: thinking ${plannerFlow.thinking}; tools ${plannerFlow.tools.join(", ")}; verification read budget ${plannerFlow.maxFiles} files`,
 						`Reviewer: thinking ${reviewerFlow.thinking}; tools ${reviewerFlow.tools.join(", ")}; review read budget ${reviewerFlow.maxFiles} files`,
 						`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
@@ -107,12 +215,18 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 
 				case "setup": {
-					const updated = await chooseDelegateModel(ctx, config);
+					const updated = await runSetupWizard(ctx, config);
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
-					const instant = updated.delegateFlows.instant;
-					ctx.ui.setStatus("cockpit", `instant/fast/research/normal/planner/reviewer: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
-					ctx.ui.notify(`Base delegate model ${instant.model || "will inherit the current Pi default"}; fast/research/normal inherit it by default with low/minimal/medium thinking. Planner and reviewer inherit the current Pi default unless configured separately. Recommended: use a different reviewer model/provider than coder. Saved ${path}`, "info");
+					ctx.ui.setStatus("cockpit", `impl: ${modelLabel(updated.delegateFlows.normal.model)}; judgment: ${modelLabel(updated.delegateFlows.reviewer.model)} ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.notify([
+						"Cockpit configured.",
+						`Config saved to: ${path}`,
+						`Implementation workers: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}`,
+						`Judgment workers: research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}`,
+						`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
+						`Try: /cockpit codeflow "Add retry handling to an existing workflow"`,
+					].join("\n"), "info");
 					return;
 				}
 
@@ -374,7 +488,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_normal",
 		label: "Normal Cockpit Delegate",
-		description: "Run the normal coding delegate: same base delegate model as fast, medium thinking, bounded implementation from a plan.",
+		description: "Run the normal coding delegate: implementation model, medium thinking, bounded implementation from a plan.",
 		promptSnippet: "Run a normal coding delegate flow",
 		promptGuidelines: [
 			"Use cockpit_normal after planning for bounded multi-file implementation work.",

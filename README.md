@@ -46,17 +46,17 @@ Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. 
 
 `instant` is the first delegate flow: the cockpit sends one simple plan plus the exact file, optionally a target line, and the worker runs with only `read` + `edit` by default so it can do the one change without scouting or expanding scope.
 
-`fast` uses the same model chosen for instant, turns thinking to `low`, and gets `ls`, `find`, `grep`, `read`, `write`, and `edit` so it can do small local discovery tasks like writing `CODEMAP.md` without bloating the cockpit.
+`fast` usually uses the same implementation model chosen for instant, turns thinking to `low`, and gets `ls`, `find`, `grep`, `read`, `write`, and `edit` so it can do small local discovery tasks like writing `CODEMAP.md` without bloating the cockpit.
 
-`research` also uses the base delegate model with minimal thinking, but is read-only. It gets `ls`, `find`, `grep`, `read`, and optional web tools (`web_search`, `web_fetch`) so it can produce a concise Research Brief for a planner without editing the repo.
+`research` usually uses the judgment model with minimal thinking, but is read-only. It gets `ls`, `find`, `grep`, `read`, and optional web tools (`web_search`, `web_fetch`) so it can produce a concise Research Brief for a planner without editing the repo.
 
 `planner` is read-only and high-reasoning. It takes the user task plus optional Research Brief and returns a bounded Implementation Plan for the coding agent, including files, steps, validation commands, risks, and stop conditions.
 
-`normal` reuses the base delegate model with medium thinking and a terse coding-executor prompt. It can edit/write files and run safe validation commands from the plan.
+`normal` usually uses the implementation model with medium thinking and a terse coding-executor prompt. It can edit/write files and run safe validation commands from the plan.
 
 `reviewer` is read-only and returns calibrated issues plus a feedback weight: `none`, `light`, `medium`, `heavy`, or `blocker`. The cockpit uses that weight to approve, send a small fix back to coder, replan, or ask the human.
 
 `codeflow` is the cockpit/oracle loop: it decides whether research is needed, runs planner, chooses `instant`/`fast`/`normal`, runs reviewer, and routes feedback through coder fixes, planner revision, or human decision.
 
 
-Run `/cockpit setup` to choose the base Pi model used by instant/fast/research/normal delegates. Planner and reviewer inherit the current Pi default unless configured separately. Thinking is forced per flow: instant off, research minimal, fast low, normal medium, planner xhigh, reviewer high. Recommended: use a different reviewer model/provider than the coder.
+Run `/cockpit setup` for the onboarding wizard. The recommended setup is provider-neutral: use a **local model** for implementation workers (`instant`, `fast`, `normal`) and a **cloud model** for judgment workers (`research`, `planner`, `reviewer`). Cockpit can also configure all-local, all-cloud, or fully custom mappings. Thinking is forced per flow: instant off, research minimal, fast low, normal medium, planner xhigh, reviewer high. Strict mode is recommended so the main chat stays the Oracle and delegates perform code mutation.

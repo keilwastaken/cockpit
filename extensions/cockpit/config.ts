@@ -42,7 +42,7 @@ const DEFAULT_CONFIG = {
 		},
 		normal: {
 			agent: "normal",
-			description: "Bounded coding executor using the base delegate model with medium thinking.",
+			description: "Bounded coding executor using the implementation model with medium thinking.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "edit", "write", "bash"],
 			thinking: "medium",
