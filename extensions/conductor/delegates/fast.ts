@@ -46,7 +46,7 @@ function validateFast(input: DelegateRunInput, config: ConductorConfig): string 
 	const riskyDomain = decision.signals.riskDomains.find((domain) => domain !== "architecture" && config.disallowDomains.includes(domain));
 
 	if (!plan) return "Fast delegate needs a cockpit plan.";
-	if (riskyDomain) return `Fast delegate refused risky domain: ${riskyDomain}. Keep this in the cockpit or use a careful flow later.`;
+	if (riskyDomain) return `Fast delegate refused risky domain: ${riskyDomain}. Keep this in the cockpit or use a heavier flow later.`;
 	return undefined;
 }
 

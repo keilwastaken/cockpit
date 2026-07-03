@@ -13,6 +13,7 @@ const HELP_TEXT = [
 	"- /conductor route <task>",
 	"- /conductor instant <simple plan mentioning one file>",
 	"- /conductor fast <small semantic task>",
+	"- /conductor research <task>",
 	"- /conductor strict on|off",
 ].join("\n");
 const instantResultText = (result: { blockedReason?: string; finalOutput: string; stderr: string }): string =>
@@ -40,6 +41,7 @@ async function chooseDelegateModel(ctx: { modelRegistry: { getAvailable(): Array
 			...config.delegateFlows,
 			instant: { ...config.delegateFlows.instant, model, thinking: "off" },
 			fast: { ...config.delegateFlows.fast, model, thinking: "low" },
+			research: { ...config.delegateFlows.research, model, thinking: "low" },
 		},
 	};
 }
@@ -48,7 +50,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 		const flow = config.delegateFlows.instant;
-		ctx.ui.setStatus("conductor", `instant/fast: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
+		ctx.ui.setStatus("conductor", `instant/fast/research: ${flow.model || "default"} ${config.strictMode ? "strict" : ""}`.trim());
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -71,16 +73,18 @@ export default function conductorExtension(pi: ExtensionAPI) {
 			const { config, paths } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const flow = config.delegateFlows.instant;
 			const fastFlow = config.delegateFlows.fast;
+			const researchFlow = config.delegateFlows.research;
 
 			switch (subcommand) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
-						"Conductor flows: instant, fast.",
+						"Conductor flows: instant, fast, research.",
 						`Strict mode: ${config.strictMode ? "on" : "off"}`,
 						`Delegate model: ${flow.model || "inherit current Pi default"}`,
 						`Instant: thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
 						`Fast: thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
+						`Research: thinking ${researchFlow.thinking}; tools ${researchFlow.tools.join(", ")}; read budget ${researchFlow.maxFiles} files`,
 						`Config paths: ${paths.length > 0 ? paths.join(", ") : "defaults only"}`,
 					].join("\n"), "info");
 					return;
@@ -90,8 +94,8 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
 					const instant = updated.delegateFlows.instant;
-					ctx.ui.setStatus("conductor", `instant/fast: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
-					ctx.ui.notify(`Delegate model ${instant.model || "will inherit the current Pi default"}; fast uses the same model, instant thinking is off, fast thinking is low. Saved ${path}`, "info");
+					ctx.ui.setStatus("conductor", `instant/fast/research: ${instant.model || "default"} ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.notify(`Delegate model ${instant.model || "will inherit the current Pi default"}; fast and research use the same model, instant thinking is off, fast/research thinking is low. Saved ${path}`, "info");
 					return;
 				}
 
@@ -132,6 +136,20 @@ export default function conductorExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "research": {
+					if (!body) {
+						ctx.ui.notify("Usage: /conductor research <task>", "warning");
+						return;
+					}
+					const result = await delegates.research.run({ plan: body }, config, {
+						cwd: ctx.cwd,
+						projectTrusted: ctx.isProjectTrusted(),
+						signal: ctx.signal,
+					});
+					ctx.ui.notify(instantResultText(result), result.exitCode === 0 && !result.blockedReason ? "info" : "warning");
+					return;
+				}
+
 				case "strict": {
 					const desired = body.toLowerCase();
 					if (desired !== "on" && desired !== "off") {
@@ -139,7 +157,7 @@ export default function conductorExtension(pi: ExtensionAPI) {
 						return;
 					}
 					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("conductor", `instant/fast: ${flow.model || "default"} strict ${desired}`);
+					ctx.ui.setStatus("conductor", `instant/fast/research: ${flow.model || "default"} strict ${desired}`);
 					ctx.ui.notify(`Conductor strict mode ${desired}; saved ${path}`, "info");
 					return;
 				}
@@ -201,6 +219,37 @@ export default function conductorExtension(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 			const result = await delegates.fast.run({ plan: params.plan, outputFile: params.outputFile }, config, {
+				cwd: ctx.cwd,
+				projectTrusted: ctx.isProjectTrusted(),
+				signal,
+				onUpdate,
+			});
+
+			return {
+				content: [{ type: "text", text: instantResultText(result) }],
+				details: result,
+				isError: result.exitCode !== 0 || Boolean(result.blockedReason),
+			};
+		},
+	});
+
+	pi.registerTool({
+		name: "conductor_research",
+		label: "Research Conductor Delegate",
+		description: "Run the read-only research delegate to produce a concise codebase brief for planner handoff, with optional web context when available.",
+		promptSnippet: "Run a research delegate flow",
+		promptGuidelines: [
+			"Use conductor_research as Node 1 before planning/coding when the planner needs codebase context.",
+			"Pass the user task compactly; the delegate will inspect local code first and use web only for relevant external contracts.",
+			"Treat the returned brief as evidence for the planner, not as absolute ground truth.",
+		],
+		parameters: Type.Object({
+			flow: Type.Optional(Type.Literal("research", { description: "Only research is supported" })),
+			plan: Type.String({ description: "User task or research question for the read-only research delegate" }),
+		}),
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
+			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+			const result = await delegates.research.run({ plan: params.plan }, config, {
 				cwd: ctx.cwd,
 				projectTrusted: ctx.isProjectTrusted(),
 				signal,

@@ -117,7 +117,7 @@ export function routeTask(task: string, config: ConductorConfig, forcedInstant =
 		return makeDecision("fast", config, signals, false, ["Task is small, semantic, and fits fast delegate thresholds."], risks);
 	}
 
-	return makeDecision("need-decision", config, signals, false, ["Clarify, use a more careful flow later, or handle this in the main chat."], risks);
+	return makeDecision("need-decision", config, signals, false, ["Clarify, use a heavier flow later, or handle this in the main chat."], risks);
 }
 
 export function formatDecision(decision: ReturnType<typeof routeTask>): string {
