@@ -1,4 +1,4 @@
-import type { ConductorConfig } from "./config.js";
+import type { CockpitConfig } from "./config.js";
 import { delegates } from "./delegates/registry.js";
 import type { DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./delegates/protocol.js";
 import { routeTask } from "./routing.js";
@@ -32,7 +32,7 @@ const outputSnippet = (text: string, maxLength = 4000): string =>
 
 const hasMarker = (text: string, marker: string): boolean => text.toLowerCase().includes(marker.toLowerCase());
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig): CodeflowRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig): CodeflowRunResult {
 	return {
 		flow: "codeflow",
 		plan: input.plan.trim(),
@@ -48,7 +48,7 @@ function baseResult(input: DelegateRunInput, config: ConductorConfig): CodeflowR
 	};
 }
 
-function shouldRunResearch(task: string, config: ConductorConfig): boolean {
+function shouldRunResearch(task: string, config: CockpitConfig): boolean {
 	const decision = routeTask(task, config);
 	const signals = decision.signals;
 	const externalKnowledge = /\b(api|sdk|framework|library|cloud|provider|plugin|webhook|oauth|stripe|aws|gcp|azure|error|deprecat|migration|version)\b/i.test(task);
@@ -81,13 +81,13 @@ function parseExecutor(plannerOutput: string): ExecutorName | undefined {
 	return value === "small" ? "fast" : (value as ExecutorName);
 }
 
-function fallbackExecutor(task: string, plan: string, config: ConductorConfig): ExecutorName {
+function fallbackExecutor(task: string, plan: string, config: CockpitConfig): ExecutorName {
 	const decision = routeTask(`${task}\n${plan}`, config);
 	if (decision.route === "instant" || decision.route === "fast" || decision.route === "normal") return decision.route;
 	return "normal";
 }
 
-function fileFromText(text: string, config: ConductorConfig): string {
+function fileFromText(text: string, config: CockpitConfig): string {
 	return routeTask(text, config, true).signals.mentionedFiles[0] ?? "";
 }
 
@@ -166,7 +166,7 @@ async function runExecutor(
 	task: string,
 	plannerOutput: string,
 	researchOutput: string | undefined,
-	config: ConductorConfig,
+	config: CockpitConfig,
 	context: DelegateRunContext,
 ): Promise<DelegateRunResult> {
 	const plan = buildExecutionPlan(task, plannerOutput, researchOutput);
@@ -179,7 +179,7 @@ async function runExecutor(
 	return delegates.normal.run({ plan }, config, context);
 }
 
-export async function runCodeflow(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
+export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
 	const task = input.plan.trim();
 	const result = baseResult(input, config);
 	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow needs a task." };

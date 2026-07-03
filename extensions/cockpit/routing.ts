@@ -1,8 +1,8 @@
-import type { ConductorConfig } from "./config.js";
+import type { CockpitConfig } from "./config.js";
 
 const FILE_PATTERN = /(?:^|\s)([\w@./-]+\.(?:ts|tsx|js|jsx|mjs|cjs|dart|py|rb|go|rs|java|kt|swift|md|json|yaml|yml|toml|css|scss|html|sh|sql))(?:\s|$|[,:;.])/g;
 const README_PATTERN = /\bREADME(?:\.md)?\b/i;
-const REPO_SCOPE_PATTERN = /\b(?:extensions\/|src\/|package\.json|README(?:\.md)?|conductor|this extension|this repo|this project|codebase)\b/i;
+const REPO_SCOPE_PATTERN = /\b(?:extensions\/|src\/|package\.json|README(?:\.md)?|cockpit|this extension|this repo|this project|codebase)\b/i;
 
 const DOMAIN_KEYWORDS: Array<[string, RegExp]> = [
 	["auth", /\b(auth|login|logout|oauth|session|token|permission|user role)\b/i],
@@ -19,7 +19,7 @@ const MECHANICAL_EDIT = /\b(rename|typo|copy|text|comment|format|one-line|small 
 
 const hasRepoScope = (text: string): boolean => REPO_SCOPE_PATTERN.test(text);
 
-type ConductorRoute = "instant" | "fast" | "normal" | "cockpit-only" | "need-decision";
+type CockpitRoute = "instant" | "fast" | "normal" | "cockpit-only" | "need-decision";
 
 function analyzeTask(task: string) {
 	const mentionedFiles = Array.from(task.matchAll(FILE_PATTERN), (match) => match[1]).filter(Boolean);
@@ -54,7 +54,7 @@ function missingContextQuestions(signals: TaskSignal): string[] {
 	return questions;
 }
 
-function confidenceFor(route: ConductorRoute, signals: TaskSignal, forced: boolean): number {
+function confidenceFor(route: CockpitRoute, signals: TaskSignal, forced: boolean): number {
 	let confidence = route === "instant" ? 0.9 : route === "fast" ? 0.8 : route === "normal" ? 0.7 : route === "cockpit-only" ? 0.75 : 0.45;
 	if (forced) confidence = Math.min(confidence, 0.65);
 	if (signals.isAmbiguous) confidence -= 0.25;
@@ -68,25 +68,25 @@ function suggestedRefinement(task: string, signals: TaskSignal): string | undefi
 	return `Please ${task.trim()} in <one specific file>; keep the diff minimal; run the narrowest obvious validation; stop if broader decisions are needed.`;
 }
 
-function fitsInstant(signals: TaskSignal, config: ConductorConfig): boolean {
+function fitsInstant(signals: TaskSignal, config: CockpitConfig): boolean {
 	const flow = config.delegateFlows.instant;
 	const disallowedDomain = signals.riskDomains.find((domain) => config.disallowDomains.includes(domain));
 	return !signals.isAmbiguous && !disallowedDomain && signals.estimatedFiles <= flow.maxFiles && signals.estimatedLines <= flow.maxEstimatedLines;
 }
 
-function fitsFast(signals: TaskSignal, config: ConductorConfig): boolean {
+function fitsFast(signals: TaskSignal, config: CockpitConfig): boolean {
 	const flow = config.delegateFlows.fast;
 	const disallowedDomain = signals.riskDomains.find((domain) => domain !== "architecture" && config.disallowDomains.includes(domain));
 	return !signals.isAmbiguous && !disallowedDomain && signals.estimatedFiles <= flow.maxFiles && signals.estimatedLines <= flow.maxEstimatedLines;
 }
 
-function fitsNormal(signals: TaskSignal, config: ConductorConfig): boolean {
+function fitsNormal(signals: TaskSignal, config: CockpitConfig): boolean {
 	const flow = config.delegateFlows.normal;
 	const disallowedDomain = signals.riskDomains.find((domain) => config.disallowDomains.includes(domain));
 	return !signals.isAmbiguous && !disallowedDomain && signals.estimatedFiles <= flow.maxFiles && signals.estimatedLines <= flow.maxEstimatedLines;
 }
 
-function makeDecision(route: ConductorRoute, config: ConductorConfig, signals: TaskSignal, forced = false, reasons: string[] = [], risks: string[] = []) {
+function makeDecision(route: CockpitRoute, config: CockpitConfig, signals: TaskSignal, forced = false, reasons: string[] = [], risks: string[] = []) {
 	const tier = route === "instant" || route === "fast" || route === "normal" ? route : undefined;
 	return {
 		route,
@@ -102,7 +102,7 @@ function makeDecision(route: ConductorRoute, config: ConductorConfig, signals: T
 	};
 }
 
-export function routeTask(task: string, config: ConductorConfig, forcedInstant = false) {
+export function routeTask(task: string, config: CockpitConfig, forcedInstant = false) {
 	const signals = analyzeTask(task);
 	const risks = signals.riskDomains.map((domain) => `Risk domain detected: ${domain}`);
 	if (signals.isQuestionOnly) risks.push("Task is question-oriented; delegation may add overhead.");

@@ -1,8 +1,8 @@
-import type { ConductorConfig } from "../config.js";
+import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
-function buildReviewerPrompt(reviewRequest: string, config: ConductorConfig): string {
+function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig): string {
 	const flow = config.delegateFlows.reviewer;
 	return [
 		"Reviewer delegate. You are a read-only senior code reviewer for completed agent work.",
@@ -69,7 +69,7 @@ function buildReviewerPrompt(reviewRequest: string, config: ConductorConfig): st
 	].join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig): DelegateRunResult {
 	return {
 		flow: "reviewer",
 		plan: input.plan.trim(),
@@ -86,9 +86,9 @@ function validateReviewer(input: DelegateRunInput): string | undefined {
 	return undefined;
 }
 
-export const reviewerDelegate: DelegateFlow<ConductorConfig> = {
+export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 	name: "reviewer",
-	async run(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
+	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.reviewer;
 		const result = baseResult(input, config);
 		const blockedReason = validateReviewer(input);

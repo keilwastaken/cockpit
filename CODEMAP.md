@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-`pi-conductor` is a small TypeScript Pi package that adds a Conductor extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports six delegate flows:
+`pi-cockpit` is a small TypeScript Pi package that adds a Cockpit extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports six delegate flows:
 
 - `instant` — tightly scoped one-file edits from a cockpit-supplied plan.
 - `fast` — small semantic tasks with limited local discovery, intended for work like codemaps.
@@ -16,7 +16,7 @@
 ```text
 .
 ├── extensions/
-│   └── conductor/
+│   └── cockpit/
 │       ├── index.ts                 # Pi extension entrypoint: events, commands, tools
 │       ├── config.ts                # defaults, config loading/merging/saving
 │       ├── codeflow.ts              # cockpit/oracle orchestration flow
@@ -54,52 +54,52 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 
 ### Extension entrypoint
 
-`extensions/conductor/index.ts` exports the default Pi extension function. It wires up:
+`extensions/cockpit/index.ts` exports the default Pi extension function. It wires up:
 
 - `session_start` event: loads config and sets a status item showing the selected delegate model and strict-mode state.
 - `tool_call` event: applies `shouldBlockToolCall()` to enforce instant-delegate restrictions or global strict mode.
-- `/conductor` command: user command with subcommands for setup, status, routing, direct delegate runs, and strict mode.
-- `conductor_codeflow` tool: tool-facing cockpit/oracle codeflow runner.
-- `conductor_delegate` tool: tool-facing instant delegate runner.
-- `conductor_fast` tool: tool-facing fast delegate runner.
-- `conductor_research` tool: tool-facing read-only research delegate runner.
-- `conductor_normal` tool: tool-facing normal coding delegate runner.
-- `conductor_plan` tool: tool-facing read-only planner delegate runner.
-- `conductor_review` tool: tool-facing read-only reviewer delegate runner.
+- `/cockpit` command: user command with subcommands for setup, status, routing, direct delegate runs, and strict mode.
+- `cockpit_codeflow` tool: tool-facing cockpit/oracle codeflow runner.
+- `cockpit_delegate` tool: tool-facing instant delegate runner.
+- `cockpit_fast` tool: tool-facing fast delegate runner.
+- `cockpit_research` tool: tool-facing read-only research delegate runner.
+- `cockpit_normal` tool: tool-facing normal coding delegate runner.
+- `cockpit_plan` tool: tool-facing read-only planner delegate runner.
+- `cockpit_review` tool: tool-facing read-only reviewer delegate runner.
 
 ## Commands and tools
 
-Registered `/conductor` subcommands:
+Registered `/cockpit` subcommands:
 
-- `/conductor status` or `/conductor config` — show flow settings, limits, tools, and loaded config paths.
-- `/conductor setup` — select a base delegate model from Pi's model registry and save global config.
-- `/conductor route <task>` — analyze a task and print the selected route/profile.
-- `/conductor codeflow <task>` — run the cockpit/oracle workflow: optional research, planner, selected executor, reviewer, and feedback routing.
-- `/conductor instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
-- `/conductor fast <task>` — run the fast delegate directly.
-- `/conductor research <task>` — run the read-only research delegate directly.
-- `/conductor normal <implementation plan>` — run the normal coding delegate directly.
-- `/conductor plan <task + optional research brief>` — run the read-only planner delegate directly.
-- `/conductor review <task + plan + change summary>` — run the read-only reviewer delegate directly.
-- `/conductor strict on|off` — toggle strict-mode mutation guards in global config.
+- `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
+- `/cockpit setup` — select a base delegate model from Pi's model registry and save global config.
+- `/cockpit route <task>` — analyze a task and print the selected route/profile.
+- `/cockpit codeflow <task>` — run the cockpit/oracle workflow: optional research, planner, selected executor, reviewer, and feedback routing.
+- `/cockpit instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
+- `/cockpit fast <task>` — run the fast delegate directly.
+- `/cockpit research <task>` — run the read-only research delegate directly.
+- `/cockpit normal <implementation plan>` — run the normal coding delegate directly.
+- `/cockpit plan <task + optional research brief>` — run the read-only planner delegate directly.
+- `/cockpit review <task + plan + change summary>` — run the read-only reviewer delegate directly.
+- `/cockpit strict on|off` — toggle strict-mode mutation guards in global config.
 
 Registered tools:
 
-- `conductor_codeflow` — accepts `plan` and optional `flow: "codeflow"`; runs the cockpit/oracle workflow.
-- `conductor_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; runs `delegates.instant`.
-- `conductor_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; runs `delegates.fast`.
-- `conductor_research` — accepts `plan` and optional `flow: "research"`; runs `delegates.research`.
-- `conductor_normal` — accepts `plan` and optional `flow: "normal"`; runs `delegates.normal`.
-- `conductor_plan` — accepts `plan` and optional `flow: "planner"`; runs `delegates.planner`.
-- `conductor_review` — accepts `plan` and optional `flow: "reviewer"`; runs `delegates.reviewer`.
+- `cockpit_codeflow` — accepts `plan` and optional `flow: "codeflow"`; runs the cockpit/oracle workflow.
+- `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; runs `delegates.instant`.
+- `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; runs `delegates.fast`.
+- `cockpit_research` — accepts `plan` and optional `flow: "research"`; runs `delegates.research`.
+- `cockpit_normal` — accepts `plan` and optional `flow: "normal"`; runs `delegates.normal`.
+- `cockpit_plan` — accepts `plan` and optional `flow: "planner"`; runs `delegates.planner`.
+- `cockpit_review` — accepts `plan` and optional `flow: "reviewer"`; runs `delegates.reviewer`.
 
 ## Configuration flow
 
-`extensions/conductor/config.ts` defines `DEFAULT_CONFIG` and the config lifecycle:
+`extensions/cockpit/config.ts` defines `DEFAULT_CONFIG` and the config lifecycle:
 
 1. Start from defaults.
-2. Load global config from `~/<Pi config dir>/conductor/config.json`.
-3. If the project is trusted, merge project config from `<cwd>/<Pi config dir>/conductor/config.json`.
+2. Load global config from `~/<Pi config dir>/cockpit/config.json`.
+3. If the project is trusted, merge project config from `<cwd>/<Pi config dir>/cockpit/config.json`.
 4. Normalize flow fields, tools, limits, and model inheritance.
 
 Important defaults:
@@ -114,11 +114,11 @@ Important defaults:
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/conductor setup` saves only global config through `saveGlobalConfig()`. Basic setup chooses one base delegate model for `instant`; `fast`, `research`, and `normal` inherit that model unless their flow config explicitly overrides `model`. `planner` and `reviewer` remain independently configurable and default to the current Pi model. Setup/status messaging recommends using a different reviewer model/provider than the coder.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. Basic setup chooses one base delegate model for `instant`; `fast`, `research`, and `normal` inherit that model unless their flow config explicitly overrides `model`. `planner` and `reviewer` remain independently configurable and default to the current Pi model. Setup/status messaging recommends using a different reviewer model/provider than the coder.
 
 ## Routing model
 
-`extensions/conductor/routing.ts` performs lightweight semantic routing:
+`extensions/cockpit/routing.ts` performs lightweight semantic routing:
 
 - Extracts mentioned files from common source/docs/config extensions and README references.
 - Detects risk domains using keyword regexes.
@@ -139,7 +139,7 @@ Routes:
 
 ### Codeflow orchestrator
 
-`extensions/conductor/codeflow.ts` is the cockpit/oracle workflow runner. It is not a child model role; it coordinates existing delegates:
+`extensions/cockpit/codeflow.ts` is the cockpit/oracle workflow runner. It is not a child model role; it coordinates existing delegates:
 
 1. Decide whether research is needed from routing signals, missing files, risk domains, and external-knowledge hints.
 2. Run `research` when useful, then run `planner`.
@@ -153,16 +153,16 @@ Codeflow caps coder fix attempts at 2 and planner revisions at 1 for the initial
 
 ### Shared protocol
 
-`extensions/conductor/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, `delegates.normal`, `delegates.planner`, and `delegates.reviewer`.
+`extensions/cockpit/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, `delegates.normal`, `delegates.planner`, and `delegates.reviewer`.
 
 ### Child Pi runner
 
-`extensions/conductor/delegates/child-pi.ts` starts a child Pi process with JSON mode, captures assistant `message_end` text as the final output, collects stderr, supports delegate-specific environment variables, and enforces timeout/abort behavior. It chooses the invocation from the current executable/script when possible, otherwise falls back to `pi`.
+`extensions/cockpit/delegates/child-pi.ts` starts a child Pi process with JSON mode, captures assistant `message_end` text as the final output, collects stderr, supports delegate-specific environment variables, and enforces timeout/abort behavior. It chooses the invocation from the current executable/script when possible, otherwise falls back to `pi`.
 
 
 ### Instant delegate
 
-`extensions/conductor/delegates/instant.ts`:
+`extensions/cockpit/delegates/instant.ts`:
 
 - Requires a non-empty plan and exactly one allowed file.
 - Refuses configured disallowed domains.
@@ -173,7 +173,7 @@ Instant boundary: child scope is a cockpit-supplied plan plus allowed file(s).
 
 ### Fast delegate
 
-`extensions/conductor/delegates/fast.ts`:
+`extensions/cockpit/delegates/fast.ts`:
 
 - Requires a non-empty plan.
 - Refuses risky domains except architecture is allowed through the fast validator for routing purposes.
@@ -185,7 +185,7 @@ Fast boundary: child may do targeted local discovery and write/edit the requeste
 
 ### Research delegate
 
-`extensions/conductor/delegates/research.ts`:
+`extensions/cockpit/delegates/research.ts`:
 
 - Requires a non-empty task.
 - Uses the same base delegate model chosen for instant/fast/normal, with `--thinking minimal`.
@@ -198,7 +198,7 @@ Research boundary: child is read-only and should produce evidence for the planne
 
 ### Normal delegate
 
-`extensions/conductor/delegates/normal.ts`:
+`extensions/cockpit/delegates/normal.ts`:
 
 - Requires a non-empty implementation plan or coding instruction.
 - Inherits the base delegate model by default, with `--thinking medium`.
@@ -210,7 +210,7 @@ Normal boundary: child may make bounded source/test changes from a plan and run 
 
 ### Planner delegate
 
-`extensions/conductor/delegates/planner.ts`:
+`extensions/cockpit/delegates/planner.ts`:
 
 - Requires a non-empty task and/or Research Brief.
 - Defaults to inheriting the current Pi default model rather than the fast delegate model, with `--thinking xhigh`.
@@ -223,7 +223,7 @@ Planner boundary: child should produce a bounded plan for the coding agent, incl
 
 ### Reviewer delegate
 
-`extensions/conductor/delegates/reviewer.ts`:
+`extensions/cockpit/delegates/reviewer.ts`:
 
 - Requires non-empty review context: original task, plan/requirements, coder summary, validation, and optionally a base/head git range.
 - Defaults to the current Pi model with `--thinking high`; setup recommends using a different model/provider than the coder to catch blind spots.
@@ -236,7 +236,7 @@ Reviewer boundary: child does not fix code. It produces issue evidence plus a re
 
 ## Safety behavior
 
-`extensions/conductor/safety.ts` currently only enforces strict mode in the cockpit session. When strict mode is on, direct `edit`/`write` tools are blocked and risky shell mutation patterns are blocked, including forbidden git commands, deploy/publish/apply/destroy commands, `rm -rf`, shell redirection writes, in-place sed/perl, and inline Python/Node file mutation.
+`extensions/cockpit/safety.ts` currently only enforces strict mode in the cockpit session. When strict mode is on, direct `edit`/`write` tools are blocked and risky shell mutation patterns are blocked, including forbidden git commands, deploy/publish/apply/destroy commands, `rm -rf`, shell redirection writes, in-place sed/perl, and inline Python/Node file mutation.
 
 ## Development commands
 
@@ -262,7 +262,7 @@ No test files or test runner configuration were found in the tracked project str
 
 When adding behavior:
 
-- Command/tool registration usually starts in `extensions/conductor/index.ts`.
+- Command/tool registration usually starts in `extensions/cockpit/index.ts`.
 - Flow defaults and limits belong in `config.ts`.
 - Routing heuristics belong in `routing.ts`.
 - Process execution concerns belong in `delegates/child-pi.ts`.

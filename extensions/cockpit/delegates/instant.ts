@@ -1,4 +1,4 @@
-import type { ConductorConfig } from "../config.js";
+import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import { runChildPi } from "./child-pi.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
@@ -8,7 +8,7 @@ const uniqueStrings = (values: readonly string[] | undefined): string[] =>
 		file === "README" ? "README.md" : file,
 	);
 
-function buildInstantPrompt(plan: string, allowedFiles: readonly string[], line: number | undefined, config: ConductorConfig): string {
+function buildInstantPrompt(plan: string, allowedFiles: readonly string[], line: number | undefined, config: CockpitConfig): string {
 	const flow = config.delegateFlows.instant;
 	const bashEnabled = flow.tools.includes("bash");
 	return [
@@ -24,7 +24,7 @@ function buildInstantPrompt(plan: string, allowedFiles: readonly string[], line:
 	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig, allowedFiles: string[]): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig, allowedFiles: string[]): DelegateRunResult {
 	return {
 		flow: "instant",
 		plan: input.plan.trim(),
@@ -37,7 +37,7 @@ function baseResult(input: DelegateRunInput, config: ConductorConfig, allowedFil
 	};
 }
 
-function validateInstant(input: DelegateRunInput, config: ConductorConfig, allowedFiles: string[]): string | undefined {
+function validateInstant(input: DelegateRunInput, config: CockpitConfig, allowedFiles: string[]): string | undefined {
 	const plan = input.plan.trim();
 	const flow = config.delegateFlows.instant;
 	const decision = routeTask(plan, config, true);
@@ -50,9 +50,9 @@ function validateInstant(input: DelegateRunInput, config: ConductorConfig, allow
 	return undefined;
 }
 
-export const instantDelegate: DelegateFlow<ConductorConfig> = {
+export const instantDelegate: DelegateFlow<CockpitConfig> = {
 	name: "instant",
-	async run(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
+	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.instant;
 		const allowedFiles = uniqueStrings(input.file ? [input.file] : []);
 		const result = baseResult(input, config, allowedFiles);

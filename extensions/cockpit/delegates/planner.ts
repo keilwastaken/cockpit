@@ -1,8 +1,8 @@
-import type { ConductorConfig } from "../config.js";
+import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
-function buildPlannerPrompt(taskAndResearch: string, config: ConductorConfig): string {
+function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfig): string {
 	const flow = config.delegateFlows.planner;
 	return [
 		"Planner delegate. Convert the user task and any Research Brief into a precise implementation plan for a coding agent.",
@@ -65,7 +65,7 @@ function buildPlannerPrompt(taskAndResearch: string, config: ConductorConfig): s
 	].join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig): DelegateRunResult {
 	return {
 		flow: "planner",
 		plan: input.plan.trim(),
@@ -82,9 +82,9 @@ function validatePlanner(input: DelegateRunInput): string | undefined {
 	return undefined;
 }
 
-export const plannerDelegate: DelegateFlow<ConductorConfig> = {
+export const plannerDelegate: DelegateFlow<CockpitConfig> = {
 	name: "planner",
-	async run(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
+	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.planner;
 		const result = baseResult(input, config);
 		const blockedReason = validatePlanner(input);

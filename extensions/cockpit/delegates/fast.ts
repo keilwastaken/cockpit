@@ -1,4 +1,4 @@
-import type { ConductorConfig } from "../config.js";
+import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import { runChildPi } from "./child-pi.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
@@ -12,7 +12,7 @@ function outputFileFor(input: DelegateRunInput): string | undefined {
 	return normalized === "CODEMAP" ? DEFAULT_OUTPUT_FILE : normalized;
 }
 
-function buildFastPrompt(plan: string, outputFile: string | undefined, config: ConductorConfig): string {
+function buildFastPrompt(plan: string, outputFile: string | undefined, config: CockpitConfig): string {
 	const flow = config.delegateFlows.fast;
 	return [
 		"Fast delegate. Do a small semantic coding/documentation task in this child context.",
@@ -29,7 +29,7 @@ function buildFastPrompt(plan: string, outputFile: string | undefined, config: C
 	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig, outputFile: string | undefined): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig, outputFile: string | undefined): DelegateRunResult {
 	return {
 		flow: "fast",
 		plan: input.plan.trim(),
@@ -42,7 +42,7 @@ function baseResult(input: DelegateRunInput, config: ConductorConfig, outputFile
 	};
 }
 
-function validateFast(input: DelegateRunInput, config: ConductorConfig): string | undefined {
+function validateFast(input: DelegateRunInput, config: CockpitConfig): string | undefined {
 	const plan = input.plan.trim();
 	const decision = routeTask(plan, config, false);
 	const riskyDomain = decision.signals.riskDomains.find((domain) => domain !== "architecture" && config.disallowDomains.includes(domain));
@@ -52,9 +52,9 @@ function validateFast(input: DelegateRunInput, config: ConductorConfig): string 
 	return undefined;
 }
 
-export const fastDelegate: DelegateFlow<ConductorConfig> = {
+export const fastDelegate: DelegateFlow<CockpitConfig> = {
 	name: "fast",
-	async run(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
+	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.fast;
 		const outputFile = outputFileFor(input);
 		const result = baseResult(input, config, outputFile);

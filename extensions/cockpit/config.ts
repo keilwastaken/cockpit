@@ -80,11 +80,11 @@ const DEFAULT_CONFIG = {
 	forbiddenCommands: ["commit", "push", "deploy", "publish", "reset", "clean"],
 };
 
-export type ConductorConfig = typeof DEFAULT_CONFIG;
-type DelegateFlowConfig = ConductorConfig["delegateFlows"][keyof ConductorConfig["delegateFlows"]];
+export type CockpitConfig = typeof DEFAULT_CONFIG;
+type DelegateFlowConfig = CockpitConfig["delegateFlows"][keyof CockpitConfig["delegateFlows"]];
 
-const globalConfigPath = () => join(homedir(), CONFIG_DIR_NAME, "conductor", "config.json");
-const projectConfigPath = (cwd: string) => join(cwd, CONFIG_DIR_NAME, "conductor", "config.json");
+const globalConfigPath = () => join(homedir(), CONFIG_DIR_NAME, "cockpit", "config.json");
+const projectConfigPath = (cwd: string) => join(cwd, CONFIG_DIR_NAME, "cockpit", "config.json");
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 const stringArray = (value: unknown, fallback: string[]): string[] => {
@@ -126,7 +126,7 @@ function normalizeDelegateFlow(
 	};
 }
 
-const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
+const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	if (!isRecord(raw)) return structuredClone(base);
 
 	const rawFlows = isRecord(raw.delegateFlows) ? raw.delegateFlows : {};
@@ -174,7 +174,7 @@ const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 
 	return {
 		...base,
-		...(raw as Partial<ConductorConfig>),
+		...(raw as Partial<CockpitConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
 		agents: Array.from(new Set([...agents, instant.agent, fast.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
 		delegateFlows: { instant, fast, research, normal, planner, reviewer },
@@ -190,11 +190,11 @@ async function readJson(path: string): Promise<unknown | undefined> {
 		return JSON.parse(await readFile(path, "utf8"));
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-		throw new Error(`Could not read Conductor config at ${path}: ${(error as Error).message}`);
+		throw new Error(`Could not read Cockpit config at ${path}: ${(error as Error).message}`);
 	}
 }
 
-export async function loadConfig(cwd: string, projectTrusted: boolean): Promise<{ config: ConductorConfig; paths: string[] }> {
+export async function loadConfig(cwd: string, projectTrusted: boolean): Promise<{ config: CockpitConfig; paths: string[] }> {
 	let config = structuredClone(DEFAULT_CONFIG);
 	const paths: string[] = [];
 	for (const path of [globalConfigPath(), projectTrusted ? projectConfigPath(cwd) : undefined]) {
@@ -207,7 +207,7 @@ export async function loadConfig(cwd: string, projectTrusted: boolean): Promise<
 	return { config, paths };
 }
 
-export async function saveGlobalConfig(config: ConductorConfig): Promise<string> {
+export async function saveGlobalConfig(config: CockpitConfig): Promise<string> {
 	const path = globalConfigPath();
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, `${JSON.stringify(config, null, "\t")}\n`, "utf8");

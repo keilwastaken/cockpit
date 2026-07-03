@@ -1,7 +1,7 @@
 {
-  "name": "pi-conductor",
+  "name": "cockpit",
   "version": "0.1.0",
-  "description": "A tiny Pi instant delegation router.",
+  "description": "Pi Cockpit: orchestrating research, planning, execution, and review.",
   "type": "module",
   "keywords": [
     "pi-package",

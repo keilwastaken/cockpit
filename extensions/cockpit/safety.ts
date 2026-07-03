@@ -1,4 +1,4 @@
-import type { ConductorConfig } from "./config.js";
+import type { CockpitConfig } from "./config.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === "object" && !Array.isArray(value));
 
@@ -20,27 +20,27 @@ function shellSegments(command: string): string[] {
 		.filter(Boolean);
 }
 
-function blockedShellReason(command: string, config: ConductorConfig): string | undefined {
+function blockedShellReason(command: string, config: CockpitConfig): string | undefined {
 	const forbidden = new Set(config.forbiddenCommands.map((entry) => entry.toLowerCase()));
 	for (const segment of shellSegments(command)) {
 		const gitMatch = segment.match(GIT_FORBIDDEN);
-		if (gitMatch && forbidden.has(gitMatch[1].toLowerCase())) return `Conductor strict mode blocked forbidden git command: git ${gitMatch[1]}`;
-		if ((forbidden.has("deploy") || forbidden.has("publish")) && DEPLOY_OR_PUBLISH.test(segment)) return "Conductor strict mode blocked deploy/publish command pattern.";
-		if (RM_RF.test(segment)) return "Conductor strict mode blocked rm -rf usage.";
-		if (REDIRECTING_WRITE.test(segment)) return "Conductor strict mode blocked shell redirection that can mutate files.";
-		if (IN_PLACE_SED.test(segment)) return "Conductor strict mode blocked in-place sed edits.";
-		if (IN_PLACE_PERL.test(segment)) return "Conductor strict mode blocked in-place perl edits.";
-		if (PYTHON_FILE_MUTATION.test(segment)) return "Conductor strict mode blocked inline python file mutation.";
-		if (NODE_FILE_MUTATION.test(segment)) return "Conductor strict mode blocked inline node file mutation.";
+		if (gitMatch && forbidden.has(gitMatch[1].toLowerCase())) return `Cockpit strict mode blocked forbidden git command: git ${gitMatch[1]}`;
+		if ((forbidden.has("deploy") || forbidden.has("publish")) && DEPLOY_OR_PUBLISH.test(segment)) return "Cockpit strict mode blocked deploy/publish command pattern.";
+		if (RM_RF.test(segment)) return "Cockpit strict mode blocked rm -rf usage.";
+		if (REDIRECTING_WRITE.test(segment)) return "Cockpit strict mode blocked shell redirection that can mutate files.";
+		if (IN_PLACE_SED.test(segment)) return "Cockpit strict mode blocked in-place sed edits.";
+		if (IN_PLACE_PERL.test(segment)) return "Cockpit strict mode blocked in-place perl edits.";
+		if (PYTHON_FILE_MUTATION.test(segment)) return "Cockpit strict mode blocked inline python file mutation.";
+		if (NODE_FILE_MUTATION.test(segment)) return "Cockpit strict mode blocked inline node file mutation.";
 	}
 	return undefined;
 }
 
-export function shouldBlockToolCall(event: { toolName?: string; input?: unknown }, config: ConductorConfig, _cwd = process.cwd()): string | undefined {
+export function shouldBlockToolCall(event: { toolName?: string; input?: unknown }, config: CockpitConfig, _cwd = process.cwd()): string | undefined {
 	if (!config.strictMode) return undefined;
 	const toolName = event.toolName;
 	if (toolName === "edit" || toolName === "write") {
-		return "Conductor strict mode is on. Code mutation should be routed through Conductor delegation instead of direct edit/write tools.";
+		return "Cockpit strict mode is on. Code mutation should be routed through Cockpit delegation instead of direct edit/write tools.";
 	}
 	if (toolName === "bash" && isRecord(event.input)) {
 		const command = typeof event.input.command === "string" ? event.input.command : "";

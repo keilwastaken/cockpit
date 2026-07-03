@@ -1,8 +1,8 @@
-import type { ConductorConfig } from "../config.js";
+import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
-function buildNormalPrompt(plan: string, config: ConductorConfig): string {
+function buildNormalPrompt(plan: string, config: CockpitConfig): string {
 	const flow = config.delegateFlows.normal;
 	return [
 		"Normal delegate. You are a bounded coding executor for an implementation plan.",
@@ -21,7 +21,7 @@ function buildNormalPrompt(plan: string, config: ConductorConfig): string {
 	].join("\n");
 }
 
-function baseResult(input: DelegateRunInput, config: ConductorConfig): DelegateRunResult {
+function baseResult(input: DelegateRunInput, config: CockpitConfig): DelegateRunResult {
 	return {
 		flow: "normal",
 		plan: input.plan.trim(),
@@ -38,9 +38,9 @@ function validateNormal(input: DelegateRunInput): string | undefined {
 	return undefined;
 }
 
-export const normalDelegate: DelegateFlow<ConductorConfig> = {
+export const normalDelegate: DelegateFlow<CockpitConfig> = {
 	name: "normal",
-	async run(input: DelegateRunInput, config: ConductorConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
+	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.normal;
 		const result = baseResult(input, config);
 		const blockedReason = validateNormal(input);

@@ -1,4 +1,4 @@
-# pi-conductor
+# pi-cockpit
 
 Small Pi delegation router.
 
@@ -8,28 +8,28 @@ This project is a small Pi delegation router:
 
 - `package.json` — package metadata and scripts.
 - `tsconfig.json` — TypeScript compiler settings.
-- `extensions/conductor/index.ts` — Pi extension entry point and command/tool registration.
-- `extensions/conductor/codeflow.ts` — cockpit/oracle workflow orchestration.
-- `extensions/conductor/config.ts` — conductor configuration helpers.
-- `extensions/conductor/delegates/` — delegate protocol, registry, child Pi runner, and flow implementations.
-- `extensions/conductor/routing.ts` — routing decisions for delegate eligibility.
-- `extensions/conductor/safety.ts` — safety checks for low-risk edits.
+- `extensions/cockpit/index.ts` — Pi extension entry point and command/tool registration.
+- `extensions/cockpit/codeflow.ts` — cockpit/oracle workflow orchestration.
+- `extensions/cockpit/config.ts` — cockpit configuration helpers.
+- `extensions/cockpit/delegates/` — delegate protocol, registry, child Pi runner, and flow implementations.
+- `extensions/cockpit/routing.ts` — routing decisions for delegate eligibility.
+- `extensions/cockpit/safety.ts` — safety checks for low-risk edits.
 
 Commands:
 
-- `/conductor status`
-- `/conductor setup`
-- `/conductor route <task>`
-- `/conductor codeflow <task>`
-- `/conductor instant <simple plan mentioning one file>`
-- `/conductor fast <small semantic task>`
-- `/conductor research <task>`
-- `/conductor normal <implementation plan>`
-- `/conductor plan <task + optional research brief>`
-- `/conductor review <task + plan + change summary>`
-- `/conductor strict on|off`
+- `/cockpit status`
+- `/cockpit setup`
+- `/cockpit route <task>`
+- `/cockpit codeflow <task>`
+- `/cockpit instant <simple plan mentioning one file>`
+- `/cockpit fast <small semantic task>`
+- `/cockpit research <task>`
+- `/cockpit normal <implementation plan>`
+- `/cockpit plan <task + optional research brief>`
+- `/cockpit review <task + plan + change summary>`
+- `/cockpit strict on|off`
 
-Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. Small semantic tasks can use the `fast` delegate flow. Planner handoffs can start with the read-only `research` delegate flow, move through the high-reasoning `planner` flow, execute with `normal` when the change needs a bounded coding delegate, then review with `reviewer`. `/conductor codeflow` orchestrates those steps as a cockpit-controlled workflow.
+Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. Small semantic tasks can use the `fast` delegate flow. Planner handoffs can start with the read-only `research` delegate flow, move through the high-reasoning `planner` flow, execute with `normal` when the change needs a bounded coding delegate, then review with `reviewer`. `/cockpit codeflow` orchestrates those steps as a cockpit-controlled workflow.
 
 `instant` is the first delegate flow: the cockpit sends one simple plan plus the exact file, optionally a target line, and the worker runs with only `read` + `edit` by default so it can do the one change without scouting or expanding scope.
 
@@ -46,4 +46,4 @@ Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. 
 `codeflow` is the cockpit/oracle loop: it decides whether research is needed, runs planner, chooses `instant`/`fast`/`normal`, runs reviewer, and routes feedback through coder fixes, planner revision, or human decision.
 
 
-Run `/conductor setup` to choose the base Pi model used by instant/fast/research/normal delegates. Planner and reviewer inherit the current Pi default unless configured separately. Thinking is forced per flow: instant off, research minimal, fast low, normal medium, planner xhigh, reviewer high. Recommended: use a different reviewer model/provider than the coder.
+Run `/cockpit setup` to choose the base Pi model used by instant/fast/research/normal delegates. Planner and reviewer inherit the current Pi default unless configured separately. Thinking is forced per flow: instant off, research minimal, fast low, normal medium, planner xhigh, reviewer high. Recommended: use a different reviewer model/provider than the coder.
