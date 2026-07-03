@@ -22,9 +22,10 @@ Commands:
 - `/conductor instant <simple plan mentioning one file>`
 - `/conductor fast <small semantic task>`
 - `/conductor research <task>`
+- `/conductor plan <task + optional research brief>`
 - `/conductor strict on|off`
 
-Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. Small semantic tasks can use the `fast` delegate flow. Planner handoffs can start with the read-only `research` delegate flow.
+Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. Small semantic tasks can use the `fast` delegate flow. Planner handoffs can start with the read-only `research` delegate flow, then move through the high-reasoning `planner` flow.
 
 `instant` is the first delegate flow: the cockpit sends one simple plan plus the exact file, optionally a target line, and the worker runs with only `read` + `edit` by default so it can do the one change without scouting or expanding scope.
 
@@ -32,4 +33,6 @@ Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. 
 
 `research` also uses the fast model with low thinking, but is read-only. It gets `ls`, `find`, `grep`, `read`, and optional web tools (`web_search`, `web_fetch`) so it can produce a concise Research Brief for a planner without editing the repo.
 
-Run `/conductor setup` to choose the Pi model used by delegates. Fast and research default to the instant model, so users only choose once. Thinking is always forced off for instant and low for fast/research.
+`planner` is read-only and high-reasoning. It takes the user task plus optional Research Brief and returns a bounded Implementation Plan for the coding agent, including files, steps, validation commands, risks, and stop conditions.
+
+Run `/conductor setup` to choose the Pi model used by instant/fast/research delegates. Planner inherits the current Pi default unless configured separately. Thinking is always forced off for instant, low for fast/research, and xhigh for planner by default.

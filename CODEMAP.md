@@ -2,11 +2,12 @@
 
 ## Project purpose
 
-`pi-conductor` is a small TypeScript Pi package that adds a Conductor extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports three delegate flows:
+`pi-conductor` is a small TypeScript Pi package that adds a Conductor extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports four delegate flows:
 
 - `instant` — tightly scoped one-file edits from a cockpit-supplied plan.
 - `fast` — small semantic tasks with limited local discovery, intended for work like codemaps.
 - `research` — read-only local-first codebase research briefs for planner handoff, with optional web context when available.
+- `planner` — high-reasoning read-only implementation plans for coding-agent handoff.
 
 ## Repository layout
 
@@ -24,7 +25,8 @@
 │           ├── child-pi.ts          # child Pi process runner and JSON output capture
 │           ├── instant.ts           # instant delegate validation + prompt + run flow
 │           ├── fast.ts              # fast delegate validation + prompt + run flow
-│           └── research.ts          # read-only research brief validation + prompt + run flow
+│           ├── research.ts          # read-only research brief validation + prompt + run flow
+│           └── planner.ts           # high-reasoning implementation plan validation + prompt + run flow
 ├── package.json                     # package metadata, Pi extension registration, scripts
 ├── tsconfig.json                    # strict NodeNext TypeScript config
 ├── README.md                        # user-facing summary and command list
@@ -55,6 +57,7 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 - `conductor_delegate` tool: tool-facing instant delegate runner.
 - `conductor_fast` tool: tool-facing fast delegate runner.
 - `conductor_research` tool: tool-facing read-only research delegate runner.
+- `conductor_plan` tool: tool-facing read-only planner delegate runner.
 
 ## Commands and tools
 
@@ -66,6 +69,7 @@ Registered `/conductor` subcommands:
 - `/conductor instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
 - `/conductor fast <task>` — run the fast delegate directly.
 - `/conductor research <task>` — run the read-only research delegate directly.
+- `/conductor plan <task + optional research brief>` — run the read-only planner delegate directly.
 - `/conductor strict on|off` — toggle strict-mode mutation guards in global config.
 
 Registered tools:
@@ -88,6 +92,7 @@ Important defaults:
 - `instant` tools: `read`, `edit`; thinking `off`; max 1 file / ~30 lines / 60s.
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
 - `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `low`; max 7 fully-read files / 180s.
+- `planner` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `xhigh`; max 3 verification files / 240s.
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
@@ -115,7 +120,7 @@ Routes:
 
 ### Shared protocol
 
-`extensions/conductor/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, and `delegates.research`.
+`extensions/conductor/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, and `delegates.planner`.
 
 ### Child Pi runner
 
@@ -156,6 +161,19 @@ Fast boundary: child may do targeted local discovery and write/edit the requeste
 - Returns `INSUFFICIENT_CONTEXT: need deeper search` rather than inventing files/APIs/behavior when local and optional external context is insufficient.
 
 Research boundary: child is read-only and should produce evidence for the planner, not a solution plan or code changes.
+
+### Planner delegate
+
+`extensions/conductor/delegates/planner.ts`:
+
+- Requires a non-empty task and/or Research Brief.
+- Defaults to inheriting the current Pi default model rather than the fast delegate model, with `--thinking xhigh`.
+- Runs child Pi with no session, no skills/templates/context files, and a read-only verification tool allowlist: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`.
+- Does not pass `--no-extensions` so extension-provided web tools can be available, while `--tools` keeps the child constrained to the planner allowlist.
+- Prompt instructs the child to treat the Research Brief as evidence, not absolute truth, verify only critical assumptions, and return a structured Implementation Plan.
+- Returns `NEEDS_DEEPER_RESEARCH` instead of forcing a brittle plan when key context is missing.
+
+Planner boundary: child should produce a bounded plan for the coding agent, including exact files, steps, validation commands, risks, and stop conditions. It should not edit or implement.
 
 ## Safety behavior
 

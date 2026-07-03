@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "research"],
+	agents: ["instant", "fast", "research", "planner"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -40,6 +40,17 @@ const DEFAULT_CONFIG = {
 			maxTurns: 5,
 			timeoutMs: 180000,
 		},
+		planner: {
+			agent: "planner",
+			description: "High-reasoning read-only implementation planner for coding-agent handoff.",
+			model: "",
+			tools: ["ls", "find", "grep", "read", "web_search", "web_fetch"],
+			thinking: "xhigh",
+			maxFiles: 3,
+			maxEstimatedLines: 0,
+			maxTurns: 5,
+			timeoutMs: 240000,
+		},
 	},
 	maxFiles: 1,
 	maxEstimatedLines: 30,
@@ -68,9 +79,11 @@ const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 	const rawInstant = isRecord(rawFlows.instant) ? rawFlows.instant : {};
 	const rawFast = isRecord(rawFlows.fast) ? rawFlows.fast : {};
 	const rawResearch = isRecord(rawFlows.research) ? rawFlows.research : {};
+	const rawPlanner = isRecord(rawFlows.planner) ? rawFlows.planner : {};
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
 	const baseResearch = base.delegateFlows.research;
+	const basePlanner = base.delegateFlows.planner;
 	const instant = {
 		...baseInstant,
 		...rawInstant,
@@ -110,12 +123,25 @@ const mergeConfig = (raw: unknown, base: ConductorConfig): ConductorConfig => {
 		maxTurns: numberValue(rawResearch.maxTurns, baseResearch.maxTurns),
 		timeoutMs: numberValue(rawResearch.timeoutMs, baseResearch.timeoutMs),
 	};
+	const planner = {
+		...basePlanner,
+		...rawPlanner,
+		agent: stringValue(rawPlanner.agent, basePlanner.agent),
+		description: stringValue(rawPlanner.description, basePlanner.description),
+		model: stringValue(rawPlanner.model, basePlanner.model),
+		tools: stringArray(rawPlanner.tools, basePlanner.tools),
+		thinking: stringValue(rawPlanner.thinking, basePlanner.thinking),
+		maxFiles: numberValue(rawPlanner.maxFiles, basePlanner.maxFiles),
+		maxEstimatedLines: numberValue(rawPlanner.maxEstimatedLines, basePlanner.maxEstimatedLines),
+		maxTurns: numberValue(rawPlanner.maxTurns, basePlanner.maxTurns),
+		timeoutMs: numberValue(rawPlanner.timeoutMs, basePlanner.timeoutMs),
+	};
 	return {
 		...base,
 		...(raw as Partial<ConductorConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: stringArray(raw.agents, [instant.agent, fast.agent, research.agent]),
-		delegateFlows: { instant, fast, research },
+		agents: stringArray(raw.agents, [instant.agent, fast.agent, research.agent, planner.agent]),
+		delegateFlows: { instant, fast, research, planner },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),
