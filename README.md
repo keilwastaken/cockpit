@@ -1,6 +1,19 @@
-# pi-cockpit
+<img src="./icon.png" width="150" align="right" alt="Cockpit Logo">
 
-Small Pi delegation router.
+# Cockpit
+
+Small Pi delegation router where the main chat is the Oracle.
+
+## The Cockpit Philosophy
+
+The entire point of **Cockpit** is to keep the main chat session as a pristine **Oracle / Control Room**.
+
+1. **The Main Chat is the Oracle**: The model running in the main chat acts as the high-level architect and decision-maker. It holds the user's ultimate goals, preferences, and context. It does not get bogged down reading thousands of lines of `rg` output or wrestling with Git diffs.
+2. **Strict Mode Forces Delegation**: Running `/cockpit strict on` strips the `edit` and `write` tools from the main chat. The Oracle is *forced* to route mutation tasks through the delegates. It becomes physically impossible for the main chat to bloatedly rewrite a file directly.
+3. **Absolute Context Isolation**: Every delegate (`research`, `planner`, `normal`, `reviewer`) is spawned using `child-pi.ts` with `--no-session` and without loading extra context. Delegates are amnesiac, single-purpose workers. They wake up, execute their highly specific prompt using their isolated tool allowlist, return a compact markdown summary, and die. The main Oracle chat only ever sees the clean summary, saving massive amounts of context tokens.
+4. **The `codeflow` Tool**: Instead of the Oracle manually calling `research`, waiting, calling `planner`, waiting, and calling `normal`, it uses the `cockpit_codeflow` tool. The Oracle calls `cockpit_codeflow` and the TypeScript orchestrator spins up the workers, passes context between them, handles the review loop, and manages the coder fix budget. The Oracle gets back a single, clean `# Codeflow Result`.
+
+---
 
 ## Code map
 
