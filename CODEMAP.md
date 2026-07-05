@@ -25,7 +25,8 @@
 │       ├── routing.ts               # task signal analysis and route decisions
 │       ├── safety.ts                # strict-mode and delegate tool-call guards
 │       ├── jobs/
-│       │   ├── async-jobs.ts        # in-memory delegate/codeflow job registry, progress formatting, cancel/read/list helpers
+│       │   ├── async-jobs.ts        # delegate/codeflow job registry, progress formatting, cancel/read/list helpers
+│       │   ├── artifacts.ts         # .pi/cockpit/jobs/<id>/ lifecycle artifacts and resume prompts
 │       │   └── service.ts           # UI-bound job service for starting jobs and refreshing status/widget progress
 │       └── delegates/
 │           ├── protocol.ts          # shared delegate types
@@ -65,8 +66,8 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 
 - `session_start` event: loads config and sets a status item showing the selected delegate model and strict-mode state.
 - `tool_call` event: applies `shouldBlockToolCall()` to enforce instant-delegate restrictions or global strict mode.
-- `/cockpit` command: user command with subcommands for setup, status, routing, background delegate/codeflow jobs, job inspection/cancel, and strict mode.
-- `cockpit_job` tool: tool-facing start/list/read/cancel API for in-memory Cockpit jobs.
+- `/cockpit` command: user command with subcommands for setup, status, routing, background delegate/codeflow jobs, job inspection/resume/cancel, and strict mode.
+- `cockpit_job` tool: tool-facing start/list/read/cancel API for Cockpit jobs.
 - `cockpit_codeflow` tool: starts a background cockpit/oracle codeflow job.
 - `cockpit_delegate` tool: starts a background instant delegate job.
 - `cockpit_fast` tool: starts a background fast delegate job.
@@ -97,13 +98,14 @@ Registered `/cockpit` subcommands:
 - `/cockpit async <flow> <task>` — explicit background job starter for `codeflow`, delegate flows, and aliases such as `taskWriter`.
 - `/cockpit parallel <flow>:<task> | <flow>-><file>:<task>` — convenience starter for multiple independent background jobs; optional file-owned syntax rejects duplicate target files and injects a write-only-that-file guard. No grouping or synthesis.
 - `/cockpit jobs` — list in-memory jobs with estimated progress bars.
-- `/cockpit job <id>` — show a job's plan, status, output, stderr, and estimated progress.
+- `/cockpit job <id>` — show a job's plan, status, output, stderr, estimated progress, and artifact paths.
+- `/cockpit resume <id>` — start a normal continuation job from `.pi/cockpit/jobs/<id>/resume.md` for a failed/cancelled job.
 - `/cockpit cancel <id>` — abort a running job and refresh the Cockpit jobs widget/status.
 - `/cockpit strict on|off` — toggle strict-mode mutation guards in global config.
 
 Registered tools:
 
-- `cockpit_job` — accepts `action: start|startMany|list|read|cancel`, optional `flow`, `plan`, `jobs`, `outputFile` per parallel job, and `id`; manages in-memory background jobs.
+- `cockpit_job` — accepts `action: start|startMany|list|read|cancel`, optional `flow`, `plan`, `jobs`, `outputFile` per parallel job, and `id`; manages background jobs.
 - `cockpit_codeflow` — accepts `plan`, optional `flow: "codeflow"`, and optional `approved`; without `approved=true`, starts a read-only `codeflow-preplan` job and returns a job id; with approval, starts full writer/reviewer codeflow.
 - `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; starts an instant job and returns a job id.
 - `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; starts a fast job and returns a job id.

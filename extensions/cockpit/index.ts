@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { loadConfig, saveGlobalConfig } from "./config.js";
@@ -27,6 +29,7 @@ const HELP_TEXT = [
 	"- /cockpit parallel <flow>:<task> | <flow>:<task>",
 	"- /cockpit jobs",
 	"- /cockpit job <id>",
+	"- /cockpit resume <id>",
 	"- /cockpit cancel <id>",
 	"- /cockpit strict on|off",
 ].join("\n");
@@ -394,6 +397,29 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "resume": {
+					if (!body) {
+						ctx.ui.notify("Usage: /cockpit resume <job id>", "warning");
+						return;
+					}
+					const job = getAsyncJob(body);
+					const resumePath = job?.artifactsDir ? join(job.artifactsDir, "resume.md") : join(ctx.cwd, ".pi", "cockpit", "jobs", body, "resume.md");
+					let resumePrompt = "";
+					try {
+						resumePrompt = await readFile(resumePath, "utf8");
+					} catch (error) {
+						ctx.ui.notify(`Could not read resume prompt at ${resumePath}: ${(error as Error).message}`, "warning");
+						return;
+					}
+					const resumed = jobService.start({ flow: "normal", plan: resumePrompt });
+					ctx.ui.notify([
+						`Started cockpit resume job ${resumed.id} from ${body}.`,
+						`Resume prompt: ${resumePath}`,
+						`Check with /cockpit job ${resumed.id}`,
+					].join("\n"), "info");
+					return;
+				}
+
 				case "cancel": {
 					if (!body) {
 						ctx.ui.notify("Usage: /cockpit cancel <id>", "warning");
@@ -426,18 +452,18 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_job",
 		label: "Cockpit Async Job",
-		description: "Start one or many, list, read, or cancel in-memory async Cockpit delegate/codeflow jobs without blocking the main chat.",
+		description: "Start one or many, list, read, resume, or cancel async Cockpit delegate/codeflow jobs without blocking the main chat.",
 		promptSnippet: "Manage a Cockpit async job",
 		promptGuidelines: [
 			"Use action=start when the user wants one delegate to run in the background while the Oracle keeps chatting.",
 			"For codeflow UX, prefer flow=codeflow-preplan before any writer execution unless the user explicitly approved a concrete initial plan/slice.",
 			"If action=start uses flow=codeflow without approved=true, Cockpit will run codeflow-preplan instead of writer execution.",
 			"Use action=startMany for parallel independent jobs; this does not group or synthesize results.",
-			"Use list/read/cancel to inspect or stop jobs. Jobs are in-memory only and disappear when the Pi process exits.",
+			"Use list/read/cancel to inspect or stop jobs. Use resume to continue a failed/cancelled job from its generated resume prompt.",
 			"Prefer read-only flows like research/reviewer for background exploration; use normal only for scoped coding work.",
 		],
 		parameters: Type.Object({
-			action: Type.String({ description: "start, startMany, list, read, or cancel" }),
+			action: Type.String({ description: "start, startMany, list, read, resume, or cancel" }),
 			flow: Type.Optional(Type.String({ description: "Flow for start: codeflow-preplan, codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, or taskWriter" })),
 			plan: Type.Optional(Type.String({ description: "Task/plan for action=start" })),
 			approved: Type.Optional(Type.Boolean({ description: "For flow=codeflow only: true means the user explicitly approved the initial plan/slice. Without it, codeflow is downgraded to codeflow-preplan." })),
@@ -463,6 +489,21 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
 				createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).refreshProgress();
 				return { content: [{ type: "text" as const, text: job ? `Cockpit job ${job.id} status: ${job.status}` : `No unique cockpit job found for: ${params.id ?? ""}` }], details: { id: job?.id, status: job?.status }, isError: !job };
+			}
+			if (action === "resume") {
+				const id = params.id?.trim() ?? "";
+				if (!id) return { content: [{ type: "text" as const, text: "Usage: action=resume requires id." }], details: {}, isError: true };
+				const prior = getAsyncJob(id);
+				const resumePath = prior?.artifactsDir ? join(prior.artifactsDir, "resume.md") : join(ctx.cwd, ".pi", "cockpit", "jobs", id, "resume.md");
+				let resumePrompt = "";
+				try {
+					resumePrompt = await readFile(resumePath, "utf8");
+				} catch (error) {
+					return { content: [{ type: "text" as const, text: `Could not read resume prompt at ${resumePath}: ${(error as Error).message}` }], details: { resumePath }, isError: true };
+				}
+				const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+				const job = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).start({ flow: "normal", plan: resumePrompt, notify: false });
+				return { content: [{ type: "text" as const, text: `Started cockpit resume job ${job.id} from ${id}. Check with /cockpit job ${job.id}.` }], details: { id: job.id, flow: job.flow, status: job.status, resumePath } };
 			}
 			if (action === "startmany") {
 				const requestedJobs = params.jobs ?? [];
@@ -494,7 +535,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				};
 			}
 			if (action !== "start") {
-				return { content: [{ type: "text" as const, text: "Usage: action must be start, startMany, list, read, or cancel." }], details: {}, isError: true };
+				return { content: [{ type: "text" as const, text: "Usage: action must be start, startMany, list, read, resume, or cancel." }], details: {}, isError: true };
 			}
 
 			const flow = params.flow?.trim() ?? "";

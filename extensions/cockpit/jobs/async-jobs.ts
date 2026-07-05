@@ -2,6 +2,7 @@ import { runCodeflow, runCodeflowPreplan } from "../codeflow.js";
 import type { CockpitConfig } from "../config.js";
 import { delegates } from "../delegates/registry.js";
 import type { DelegateRunResult } from "../delegates/protocol.js";
+import { appendJobEvent, artifactDirFor, initJobArtifacts, writeJobSnapshot, writeResumePrompt } from "./artifacts.js";
 
 export type JobFlowName = keyof typeof delegates | "codeflow" | "codeflow-preplan";
 export type CanonicalJobFlowName = Exclude<JobFlowName, "taskWriter">;
@@ -17,6 +18,7 @@ export type AsyncJob = {
 	blockedReason?: string;
 	error?: string;
 	result?: DelegateRunResult;
+	artifactsDir: string;
 	startedAt: number;
 	finishedAt?: number;
 	timeoutMs: number;
@@ -79,20 +81,27 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 		status: "running",
 		output: "",
 		stderr: "",
+		artifactsDir: artifactDirFor(options.cwd, id),
 		startedAt: Date.now(),
 		timeoutMs,
 		controller,
 	};
 	jobs.set(id, job);
+	void initJobArtifacts(options.cwd, job).catch((error: unknown) => {
+		job.stderr = [job.stderr, `Cockpit artifact init failed: ${error instanceof Error ? error.message : String(error)}`].filter(Boolean).join("\n");
+	});
 
 	const codeflowContext = {
 		cwd: options.cwd,
 		projectTrusted: options.projectTrusted,
 		signal: controller.signal,
-		onUpdate: (partial: { content: Array<{ text?: string }>; details: { stderr: string } }) => {
+		onUpdate: (partial: { content: Array<{ text?: string }>; details: DelegateRunResult & { stderr: string } }) => {
 			const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
 			if (text) job.output = text;
 			job.stderr = partial.details.stderr;
+			job.result = partial.details;
+			void appendJobEvent(job, "cockpit.job.update", { message: text.slice(0, 500) }).catch(() => undefined);
+			void writeJobSnapshot(job).catch(() => undefined);
 		},
 	};
 
@@ -116,6 +125,9 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 					const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
 					if (text) job.output = text;
 					job.stderr = partial.details.stderr;
+					job.result = partial.details;
+					void appendJobEvent(job, "cockpit.job.update", { message: text.slice(0, 500) }).catch(() => undefined);
+					void writeJobSnapshot(job).catch(() => undefined);
 				},
 			},
 		);
@@ -132,8 +144,11 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 			job.status = controller.signal.aborted ? "cancelled" : "failed";
 			job.error = error instanceof Error ? error.message : String(error);
 		})
-		.finally(() => {
+		.finally(async () => {
 			job.finishedAt = Date.now();
+			await appendJobEvent(job, "cockpit.job.finished", { status: job.status, blockedReason: job.blockedReason, error: job.error }).catch(() => undefined);
+			await writeJobSnapshot(job).catch(() => undefined);
+			if (job.status === "failed" || job.status === "cancelled") await writeResumePrompt(job).catch(() => undefined);
 			trimCompletedJobs();
 			options.onFinish?.(job);
 		});
@@ -176,6 +191,8 @@ export function formatJobDetail(job: AsyncJob): string {
 		`Progress: ${formatProgressBar(job, 24)}`,
 		job.blockedReason ? `Blocked: ${job.blockedReason}` : undefined,
 		job.error ? `Error: ${job.error}` : undefined,
+		`Artifacts: ${job.artifactsDir}`,
+		(job.status === "failed" || job.status === "cancelled") ? `Resume prompt: ${job.artifactsDir}/resume.md` : undefined,
 		"",
 		"## Plan",
 		job.plan,
