@@ -49,7 +49,7 @@ const DEFAULT_CONFIG = {
 			maxFiles: 6,
 			maxEstimatedLines: 600,
 			maxTurns: 8,
-			timeoutMs: 300000,
+			timeoutMs: 900000,
 		},
 		planner: {
 			agent: "planner",

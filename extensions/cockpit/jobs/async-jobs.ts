@@ -1,9 +1,9 @@
-import { runCodeflow } from "../codeflow.js";
+import { runCodeflow, runCodeflowPreplan } from "../codeflow.js";
 import type { CockpitConfig } from "../config.js";
 import { delegates } from "../delegates/registry.js";
 import type { DelegateRunResult } from "../delegates/protocol.js";
 
-export type JobFlowName = keyof typeof delegates | "codeflow";
+export type JobFlowName = keyof typeof delegates | "codeflow" | "codeflow-preplan";
 export type CanonicalJobFlowName = Exclude<JobFlowName, "taskWriter">;
 export type JobStatus = "running" | "done" | "failed" | "cancelled";
 
@@ -63,7 +63,7 @@ function trimCompletedJobs(): void {
 }
 
 export function isJobFlowName(value: string): value is JobFlowName {
-	return value === "codeflow" || Object.prototype.hasOwnProperty.call(delegates, value);
+	return value === "codeflow" || value === "codeflow-preplan" || Object.prototype.hasOwnProperty.call(delegates, value);
 }
 
 export function startAsyncJob(options: StartJobOptions): AsyncJob {
@@ -71,7 +71,7 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 	const controller = new AbortController();
 	const flow = canonicalFlowName(options.flow);
 	const flowConfigKey = (flow === "task-writer" ? "taskWriter" : flow) as keyof CockpitConfig["delegateFlows"];
-	const timeoutMs = flow === "codeflow" ? 900000 : options.config.delegateFlows[flowConfigKey].timeoutMs;
+	const timeoutMs = flow === "codeflow" ? 900000 : flow === "codeflow-preplan" ? 420000 : options.config.delegateFlows[flowConfigKey].timeoutMs;
 	const job: AsyncJob = {
 		id,
 		flow,
@@ -85,22 +85,22 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 	};
 	jobs.set(id, job);
 
+	const codeflowContext = {
+		cwd: options.cwd,
+		projectTrusted: options.projectTrusted,
+		signal: controller.signal,
+		onUpdate: (partial: { content: Array<{ text?: string }>; details: { stderr: string } }) => {
+			const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
+			if (text) job.output = text;
+			job.stderr = partial.details.stderr;
+		},
+	};
+
 	const runner = flow === "codeflow"
-		? runCodeflow(
-			{ plan: job.plan, outputFile: options.outputFile },
-			options.config,
-			{
-				cwd: options.cwd,
-				projectTrusted: options.projectTrusted,
-				signal: controller.signal,
-				onUpdate: (partial) => {
-					const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
-					if (text) job.output = text;
-					job.stderr = partial.details.stderr;
-				},
-			},
-		)
-		: delegates[flow].run(
+		? runCodeflow({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
+		: flow === "codeflow-preplan"
+			? runCodeflowPreplan({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
+			: delegates[flow].run(
 			{
 				plan: job.plan,
 				file: options.file,

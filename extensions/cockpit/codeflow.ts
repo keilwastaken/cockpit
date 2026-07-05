@@ -3,7 +3,7 @@ import { delegates } from "./delegates/registry.js";
 import type { DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./delegates/protocol.js";
 import { routeTask } from "./routing.js";
 
-type CodeflowRoute = "approved" | "coder_fix" | "planner_revision" | "human_decision" | "stopped";
+type CodeflowRoute = "approved" | "coder_fix" | "planner_revision" | "human_decision" | "preplan_ready" | "stopped";
 type ExecutorName = "instant" | "fast" | "normal";
 type FeedbackWeight = "none" | "light" | "medium" | "heavy" | "blocker" | "unknown";
 
@@ -110,7 +110,7 @@ function buildExecutionPlan(task: string, plannerOutput: string, researchOutput?
 		"Original user task:",
 		task,
 		researchOutput ? `\nResearch Brief:\n${researchOutput}` : "",
-		"\nImplementation Plan:",
+		"\nApproved Implementation Plan:",
 		plannerOutput,
 	].filter(Boolean).join("\n");
 }
@@ -177,6 +177,68 @@ async function runExecutor(
 	}
 	if (executor === "fast") return delegates.fast.run({ plan }, config, context);
 	return delegates.normal.run({ plan }, config, context);
+}
+
+export async function runCodeflowPreplan(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
+	const task = input.plan.trim();
+	const result = baseResult(input, config);
+	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow preplan needs a task." };
+
+	let researchOutput: string | undefined;
+	let plannerOutput = "";
+
+	if (shouldRunResearch(task, config)) {
+		const research = await runStep("research", result, context, () => delegates.research.run({ plan: task }, config, context));
+		result.researchUsed = true;
+		researchOutput = research.finalOutput;
+		if (research.exitCode !== 0 || research.blockedReason) {
+			return { ...result, exitCode: 1, blockedReason: research.blockedReason ?? "Research step failed.", finalOutput: research.finalOutput || research.stderr };
+		}
+	}
+
+	let planner = await runStep("planner", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+	plannerOutput = planner.finalOutput;
+	if (planner.exitCode !== 0 || planner.blockedReason) {
+		return { ...result, exitCode: 1, blockedReason: planner.blockedReason ?? "Planner step failed.", finalOutput: planner.finalOutput || planner.stderr };
+	}
+
+	if (needsMoreResearch(plannerOutput) && !researchOutput) {
+		const research = await runStep("research-after-planner-request", result, context, () => delegates.research.run({ plan: task }, config, context));
+		result.researchUsed = true;
+		researchOutput = research.finalOutput;
+		if (research.exitCode !== 0 || research.blockedReason) {
+			return { ...result, exitCode: 1, blockedReason: research.blockedReason ?? "Research step failed after planner request.", finalOutput: research.finalOutput || research.stderr };
+		}
+		planner = await runStep("planner-after-research", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+		plannerOutput = planner.finalOutput;
+	}
+
+	if (needsMoreResearch(plannerOutput)) {
+		return {
+			...result,
+			exitCode: 1,
+			blockedReason: "Planner requested deeper research; cockpit should ask for human direction or a deeper research pass.",
+			finalOutput: plannerOutput,
+			route: "human_decision",
+		};
+	}
+
+	const executor = parseExecutor(plannerOutput) ?? fallbackExecutor(task, plannerOutput, config);
+	result.executor = executor;
+	result.route = "preplan_ready";
+	result.finalOutput = [
+		"# Codeflow Preplan",
+		"This is a read-only preplan. No executor has run and no files should have been changed by this job.",
+		`- Recommended executor: ${executor}`,
+		`- Research used: ${result.researchUsed ? "yes" : "no"}`,
+		"",
+		"## Approval Required",
+		"Show this plan to the user and wait for explicit approval before starting the writer/codeflow job.",
+		"",
+		"## Planner Output",
+		plannerOutput || "No planner output.",
+	].join("\n");
+	return result;
 }
 
 export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {

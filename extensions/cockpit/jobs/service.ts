@@ -21,6 +21,7 @@ export type StartDelegateJobInput = {
 	file?: string;
 	line?: number;
 	outputFile?: string;
+	approved?: boolean;
 	notify?: boolean;
 };
 
@@ -47,8 +48,9 @@ export function createJobService(config: CockpitConfig, context: JobServiceConte
 
 	const start = (input: StartDelegateJobInput): AsyncJob => {
 		const plan = input.plan.trim();
+		const flow = input.flow === "codeflow" && input.approved !== true ? "codeflow-preplan" : input.flow;
 		const job = startAsyncJob({
-			flow: input.flow,
+			flow,
 			plan,
 			config,
 			cwd: context.cwd,

@@ -13,7 +13,8 @@ const HELP_TEXT = [
 	"- /cockpit status",
 	"- /cockpit setup",
 	"- /cockpit route <task>",
-	"- /cockpit codeflow <task>",
+	"- /cockpit preplan <task>",
+	"- /cockpit codeflow --approved <task>",
 	"- /cockpit instant <simple plan mentioning one file>",
 	"- /cockpit fast <small semantic task>",
 	"- /cockpit research <task>",
@@ -244,13 +245,34 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "preplan":
+				case "prepare": {
+					if (!body) {
+						ctx.ui.notify("Usage: /cockpit preplan <task>", "warning");
+						return;
+					}
+					jobService.start({ flow: "codeflow-preplan", plan: body });
+					return;
+				}
+
 				case "codeflow":
 				case "code": {
 					if (!body) {
-						ctx.ui.notify("Usage: /cockpit codeflow <task>", "warning");
+						ctx.ui.notify("Usage: /cockpit codeflow --approved <task> (or /cockpit preplan <task> first)", "warning");
 						return;
 					}
-					jobService.start({ flow: "codeflow", plan: body });
+					const approvedPrefix = body.match(/^(?:--approved|approved:)\s+([\s\S]+)$/i);
+					if (!approvedPrefix) {
+						const job = jobService.start({ flow: "codeflow-preplan", plan: body, notify: false });
+						ctx.ui.notify([
+							"Started read-only codeflow preplan instead of writer execution.",
+							`Job: ${job.id}`,
+							"Review it with /cockpit job " + job.id + ", show the plan to the user, and wait for explicit approval.",
+							"After approval, run: /cockpit codeflow --approved <same task plus approved plan/constraints>",
+						].join("\n"), "info");
+						return;
+					}
+					jobService.start({ flow: "codeflow", plan: approvedPrefix[1].trim(), approved: true });
 					return;
 				}
 
@@ -334,11 +356,11 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				case "start": {
 					const [flowArg, ...taskParts] = body.split(/\s+/);
 					if (!flowArg || taskParts.length === 0) {
-						ctx.ui.notify("Usage: /cockpit async <codeflow|instant|fast|ideate|research|normal|planner|reviewer|task-writer|taskWriter> <task>", "warning");
+						ctx.ui.notify("Usage: /cockpit async <codeflow-preplan|codeflow|instant|fast|ideate|research|normal|planner|reviewer|task-writer|taskWriter> <task>", "warning");
 						return;
 					}
 					if (!isJobFlowName(flowArg)) {
-						ctx.ui.notify(`Unknown async flow: ${flowArg}. Use one of: codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, taskWriter.`, "warning");
+						ctx.ui.notify(`Unknown async flow: ${flowArg}. Use one of: codeflow-preplan, codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, taskWriter.`, "warning");
 						return;
 					}
 					const plan = taskParts.join(" ").trim();
@@ -408,14 +430,17 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		promptSnippet: "Manage a Cockpit async job",
 		promptGuidelines: [
 			"Use action=start when the user wants one delegate to run in the background while the Oracle keeps chatting.",
+			"For codeflow UX, prefer flow=codeflow-preplan before any writer execution unless the user explicitly approved a concrete initial plan/slice.",
+			"If action=start uses flow=codeflow without approved=true, Cockpit will run codeflow-preplan instead of writer execution.",
 			"Use action=startMany for parallel independent jobs; this does not group or synthesize results.",
 			"Use list/read/cancel to inspect or stop jobs. Jobs are in-memory only and disappear when the Pi process exits.",
 			"Prefer read-only flows like research/reviewer for background exploration; use normal only for scoped coding work.",
 		],
 		parameters: Type.Object({
 			action: Type.String({ description: "start, startMany, list, read, or cancel" }),
-			flow: Type.Optional(Type.String({ description: "Flow for start: codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, or taskWriter" })),
+			flow: Type.Optional(Type.String({ description: "Flow for start: codeflow-preplan, codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, or taskWriter" })),
 			plan: Type.Optional(Type.String({ description: "Task/plan for action=start" })),
+			approved: Type.Optional(Type.Boolean({ description: "For flow=codeflow only: true means the user explicitly approved the initial plan/slice. Without it, codeflow is downgraded to codeflow-preplan." })),
 			jobs: Type.Optional(Type.Array(Type.Object({
 				flow: Type.String({ description: "Flow for this parallel independent job" }),
 				plan: Type.String({ description: "Task/plan for this parallel independent job" }),
@@ -478,7 +503,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				return { content: [{ type: "text" as const, text: "Usage: action=start requires flow and plan." }], details: {}, isError: true };
 			}
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-			const job = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).start({ flow, plan, notify: false });
+			const job = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).start({ flow, plan, approved: params.approved === true, notify: false });
 			return {
 				content: [{ type: "text" as const, text: startedMessage(job) }],
 				details: { id: job.id, flow: job.flow, status: job.status },
@@ -489,24 +514,34 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_codeflow",
 		label: "Cockpit Codeflow",
-		description: "Start a background full cockpit-controlled codeflow job: optional research, planner, selected executor, review loop, and feedback-weight routing.",
-		promptSnippet: "Run the Cockpit codeflow",
+		description: "Start Cockpit codeflow. Without explicit approval this starts only a read-only preplan; with approval it starts writer execution, review loop, and feedback-weight routing.",
+		promptSnippet: "Run or preplan the Cockpit codeflow",
 		promptGuidelines: [
 			"Use cockpit_codeflow when the user asks to run the full codeflow or wants planning, coding, and review handled by Cockpit.",
+			"Initial plan approval is mandatory before writer execution. If the user has not explicitly approved a concrete plan/slice, call this with approved=false or omit approved; it will start a read-only preplan job.",
+			"After the preplan job completes, read it, summarize the proposed slice/constraints/validation to the user, and wait for explicit approval before calling approved=true.",
+			"When approved=true, include the approved plan/slice and constraints in plan, not just the original task.",
 			"The tool starts a background job and returns a job id immediately; read results later with cockpit_job action=read or /cockpit job <id>.",
-			"For instant/fast-sized work, prefer cockpit_delegate or cockpit_fast directly with an Oracle-authored compact plan; call cockpit_plan first only when the Oracle wants a more verbose planner handoff.",
-			"Pass the original user task. The cockpit job decides whether to research, which executor to use, and how to route reviewer feedback.",
 		],
 		parameters: Type.Object({
 			flow: Type.Optional(Type.Literal("codeflow", { description: "Only codeflow is supported" })),
-			plan: Type.String({ description: "Original user coding task for the full codeflow" }),
+			plan: Type.String({ description: "Original user coding task, or approved task plus approved plan/constraints when approved=true" }),
+			approved: Type.Optional(Type.Boolean({ description: "Set true only after explicit user approval of the initial plan/slice. Defaults to false and runs preplan only." })),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-			const job = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).start({ flow: "codeflow", plan: params.plan, notify: false });
+			const approved = params.approved === true;
+			const job = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).start({ flow: approved ? "codeflow" : "codeflow-preplan", plan: params.plan, approved, notify: false });
+			const text = approved
+				? startedMessage(job)
+				: [
+					"Started read-only cockpit codeflow preplan job.",
+					`Job: ${job.id}`,
+					"No writer/executor will run from this job. Read the job, show the plan to the user, and wait for explicit approval before starting approved codeflow.",
+				].join("\n");
 			return {
-				content: [{ type: "text", text: startedMessage(job) }],
-				details: { id: job.id, flow: job.flow, status: job.status },
+				content: [{ type: "text", text }],
+				details: { id: job.id, flow: job.flow, status: job.status, approved },
 			};
 		},
 	});

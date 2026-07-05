@@ -84,7 +84,8 @@ Registered `/cockpit` subcommands:
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
 - `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, answer the strict mode prompt, and save global config.
 - `/cockpit route <task>` — analyze a task and print the selected route/profile.
-- `/cockpit codeflow <task>` — start a background cockpit/oracle workflow job: optional research, planner, selected executor, reviewer, and feedback routing.
+- `/cockpit preplan <task>` — start a read-only codeflow preplan job: optional research plus planner only, no writer execution.
+- `/cockpit codeflow --approved <task plus approved plan/constraints>` — start a background cockpit/oracle workflow job after explicit plan approval: optional research, planner, selected executor, reviewer, and feedback routing. Without `--approved`, this command is downgraded to `codeflow-preplan`.
 - `/cockpit instant <plan>` — start a background instant delegate job; the file is inferred from the plan.
 - `/cockpit fast <task>` — start a background fast delegate job.
 - `/cockpit research <task>` — start a background read-only research delegate job.
@@ -103,7 +104,7 @@ Registered `/cockpit` subcommands:
 Registered tools:
 
 - `cockpit_job` — accepts `action: start|startMany|list|read|cancel`, optional `flow`, `plan`, `jobs`, `outputFile` per parallel job, and `id`; manages in-memory background jobs.
-- `cockpit_codeflow` — accepts `plan` and optional `flow: "codeflow"`; starts a codeflow job and returns a job id.
+- `cockpit_codeflow` — accepts `plan`, optional `flow: "codeflow"`, and optional `approved`; without `approved=true`, starts a read-only `codeflow-preplan` job and returns a job id; with approval, starts full writer/reviewer codeflow.
 - `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; starts an instant job and returns a job id.
 - `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; starts a fast job and returns a job id.
 - `cockpit_research` — accepts `plan` and optional `flow: "research"`; starts a research job and returns a job id.
@@ -129,7 +130,7 @@ Important defaults:
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
 - `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `minimal`; max 7 fully-read files / 180s.
 - `ideate` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `high`; max 8 fully-read files / 300s.
-- `normal` tools: `ls`, `find`, `grep`, `read`, `edit`, `write`, `bash`; thinking `medium`; max 6 files / ~600 lines / 300s.
+- `normal` tools: `ls`, `find`, `grep`, `read`, `edit`, `write`, `bash`; thinking `medium`; max 6 files / ~600 lines / 900s.
 - `planner` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `xhigh`; max 3 verification files / 240s.
 - `reviewer` tools: `ls`, `find`, `grep`, `read`, `bash`; thinking `high`; max 10 fully-read files / 240s.
 - `task-writer` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 6 fully-read files / 180s.
@@ -161,7 +162,16 @@ Routes:
 
 ### Codeflow orchestrator
 
-`extensions/cockpit/codeflow.ts` is the cockpit/oracle workflow runner. It is not a child model role; it coordinates existing delegates:
+`extensions/cockpit/codeflow.ts` is the cockpit/oracle workflow runner. It is not a child model role; it coordinates existing delegates.
+
+Approval-gated preplan mode (`codeflow-preplan`):
+
+1. Decide whether research is needed from routing signals, missing files, risk domains, and external-knowledge hints.
+2. Run `research` when useful, then run `planner`.
+3. If planner requests research and none was run yet, run research and re-run planner.
+4. Return a `# Codeflow Preplan` that marks approval required. No executor runs.
+
+Approved full codeflow:
 
 1. Decide whether research is needed from routing signals, missing files, risk domains, and external-knowledge hints.
 2. Run `research` when useful, then run `planner`.
