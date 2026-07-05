@@ -70,8 +70,19 @@ export function createJobService(config: CockpitConfig, context: JobServiceConte
 		return job;
 	};
 
-	return { start, refreshProgress };
+	const startMany = (inputs: StartDelegateJobInput[]): AsyncJob[] => {
+		const jobs = inputs.map((input) => start({ ...input, notify: false }));
+		if (jobs.length > 0) {
+			context.ui.notify(startedManyMessage(jobs), "info");
+		}
+		return jobs;
+	};
+
+	return { start, startMany, refreshProgress };
 }
 
 export const startedMessage = (job: AsyncJob): string =>
 	`Started cockpit ${job.flow} job ${job.id}. Keep chatting; check with /cockpit job ${job.id} or /cockpit jobs.`;
+
+export const startedManyMessage = (jobs: AsyncJob[]): string =>
+	`Started ${jobs.length} cockpit jobs:\n${jobs.map((job) => `- ${job.id} ${job.flow}: ${job.plan.slice(0, 80)}`).join("\n")}\nCheck with /cockpit jobs.`;

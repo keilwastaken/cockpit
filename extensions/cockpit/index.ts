@@ -3,7 +3,8 @@ import { Type } from "typebox";
 import { loadConfig, saveGlobalConfig } from "./config.js";
 import type { CockpitConfig } from "./config.js";
 import { cancelAsyncJob, formatJobDetail, formatJobSummary, getAsyncJob, isJobFlowName, listAsyncJobs } from "./jobs/async-jobs.js";
-import { createJobService, startedMessage } from "./jobs/service.js";
+import type { JobFlowName } from "./jobs/async-jobs.js";
+import { createJobService, startedManyMessage, startedMessage } from "./jobs/service.js";
 import { formatDecision, routeTask } from "./routing.js";
 import { shouldBlockToolCall } from "./safety.js";
 
@@ -22,6 +23,7 @@ const HELP_TEXT = [
 	"- /cockpit task <idea or backlog item>",
 	"- /cockpit review <task + plan + change summary>",
 	"- /cockpit async <flow> <task>",
+	"- /cockpit parallel <flow>:<task> | <flow>:<task>",
 	"- /cockpit jobs",
 	"- /cockpit job <id>",
 	"- /cockpit cancel <id>",
@@ -29,6 +31,42 @@ const HELP_TEXT = [
 ].join("\n");
 const modelId = (model: { provider: string; id: string }) => `${model.provider}/${model.id}`;
 const fileFromPlan = (plan: string, config: CockpitConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
+
+type ParsedParallelJob = { flow: JobFlowName; plan: string; outputFile?: string };
+
+const normalizeOwnedFile = (file: string): string => file.trim().replace(/^\.\//, "");
+const withFileOwnershipGuard = (file: string, plan: string): string => [
+	`Output file: ${file}`,
+	`File ownership guard: write or edit only ${file}. Do not modify any other project file. If the task requires another file, stop and report that instead.`,
+	"",
+	plan,
+].join("\n");
+
+function parseParallelJobs(body: string): ParsedParallelJob[] | string {
+	const parts = body.split(/\s+\|\s+/).map((part) => part.trim()).filter(Boolean);
+	if (parts.length === 0) return "Usage: /cockpit parallel <flow>[:<task>] or <flow>-><file>:<task> | ...";
+	const jobs: ParsedParallelJob[] = [];
+	const claimedFiles = new Map<string, string>();
+	for (const part of parts) {
+		const match = part.match(/^([A-Za-z-]+)(?:\s*->\s*([^:]+))?\s*:\s*([\s\S]+)$/);
+		if (!match) return `Invalid parallel job '${part}'. Use <flow>:<task> or <flow>-><file>:<task>.`;
+		const flow = match[1];
+		const outputFile = match[2]?.trim();
+		const planBody = match[3].trim();
+		if (!isJobFlowName(flow)) return `Unknown parallel flow: ${flow}.`;
+		if (!planBody) return `Missing task for parallel flow: ${flow}.`;
+		if (outputFile) {
+			const normalized = normalizeOwnedFile(outputFile);
+			const existing = claimedFiles.get(normalized);
+			if (existing) return `Parallel file ownership conflict: '${normalized}' is claimed by both '${existing}' and '${part}'.`;
+			claimedFiles.set(normalized, part);
+			jobs.push({ flow, plan: withFileOwnershipGuard(normalized, planBody), outputFile: normalized });
+		} else {
+			jobs.push({ flow, plan: planBody });
+		}
+	}
+	return jobs;
+}
 
 type AvailableModel = { provider: string; id: string; name?: string };
 type SetupContext = {
@@ -308,6 +346,16 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "parallel": {
+					const parsed = parseParallelJobs(body);
+					if (typeof parsed === "string") {
+						ctx.ui.notify(parsed, "warning");
+						return;
+					}
+					jobService.startMany(parsed);
+					return;
+				}
+
 				case "jobs": {
 					const activeJobs = listAsyncJobs();
 					ctx.ui.notify(activeJobs.length > 0 ? activeJobs.map(formatJobSummary).join("\n") : "No cockpit jobs in memory.", "info");
@@ -356,17 +404,23 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_job",
 		label: "Cockpit Async Job",
-		description: "Start, list, read, or cancel an in-memory async Cockpit delegate/codeflow job without blocking the main chat.",
+		description: "Start one or many, list, read, or cancel in-memory async Cockpit delegate/codeflow jobs without blocking the main chat.",
 		promptSnippet: "Manage a Cockpit async job",
 		promptGuidelines: [
-			"Use action=start when the user wants a delegate to run in the background while the Oracle keeps chatting.",
+			"Use action=start when the user wants one delegate to run in the background while the Oracle keeps chatting.",
+			"Use action=startMany for parallel independent jobs; this does not group or synthesize results.",
 			"Use list/read/cancel to inspect or stop jobs. Jobs are in-memory only and disappear when the Pi process exits.",
 			"Prefer read-only flows like research/reviewer for background exploration; use normal only for scoped coding work.",
 		],
 		parameters: Type.Object({
-			action: Type.String({ description: "start, list, read, or cancel" }),
+			action: Type.String({ description: "start, startMany, list, read, or cancel" }),
 			flow: Type.Optional(Type.String({ description: "Flow for start: codeflow, instant, fast, ideate, research, normal, planner, reviewer, task-writer, or taskWriter" })),
 			plan: Type.Optional(Type.String({ description: "Task/plan for action=start" })),
+			jobs: Type.Optional(Type.Array(Type.Object({
+				flow: Type.String({ description: "Flow for this parallel independent job" }),
+				plan: Type.String({ description: "Task/plan for this parallel independent job" }),
+				outputFile: Type.Optional(Type.String({ description: "Optional exclusive file this job may write/edit; duplicate output files are rejected" })),
+			}))),
 			id: Type.Optional(Type.String({ description: "Job id or unique prefix for read/cancel" })),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -385,8 +439,37 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).refreshProgress();
 				return { content: [{ type: "text" as const, text: job ? `Cockpit job ${job.id} status: ${job.status}` : `No unique cockpit job found for: ${params.id ?? ""}` }], details: { id: job?.id, status: job?.status }, isError: !job };
 			}
+			if (action === "startmany") {
+				const requestedJobs = params.jobs ?? [];
+				const invalid = requestedJobs.find((job) => !isJobFlowName(job.flow.trim()) || !job.plan.trim());
+				if (requestedJobs.length === 0 || invalid) {
+					return { content: [{ type: "text" as const, text: "Usage: action=startMany requires jobs: [{ flow, plan, outputFile? }, ...] with valid flows and non-empty plans." }], details: {}, isError: true };
+				}
+				const claimedFiles = new Map<string, string>();
+				for (const job of requestedJobs) {
+					if (!job.outputFile?.trim()) continue;
+					const normalized = normalizeOwnedFile(job.outputFile);
+					const existing = claimedFiles.get(normalized);
+					if (existing) {
+						return { content: [{ type: "text" as const, text: `Parallel file ownership conflict: '${normalized}' is claimed by both '${existing}' and '${job.flow}'.` }], details: {}, isError: true };
+					}
+					claimedFiles.set(normalized, job.flow);
+				}
+				const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
+				const jobs = createJobService(config, { cwd: ctx.cwd, projectTrusted: ctx.isProjectTrusted(), ui: ctx.ui }).startMany(
+					requestedJobs.map((job) => {
+						const outputFile = job.outputFile?.trim() ? normalizeOwnedFile(job.outputFile) : undefined;
+						const plan = outputFile ? withFileOwnershipGuard(outputFile, job.plan.trim()) : job.plan.trim();
+						return { flow: job.flow.trim() as JobFlowName, plan, outputFile, notify: false };
+					}),
+				);
+				return {
+					content: [{ type: "text" as const, text: startedManyMessage(jobs) }],
+					details: { jobs: jobs.map(({ id, flow, status }) => ({ id, flow, status })) },
+				};
+			}
 			if (action !== "start") {
-				return { content: [{ type: "text" as const, text: "Usage: action must be start, list, read, or cancel." }], details: {}, isError: true };
+				return { content: [{ type: "text" as const, text: "Usage: action must be start, startMany, list, read, or cancel." }], details: {}, isError: true };
 			}
 
 			const flow = params.flow?.trim() ?? "";

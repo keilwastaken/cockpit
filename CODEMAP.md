@@ -94,6 +94,7 @@ Registered `/cockpit` subcommands:
 - `/cockpit task <idea or backlog item>` — start a background low-thinking task-writer delegate job.
 - `/cockpit review <task + plan + change summary>` — start a background read-only reviewer delegate job.
 - `/cockpit async <flow> <task>` — explicit background job starter for `codeflow`, delegate flows, and aliases such as `taskWriter`.
+- `/cockpit parallel <flow>:<task> | <flow>-><file>:<task>` — convenience starter for multiple independent background jobs; optional file-owned syntax rejects duplicate target files and injects a write-only-that-file guard. No grouping or synthesis.
 - `/cockpit jobs` — list in-memory jobs with estimated progress bars.
 - `/cockpit job <id>` — show a job's plan, status, output, stderr, and estimated progress.
 - `/cockpit cancel <id>` — abort a running job and refresh the Cockpit jobs widget/status.
@@ -101,7 +102,7 @@ Registered `/cockpit` subcommands:
 
 Registered tools:
 
-- `cockpit_job` — accepts `action: start|list|read|cancel`, optional `flow`, `plan`, and `id`; manages in-memory background jobs.
+- `cockpit_job` — accepts `action: start|startMany|list|read|cancel`, optional `flow`, `plan`, `jobs`, `outputFile` per parallel job, and `id`; manages in-memory background jobs.
 - `cockpit_codeflow` — accepts `plan` and optional `flow: "codeflow"`; starts a codeflow job and returns a job id.
 - `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; starts an instant job and returns a job id.
 - `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; starts a fast job and returns a job id.
