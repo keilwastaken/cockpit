@@ -1,4 +1,4 @@
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { DelegateRunResult } from "../delegates/protocol.js";
 import type { AsyncJob } from "./async-jobs.js";
@@ -17,6 +17,13 @@ const nowIso = (): string => new Date().toISOString();
 const safeName = (name: string): string => name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "step";
 
 export const artifactDirFor = (cwd: string, jobId: string): string => join(cwd, ".pi", "cockpit", "jobs", jobId);
+export const artifactRootFor = (cwd: string): string => join(cwd, ".pi", "cockpit", "jobs");
+
+export async function cleanupJobArtifacts(cwd: string): Promise<string> {
+	const root = artifactRootFor(cwd);
+	await rm(root, { recursive: true, force: true });
+	return root;
+}
 
 function serializableJob(job: ArtifactJob) {
 	return {

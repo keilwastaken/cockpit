@@ -100,6 +100,8 @@ Registered `/cockpit` subcommands:
 - `/cockpit jobs` — list in-memory jobs with estimated progress bars.
 - `/cockpit job <id>` — show a job's plan, status, output, stderr, estimated progress, and artifact paths.
 - `/cockpit resume <id>` — start a normal continuation job from `.pi/cockpit/jobs/<id>/resume.md` for a failed/cancelled job.
+- `/cockpit cleanup` — remove Cockpit job artifact files under `.pi/cockpit/jobs`.
+- `/cleanup` — shortcut for removing Cockpit job artifact files under `.pi/cockpit/jobs`.
 - `/cockpit cancel <id>` — abort a running job and refresh the Cockpit jobs widget/status.
 - `/cockpit strict on|off` — toggle strict-mode mutation guards in global config.
 
@@ -321,7 +323,7 @@ No test files or test runner configuration were found in the tracked project str
 When adding behavior:
 
 - Command/tool registration usually starts in `extensions/cockpit/index.ts`.
-- Background job lifecycle, job progress display, cancellation, and job list/read formatting belong in `extensions/cockpit/jobs/`.
+- Background job lifecycle, artifacts, cleanup, job progress display, cancellation, and job list/read formatting belong in `extensions/cockpit/jobs/`.
 - Flow defaults and limits belong in `config.ts`.
 - Routing heuristics belong in `routing.ts`.
 - Process execution concerns belong in `delegates/child-pi.ts`.

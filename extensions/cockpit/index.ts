@@ -5,6 +5,7 @@ import { Type } from "typebox";
 import { loadConfig, saveGlobalConfig } from "./config.js";
 import type { CockpitConfig } from "./config.js";
 import { cancelAsyncJob, formatJobDetail, formatJobSummary, getAsyncJob, isJobFlowName, listAsyncJobs } from "./jobs/async-jobs.js";
+import { cleanupJobArtifacts } from "./jobs/artifacts.js";
 import type { JobFlowName } from "./jobs/async-jobs.js";
 import { createJobService, startedManyMessage, startedMessage } from "./jobs/service.js";
 import { formatDecision, routeTask } from "./routing.js";
@@ -30,8 +31,10 @@ const HELP_TEXT = [
 	"- /cockpit jobs",
 	"- /cockpit job <id>",
 	"- /cockpit resume <id>",
+	"- /cockpit cleanup",
 	"- /cockpit cancel <id>",
 	"- /cockpit strict on|off",
+	"- /cleanup"
 ].join("\n");
 const modelId = (model: { provider: string; id: string }) => `${model.provider}/${model.id}`;
 const fileFromPlan = (plan: string, config: CockpitConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
@@ -420,6 +423,12 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 					return;
 				}
 
+				case "cleanup": {
+					const root = await cleanupJobArtifacts(ctx.cwd);
+					ctx.ui.notify(`Cockpit job artifacts removed: ${root}`, "info");
+					return;
+				}
+
 				case "cancel": {
 					if (!body) {
 						ctx.ui.notify("Usage: /cockpit cancel <id>", "warning");
@@ -446,6 +455,14 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 				default:
 					ctx.ui.notify(HELP_TEXT, "warning");
 			}
+		},
+	});
+
+	pi.registerCommand("cleanup", {
+		description: "Remove Cockpit job artifact files under .pi/cockpit/jobs",
+		handler: async (_args, ctx) => {
+			const root = await cleanupJobArtifacts(ctx.cwd);
+			ctx.ui.notify(`Cockpit job artifacts removed: ${root}`, "info");
 		},
 	});
 
