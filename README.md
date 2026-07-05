@@ -59,7 +59,7 @@ Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. 
 
 `reviewer` is read-only and returns calibrated issues plus a feedback weight: `none`, `light`, `medium`, `heavy`, or `blocker`. The cockpit uses that weight to approve, send a small fix back to coder, replan, or ask the human.
 
-`codeflow` is the cockpit/oracle loop: it decides whether research is needed, runs planner, chooses `instant`/`fast`/`normal`, runs reviewer, and routes feedback through coder fixes, planner revision, or human decision.
+`codeflow` is the full cockpit/oracle loop: it decides whether research is needed, runs planner, chooses `instant`/`fast`/`normal`, runs reviewer, and routes feedback through coder fixes, planner revision, or human decision. For obvious `instant` or `fast` work, the Oracle can skip `codeflow` and call the direct delegate with its own compact plan, using `planner` only when a verbose handoff would help.
 
 
 Run `/cockpit setup` for the onboarding wizard. Setup is simplified to two model choices: the **hands model** inherited by implementation workers (`instant`, `fast`, `normal`) and the **reasoning model** inherited by ideation/research/planning/review workers (`ideate`, `research`, `planner`, `reviewer`). Recommended: local model for hands, latest cloud reasoning model for reasoning. Thinking is forced per flow: instant off, research minimal, ideate high, fast low, normal medium, planner xhigh, reviewer high. Strict mode is recommended so the main chat stays the Oracle and delegates perform code mutation.

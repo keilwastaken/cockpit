@@ -340,6 +340,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		promptSnippet: "Run the Cockpit codeflow",
 		promptGuidelines: [
 			"Use cockpit_codeflow when the user asks to run the full codeflow or wants planning, coding, and review handled by Cockpit.",
+			"For instant/fast-sized work, prefer cockpit_delegate or cockpit_fast directly with an Oracle-authored compact plan; call cockpit_plan first only when the Oracle wants a more verbose planner handoff.",
 			"Pass the original user task. The cockpit decides whether to research, which executor to use, and how to route reviewer feedback.",
 			"If the codeflow returns a human_decision or planner_revision route, stop and surface the final review output.",
 		],
@@ -370,7 +371,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		description: "Run the instant delegate flow for one tiny, exact code edit from a cockpit-supplied plan.",
 		promptSnippet: "Run an instant delegate flow",
 		promptGuidelines: [
-			"Use cockpit_delegate only after the cockpit has a concrete one-file plan for a tiny, low-risk edit.",
+			"Use cockpit_delegate directly when the Oracle already has a concrete one-file plan for a tiny, low-risk edit; do not call the planner first unless a verbose handoff would materially help.",
 			"Always pass the exact file, and pass line when known, so the instant delegate does not discover scope.",
 			"Do not use cockpit_delegate for security, persistence, deployment, architecture, or ambiguous product decisions.",
 		],
@@ -403,7 +404,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		description: "Run the fast delegate flow for a small semantic task with local discovery and low thinking.",
 		promptSnippet: "Run a fast delegate flow",
 		promptGuidelines: [
-			"Use cockpit_fast for small semantic tasks where the delegate should discover local context itself, such as building a codemap.",
+			"Use cockpit_fast directly for small semantic tasks where the delegate should discover local context itself, such as building a codemap; do not call the planner first unless the Oracle wants a more verbose plan.",
 			"Keep the cockpit prompt compact; do not pre-scan the project in the main chat.",
 			"Do not use cockpit_fast for risky security, persistence, deployment, or broad refactor decisions.",
 		],
