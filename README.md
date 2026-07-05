@@ -10,8 +10,8 @@ The entire point of **Cockpit** is to keep the main chat session as a pristine *
 
 1. **The Main Chat is the Oracle**: The model running in the main chat acts as the high-level architect and decision-maker. It holds the user's ultimate goals, preferences, and context. It does not get bogged down reading thousands of lines of `rg` output or wrestling with Git diffs.
 2. **Strict Mode Forces Delegation**: Running `/cockpit strict on` strips the `edit` and `write` tools from the main chat. The Oracle is *forced* to route mutation tasks through the delegates. It becomes physically impossible for the main chat to bloatedly rewrite a file directly.
-3. **Absolute Context Isolation**: Every delegate (`ideate`, `research`, `planner`, `normal`, `reviewer`) is spawned using `child-pi.ts` with `--no-session` and without loading extra context. Delegates are amnesiac, single-purpose workers. They wake up, execute their highly specific prompt using their isolated tool allowlist, return a compact markdown summary, and die. The main Oracle chat only ever sees the clean summary, saving massive amounts of context tokens.
-4. **The `codeflow` Tool**: Instead of the Oracle manually calling `research`, waiting, calling `planner`, waiting, and calling `normal`, it uses the `cockpit_codeflow` tool. The Oracle calls `cockpit_codeflow` and the TypeScript orchestrator spins up the workers, passes context between them, handles the review loop, and manages the coder fix budget. The Oracle gets back a single, clean `# Codeflow Result`.
+3. **Absolute Context Isolation**: Every delegate (`instant`, `fast`, `ideate`, `research`, `planner`, `task-writer`, `normal`, `reviewer`) is spawned using `child-pi.ts` with `--no-session` and without loading extra context. Delegates are amnesiac, single-purpose workers. They wake up, execute their highly specific prompt using their isolated tool allowlist, return a compact markdown summary, and die. The main Oracle chat only ever sees the clean summary, saving massive amounts of context tokens.
+4. **The `codeflow` Tool**: Instead of the Oracle manually calling `research`, waiting, calling `planner`, waiting, and calling `normal`, it uses the `cockpit_codeflow` tool. The Oracle calls `cockpit_codeflow`, Cockpit starts a background job, and the TypeScript orchestrator spins up the workers, passes context between them, handles the review loop, and manages the coder fix budget. The Oracle gets a job id immediately and can read the clean result with `/cockpit job <id>`.
 
 ---
 
@@ -25,6 +25,7 @@ This project is a small Pi delegation router:
 - `extensions/cockpit/codeflow.ts` — cockpit/oracle workflow orchestration.
 - `extensions/cockpit/config.ts` — cockpit configuration helpers.
 - `extensions/cockpit/delegates/` — delegate protocol, registry, child Pi runner, and flow implementations.
+- `extensions/cockpit/jobs/` — in-memory async job registry/service for delegate/codeflow starts, progress display, read/list, and cancel.
 - `extensions/cockpit/routing.ts` — routing decisions for delegate eligibility.
 - `extensions/cockpit/safety.ts` — safety checks for low-risk edits.
 
@@ -40,7 +41,12 @@ Commands:
 - `/cockpit ideate <unclear feature/refactor/product direction>`
 - `/cockpit normal <implementation plan>`
 - `/cockpit plan <task + optional research brief>`
+- `/cockpit task <idea or backlog item>`
 - `/cockpit review <task + plan + change summary>`
+- `/cockpit async <flow> <task>`
+- `/cockpit jobs`
+- `/cockpit job <id>`
+- `/cockpit cancel <id>`
 - `/cockpit strict on|off`
 
 Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. Small semantic tasks can use the `fast` delegate flow. When the user does not yet know what they want, the read-only `ideate` delegate runs divergent passes and returns option space plus a recommendation; the Oracle surfaces that recommendation and the human decides. Planner handoffs can start with the read-only `research` delegate flow, move through the high-reasoning `planner` flow, execute with `normal` when the change needs a bounded coding delegate, then review with `reviewer`. `/cockpit codeflow` orchestrates those steps as a cockpit-controlled workflow.
@@ -55,11 +61,15 @@ Tiny, exact, low-risk one-file edits are routed to the `instant` delegate flow. 
 
 `planner` is read-only and high-reasoning. It takes the user task, human-approved direction, and optional Research Brief and returns a bounded Implementation Plan for the coding agent, including files, steps, validation commands, risks, and stop conditions.
 
+`task-writer` is a low-thinking PM-style delegate. It turns ideas, bugs, and backlog items into durable markdown task plans inspired by migration-plan docs: status/date/scope metadata, rationale, boundaries, phased task tables, acceptance criteria, suggested Cockpit route, validation plan, risks, open questions, implementation order, and ready-to-run prompts for future agents. It can return the plan inline or write/update a specified markdown file.
+
 `normal` usually uses the implementation model with medium thinking and a terse coding-executor prompt. It can edit/write files and run safe validation commands from the plan.
 
 `reviewer` is read-only and returns calibrated issues plus a feedback weight: `none`, `light`, `medium`, `heavy`, or `blocker`. The cockpit uses that weight to approve, send a small fix back to coder, replan, or ask the human.
 
 `codeflow` is the full cockpit/oracle loop: it decides whether research is needed, runs planner, chooses `instant`/`fast`/`normal`, runs reviewer, and routes feedback through coder fixes, planner revision, or human decision. For obvious `instant` or `fast` work, the Oracle can skip `codeflow` and call the direct delegate with its own compact plan, using `planner` only when a verbose handoff would help.
 
+All direct delegate/codeflow commands and delegate tools now start in-memory background jobs and immediately return control to the Oracle chat, including `instant` and `fast`. Use `/cockpit normal <task>`, `/cockpit codeflow <task>`, or `/cockpit async normal <task>` to start, `/cockpit jobs` to list, `/cockpit job <id>` to read output, and `/cockpit cancel <id>` to abort. `/cockpit async taskWriter <task>` remains accepted as an alias, but job summaries/details display the canonical `task-writer` flow name. While jobs run, Cockpit shows a footer count plus a small progress widget below the editor; progress is estimated from elapsed time vs the flow timeout. Jobs intentionally have no database yet; they live only for the current Pi process.
 
-Run `/cockpit setup` for the onboarding wizard. Setup is simplified to two model choices: the **hands model** inherited by implementation workers (`instant`, `fast`, `normal`) and the **reasoning model** inherited by ideation/research/planning/review workers (`ideate`, `research`, `planner`, `reviewer`). Recommended: local model for hands, latest cloud reasoning model for reasoning. Thinking is forced per flow: instant off, research minimal, ideate high, fast low, normal medium, planner xhigh, reviewer high. Strict mode is recommended so the main chat stays the Oracle and delegates perform code mutation.
+
+Run `/cockpit setup` for the onboarding wizard. Setup is simplified to two model choices: the **hands model** inherited by implementation workers (`instant`, `fast`, `normal`) and the **reasoning model** inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended: local model for hands, latest cloud reasoning model for reasoning. Thinking is forced per flow: instant off, research minimal, task-writer low, ideate high, fast low, normal medium, planner xhigh, reviewer high. Strict mode is recommended so the main chat stays the Oracle and delegates perform code mutation.

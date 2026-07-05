@@ -5,6 +5,7 @@ import { normalDelegate } from "./normal.js";
 import { plannerDelegate } from "./planner.js";
 import { researchDelegate } from "./research.js";
 import { reviewerDelegate } from "./reviewer.js";
+import { taskWriterDelegate } from "./task-writer.js";
 
 export const delegates = {
 	instant: instantDelegate,
@@ -13,7 +14,9 @@ export const delegates = {
 	normal: normalDelegate,
 	planner: plannerDelegate,
 	reviewer: reviewerDelegate,
+	taskWriter: taskWriterDelegate,
+	"task-writer": taskWriterDelegate,
 	ideate: ideateDelegate,
 };
 
-export { fastDelegate, ideateDelegate, instantDelegate, normalDelegate, plannerDelegate, researchDelegate, reviewerDelegate };
+export { fastDelegate, ideateDelegate, instantDelegate, normalDelegate, plannerDelegate, researchDelegate, reviewerDelegate, taskWriterDelegate };

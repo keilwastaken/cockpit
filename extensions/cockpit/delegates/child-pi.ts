@@ -99,10 +99,11 @@ export async function runChildPi(options: {
 			stderr += data.toString();
 		});
 
+		let closed = false;
 		const killProc = () => {
 			proc.kill("SIGTERM");
 			setTimeout(() => {
-				if (!proc.killed) proc.kill("SIGKILL");
+				if (!closed) proc.kill("SIGKILL");
 			}, 5000);
 		};
 
@@ -112,6 +113,7 @@ export async function runChildPi(options: {
 		}, options.timeoutMs);
 
 		proc.on("close", (code) => {
+			closed = true;
 			clearTimeout(timeout);
 			if (buffer.trim()) processLine(buffer);
 			resolve(code ?? 0);

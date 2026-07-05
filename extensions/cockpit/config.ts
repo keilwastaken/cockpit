@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
 	strictMode: false,
-	agents: ["instant", "fast", "ideate", "research", "normal", "planner", "reviewer"],
+	agents: ["instant", "fast", "ideate", "research", "normal", "planner", "reviewer", "task-writer"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
@@ -73,6 +73,17 @@ const DEFAULT_CONFIG = {
 			maxTurns: 6,
 			timeoutMs: 240000,
 		},
+		taskWriter: {
+			agent: "task-writer",
+			description: "Low-thinking PM-style task packet writer for later Cockpit agents.",
+			model: "",
+			tools: ["ls", "find", "grep", "read", "write", "edit"],
+			thinking: "low",
+			maxFiles: 6,
+			maxEstimatedLines: 250,
+			maxTurns: 4,
+			timeoutMs: 180000,
+		},
 		ideate: {
 			agent: "ideate",
 			description: "Read-only divergent ideation council for unclear features, refactors, and product/implementation direction.",
@@ -106,8 +117,8 @@ const stringArray = (value: unknown, fallback: string[]): string[] => {
 const numberValue = (value: unknown, fallback: number): number => (typeof value === "number" && Number.isFinite(value) ? value : fallback);
 const stringValue = (value: unknown, fallback: string): string => (typeof value === "string" && value.trim() ? value : fallback);
 
-function rawFlow(rawFlows: Record<string, unknown>, name: string): Record<string, unknown> {
-	const value = rawFlows[name];
+function rawFlow(rawFlows: Record<string, unknown>, name: string, fallbackName?: string): Record<string, unknown> {
+	const value = rawFlows[name] ?? (fallbackName ? rawFlows[fallbackName] : undefined);
 	return isRecord(value) ? value : {};
 }
 
@@ -147,6 +158,7 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const rawNormal = rawFlow(rawFlows, "normal");
 	const rawPlanner = rawFlow(rawFlows, "planner");
 	const rawReviewer = rawFlow(rawFlows, "reviewer");
+	const rawTaskWriter = rawFlow(rawFlows, "taskWriter", "task-writer");
 	const rawIdeate = rawFlow(rawFlows, "ideate");
 	const baseInstant = base.delegateFlows.instant;
 	const baseFast = base.delegateFlows.fast;
@@ -154,6 +166,7 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	const baseNormal = base.delegateFlows.normal;
 	const basePlanner = base.delegateFlows.planner;
 	const baseReviewer = base.delegateFlows.reviewer;
+	const baseTaskWriter = base.delegateFlows.taskWriter;
 	const baseIdeate = base.delegateFlows.ideate;
 
 	const instant = normalizeDelegateFlow(rawInstant, baseInstant, {
@@ -183,6 +196,10 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 		model: baseReviewer.model,
 		thinking: stringValue(rawReviewer.thinking, baseReviewer.thinking),
 	});
+	const taskWriter = normalizeDelegateFlow(rawTaskWriter, baseTaskWriter, {
+		model: baseTaskWriter.model,
+		thinking: "low",
+	});
 	const ideate = normalizeDelegateFlow(rawIdeate, baseIdeate, {
 		model: baseIdeate.model,
 		thinking: stringValue(rawIdeate.thinking, baseIdeate.thinking),
@@ -193,8 +210,8 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 		...base,
 		...(raw as Partial<CockpitConfig>),
 		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
-		agents: Array.from(new Set([...agents, instant.agent, fast.agent, ideate.agent, research.agent, normal.agent, planner.agent, reviewer.agent])),
-		delegateFlows: { instant, fast, ideate, research, normal, planner, reviewer },
+		agents: Array.from(new Set([...agents, instant.agent, fast.agent, ideate.agent, research.agent, normal.agent, planner.agent, reviewer.agent, taskWriter.agent])),
+		delegateFlows: { instant, fast, ideate, research, normal, planner, reviewer, taskWriter },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),
 		maxEstimatedLines: numberValue(raw.maxEstimatedLines, instant.maxEstimatedLines),
 		disallowDomains: stringArray(raw.disallowDomains, base.disallowDomains),

@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-`cockpit` is a small TypeScript Pi package that adds a Cockpit extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports seven delegate flows:
+`cockpit` is a small TypeScript Pi package that adds a Cockpit extension for routing tiny or small local coding/documentation tasks into child Pi delegate processes. It currently supports eight delegate flows:
 
 - `instant` — tightly scoped one-file edits from a cockpit-supplied plan.
 - `fast` — small semantic tasks with limited local discovery, intended for work like codemaps.
@@ -10,6 +10,7 @@
 - `ideate` — read-only divergent ideation council for unclear features, refactors, and implementation/product direction.
 - `normal` — medium-thinking bounded coding execution from an implementation plan.
 - `planner` — high-reasoning read-only implementation plans for coding-agent handoff.
+- `task-writer` — low-thinking PM-style task packets for later Cockpit agents.
 - `reviewer` — read-only diff review with severity buckets and feedback weight for cockpit routing.
 
 ## Repository layout
@@ -23,6 +24,9 @@
 │       ├── codeflow.ts              # cockpit/oracle orchestration flow
 │       ├── routing.ts               # task signal analysis and route decisions
 │       ├── safety.ts                # strict-mode and delegate tool-call guards
+│       ├── jobs/
+│       │   ├── async-jobs.ts        # in-memory delegate/codeflow job registry, progress formatting, cancel/read/list helpers
+│       │   └── service.ts           # UI-bound job service for starting jobs and refreshing status/widget progress
 │       └── delegates/
 │           ├── protocol.ts          # shared delegate types
 │           ├── registry.ts          # delegate registry/export surface
@@ -33,6 +37,7 @@
 │           ├── ideate.ts            # divergent ideation council validation + prompt + run flow
 │           ├── normal.ts            # bounded coding executor validation + prompt + run flow
 │           ├── planner.ts           # high-reasoning implementation plan validation + prompt + run flow
+│           ├── task-writer.ts       # low-thinking PM-style task packet validation + prompt + run flow
 │           └── reviewer.ts          # read-only diff reviewer validation + prompt + run flow
 ├── package.json                     # package metadata, Pi extension registration, scripts
 ├── tsconfig.json                    # strict NodeNext TypeScript config
@@ -60,15 +65,17 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 
 - `session_start` event: loads config and sets a status item showing the selected delegate model and strict-mode state.
 - `tool_call` event: applies `shouldBlockToolCall()` to enforce instant-delegate restrictions or global strict mode.
-- `/cockpit` command: user command with subcommands for setup, status, routing, direct delegate runs, and strict mode.
-- `cockpit_codeflow` tool: tool-facing cockpit/oracle codeflow runner.
-- `cockpit_delegate` tool: tool-facing instant delegate runner.
-- `cockpit_fast` tool: tool-facing fast delegate runner.
-- `cockpit_research` tool: tool-facing read-only research delegate runner.
-- `cockpit_ideate` tool: tool-facing divergent ideation delegate runner.
-- `cockpit_normal` tool: tool-facing normal coding delegate runner.
-- `cockpit_plan` tool: tool-facing read-only planner delegate runner.
-- `cockpit_review` tool: tool-facing read-only reviewer delegate runner.
+- `/cockpit` command: user command with subcommands for setup, status, routing, background delegate/codeflow jobs, job inspection/cancel, and strict mode.
+- `cockpit_job` tool: tool-facing start/list/read/cancel API for in-memory Cockpit jobs.
+- `cockpit_codeflow` tool: starts a background cockpit/oracle codeflow job.
+- `cockpit_delegate` tool: starts a background instant delegate job.
+- `cockpit_fast` tool: starts a background fast delegate job.
+- `cockpit_research` tool: starts a background read-only research delegate job.
+- `cockpit_ideate` tool: starts a background divergent ideation delegate job.
+- `cockpit_normal` tool: starts a background normal coding delegate job.
+- `cockpit_plan` tool: starts a background read-only planner delegate job.
+- `cockpit_task_writer` tool: starts a background task packet writer delegate job.
+- `cockpit_review` tool: starts a background read-only reviewer delegate job.
 
 ## Commands and tools
 
@@ -77,26 +84,33 @@ Registered `/cockpit` subcommands:
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
 - `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, answer the strict mode prompt, and save global config.
 - `/cockpit route <task>` — analyze a task and print the selected route/profile.
-- `/cockpit codeflow <task>` — run the cockpit/oracle workflow: optional research, planner, selected executor, reviewer, and feedback routing.
-- `/cockpit instant <plan>` — run the instant delegate directly; the file is inferred from the plan.
-- `/cockpit fast <task>` — run the fast delegate directly.
-- `/cockpit research <task>` — run the read-only research delegate directly.
-- `/cockpit ideate <unclear feature/refactor/product direction>` — run the read-only ideation delegate directly.
-- `/cockpit normal <implementation plan>` — run the normal coding delegate directly.
-- `/cockpit plan <task + optional research brief>` — run the read-only planner delegate directly.
-- `/cockpit review <task + plan + change summary>` — run the read-only reviewer delegate directly.
+- `/cockpit codeflow <task>` — start a background cockpit/oracle workflow job: optional research, planner, selected executor, reviewer, and feedback routing.
+- `/cockpit instant <plan>` — start a background instant delegate job; the file is inferred from the plan.
+- `/cockpit fast <task>` — start a background fast delegate job.
+- `/cockpit research <task>` — start a background read-only research delegate job.
+- `/cockpit ideate <unclear feature/refactor/product direction>` — start a background read-only ideation delegate job.
+- `/cockpit normal <implementation plan>` — start a background normal coding delegate job.
+- `/cockpit plan <task + optional research brief>` — start a background read-only planner delegate job.
+- `/cockpit task <idea or backlog item>` — start a background low-thinking task-writer delegate job.
+- `/cockpit review <task + plan + change summary>` — start a background read-only reviewer delegate job.
+- `/cockpit async <flow> <task>` — explicit background job starter for `codeflow`, delegate flows, and aliases such as `taskWriter`.
+- `/cockpit jobs` — list in-memory jobs with estimated progress bars.
+- `/cockpit job <id>` — show a job's plan, status, output, stderr, and estimated progress.
+- `/cockpit cancel <id>` — abort a running job and refresh the Cockpit jobs widget/status.
 - `/cockpit strict on|off` — toggle strict-mode mutation guards in global config.
 
 Registered tools:
 
-- `cockpit_codeflow` — accepts `plan` and optional `flow: "codeflow"`; runs the cockpit/oracle workflow.
-- `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; runs `delegates.instant`.
-- `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; runs `delegates.fast`.
-- `cockpit_research` — accepts `plan` and optional `flow: "research"`; runs `delegates.research`.
-- `cockpit_ideate` — accepts `plan` and optional `flow: "ideate"`; runs `delegates.ideate`.
-- `cockpit_normal` — accepts `plan` and optional `flow: "normal"`; runs `delegates.normal`.
-- `cockpit_plan` — accepts a task, human-approved direction, and optional Research Brief as `plan`, plus optional `flow: "planner"`; runs `delegates.planner`.
-- `cockpit_review` — accepts `plan` and optional `flow: "reviewer"`; runs `delegates.reviewer`.
+- `cockpit_job` — accepts `action: start|list|read|cancel`, optional `flow`, `plan`, and `id`; manages in-memory background jobs.
+- `cockpit_codeflow` — accepts `plan` and optional `flow: "codeflow"`; starts a codeflow job and returns a job id.
+- `cockpit_delegate` — accepts `plan`, `file`, optional `line`, and optional `flow: "instant"`; starts an instant job and returns a job id.
+- `cockpit_fast` — accepts `plan`, optional `outputFile`, and optional `flow: "fast"`; starts a fast job and returns a job id.
+- `cockpit_research` — accepts `plan` and optional `flow: "research"`; starts a research job and returns a job id.
+- `cockpit_ideate` — accepts `plan` and optional `flow: "ideate"`; starts an ideate job and returns a job id.
+- `cockpit_normal` — accepts `plan` and optional `flow: "normal"`; starts a normal job and returns a job id.
+- `cockpit_plan` — accepts a task, human-approved direction, and optional Research Brief as `plan`, plus optional `flow: "planner"`; starts a planner job and returns a job id.
+- `cockpit_task_writer` — accepts `plan`, optional `outputFile`, and optional `flow: "task-writer"`; starts a task-writer job and returns a job id.
+- `cockpit_review` — accepts `plan` and optional `flow: "reviewer"`; starts a reviewer job and returns a job id.
 
 ## Configuration flow
 
@@ -117,10 +131,11 @@ Important defaults:
 - `normal` tools: `ls`, `find`, `grep`, `read`, `edit`, `write`, `bash`; thinking `medium`; max 6 files / ~600 lines / 300s.
 - `planner` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `xhigh`; max 3 verification files / 240s.
 - `reviewer` tools: `ls`, `find`, `grep`, `read`, `bash`; thinking `high`; max 10 fully-read files / 240s.
+- `task-writer` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 6 fully-read files / 180s.
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review workers (`ideate`, `research`, `planner`, `reviewer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
 
 ## Routing model
 
@@ -159,7 +174,7 @@ Codeflow caps coder fix attempts at 2 and planner revisions at 1 for the initial
 
 ### Shared protocol
 
-`extensions/cockpit/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, `delegates.normal`, `delegates.planner`, and `delegates.reviewer`.
+`extensions/cockpit/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, `delegates.ideate`, `delegates.normal`, `delegates.planner`, `delegates.taskWriter`, canonical `delegates["task-writer"]`, and `delegates.reviewer`.
 
 ### Child Pi runner
 
@@ -239,6 +254,18 @@ Normal boundary: child may make bounded source/test changes from a plan and run 
 
 Planner boundary: child should produce a bounded plan for the coding agent, including exact files, steps, validation commands, risks, and stop conditions. It should not edit or implement.
 
+### Task-writer delegate
+
+`extensions/cockpit/delegates/task-writer.ts`:
+
+- Requires a non-empty idea, bug, backlog item, or future-work description.
+- Usually uses the configured reasoning model, with `--thinking low`.
+- Runs child Pi with no session/extensions/skills/templates/context files and task-writing tools: `ls`, `find`, `grep`, `read`, `write`, `edit`.
+- Prompt tells the child to act as a lightweight PM, avoid implementation, inspect only limited context, and produce a durable migration-plan-style task document with status/date/scope metadata, rationale, boundaries, phased task tables, acceptance criteria, suggested Cockpit route, validation plan, risks, open questions, implementation order, and ready-to-run prompts.
+- If an `outputFile` is supplied through the tool, it may write/update only that markdown task file; otherwise it returns the packet inline.
+
+Task-writer boundary: child produces backlog-ready handoff material for future agents. It should not edit source code or make product decisions silently.
+
 ### Reviewer delegate
 
 `extensions/cockpit/delegates/reviewer.ts`:
@@ -281,6 +308,7 @@ No test files or test runner configuration were found in the tracked project str
 When adding behavior:
 
 - Command/tool registration usually starts in `extensions/cockpit/index.ts`.
+- Background job lifecycle, job progress display, cancellation, and job list/read formatting belong in `extensions/cockpit/jobs/`.
 - Flow defaults and limits belong in `config.ts`.
 - Routing heuristics belong in `routing.ts`.
 - Process execution concerns belong in `delegates/child-pi.ts`.
