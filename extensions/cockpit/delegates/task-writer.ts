@@ -70,7 +70,7 @@ export const taskWriterDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validateTaskWriter(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
-		const fileArgs = fileArgsForPlan(input.plan, config);
+		const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
 
 		context.onUpdate?.({ content: [{ type: "text", text: "Task writer delegate running..." }], details: result });
 

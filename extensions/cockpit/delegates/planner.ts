@@ -91,7 +91,7 @@ export const plannerDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validatePlanner(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
-		const fileArgs = fileArgsForPlan(input.plan, config);
+		const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
 
 		context.onUpdate?.({ content: [{ type: "text", text: "Planner delegate running..." }], details: result });
 

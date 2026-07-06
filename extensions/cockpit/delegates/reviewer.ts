@@ -95,7 +95,7 @@ export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validateReviewer(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
-		const fileArgs = fileArgsForPlan(input.plan, config);
+		const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
 
 		context.onUpdate?.({ content: [{ type: "text", text: "Reviewer delegate running..." }], details: result });
 

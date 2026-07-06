@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import { getProjectSkeleton } from "./skeleton.js";
@@ -22,14 +24,22 @@ export function contextFilesForPlan(plan: string, config: CockpitConfig): string
 	));
 }
 
-export function fileArgsForPlan(plan: string, config: CockpitConfig): string[] {
-	return contextFilesForPlan(plan, config).map((file) => `@${file}`);
+function fileExists(cwd: string | undefined, file: string): boolean {
+	if (!cwd) return true;
+	const path = isAbsolute(file) ? file : join(cwd, file);
+	return existsSync(path);
+}
+
+export function fileArgsForPlan(plan: string, config: CockpitConfig, cwd?: string): string[] {
+	return contextFilesForPlan(plan, config)
+		.filter((file) => fileExists(cwd, file))
+		.map((file) => `@${file}`);
 }
 
 export async function promptContextForPlan(cwd: string, plan: string, config: CockpitConfig): Promise<{ skeleton: string; fileArgs: string[] }> {
 	const [skeleton, fileArgs] = await Promise.all([
 		getProjectSkeleton(cwd),
-		Promise.resolve(fileArgsForPlan(plan, config)),
+		Promise.resolve(fileArgsForPlan(plan, config, cwd)),
 	]);
 	return { skeleton, fileArgs };
 }
