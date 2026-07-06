@@ -1,6 +1,7 @@
 import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import { runChildPi } from "./child-pi.js";
+import { promptContextForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 const DEFAULT_OUTPUT_FILE = "CODEMAP.md";
@@ -12,10 +13,11 @@ function outputFileFor(input: DelegateRunInput): string | undefined {
 	return normalized === "CODEMAP" ? DEFAULT_OUTPUT_FILE : normalized;
 }
 
-function buildFastPrompt(plan: string, outputFile: string | undefined, config: CockpitConfig): string {
+function buildFastPrompt(plan: string, outputFile: string | undefined, config: CockpitConfig, skeleton: string): string {
 	const flow = config.delegateFlows.fast;
 	return [
 		"Fast delegate. Do a small semantic coding/documentation task in this child context.",
+		skeleton,
 		`Plan: ${plan.trim()}`,
 		outputFile ? `Primary output file: ${outputFile}` : undefined,
 		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read for discovery; grep is ripgrep-backed.`,
@@ -61,6 +63,8 @@ export const fastDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validateFast(input, config);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
+		const { skeleton, fileArgs } = await promptContextForPlan(context.cwd, input.plan, config);
+
 		context.onUpdate?.({ content: [{ type: "text", text: "Fast delegate running..." }], details: result });
 
 		const args = [
@@ -78,7 +82,8 @@ export const fastDelegate: DelegateFlow<CockpitConfig> = {
 			context.projectTrusted ? "--approve" : "--no-approve",
 			"--tools",
 			flow.tools.join(","),
-			buildFastPrompt(input.plan, outputFile, config),
+			buildFastPrompt(input.plan, outputFile, config, skeleton),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

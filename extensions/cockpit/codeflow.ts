@@ -1,4 +1,5 @@
 import type { CockpitConfig } from "./config.js";
+import { extractFilePaths } from "./delegates/context.js";
 import { delegates } from "./delegates/registry.js";
 import type { DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./delegates/protocol.js";
 import { routeTask } from "./routing.js";
@@ -116,6 +117,15 @@ function buildExecutionPlan(task: string, plannerOutput: string, researchOutput?
 }
 
 function buildReviewInput(task: string, researchOutput: string | undefined, plannerOutput: string, coderOutput: string): string {
+	const filesChangedSection = coderOutput.match(/Files Changed[\s\S]*?(?=\n(?:#|\*|- )?\s*(?:Validation|Deviations|Reviewer|Risks))/i);
+	let specificFiles = "";
+	if (filesChangedSection) {
+		const files = extractFilePaths(filesChangedSection[0]);
+		if (files.length > 0) {
+			specificFiles = `\n\nThe executor reported modifying these specific files. Focus your review and diffs ONLY on these files:\n${files.map(f => `- ${f}`).join("\n")}`;
+		}
+	}
+
 	return [
 		"Original user task:",
 		task,
@@ -124,7 +134,7 @@ function buildReviewInput(task: string, researchOutput: string | undefined, plan
 		plannerOutput,
 		"\nCoder Result / Reviewer Handoff:",
 		coderOutput,
-		"\nReview the current working-tree diff unless an explicit git range is present above.",
+		specificFiles || "\nReview the current working-tree diff unless an explicit git range is present above.",
 	].filter(Boolean).join("\n");
 }
 

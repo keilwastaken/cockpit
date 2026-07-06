@@ -1,5 +1,6 @@
 import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
+import { fileArgsForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfig): string {
@@ -90,6 +91,8 @@ export const plannerDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validatePlanner(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
+		const fileArgs = fileArgsForPlan(input.plan, config);
+
 		context.onUpdate?.({ content: [{ type: "text", text: "Planner delegate running..." }], details: result });
 
 		const args = [
@@ -107,6 +110,7 @@ export const plannerDelegate: DelegateFlow<CockpitConfig> = {
 			"--tools",
 			flow.tools.join(","),
 			buildPlannerPrompt(input.plan, config),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

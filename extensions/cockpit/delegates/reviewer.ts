@@ -1,5 +1,6 @@
 import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
+import { fileArgsForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig): string {
@@ -94,6 +95,8 @@ export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validateReviewer(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
+		const fileArgs = fileArgsForPlan(input.plan, config);
+
 		context.onUpdate?.({ content: [{ type: "text", text: "Reviewer delegate running..." }], details: result });
 
 		const args = [
@@ -112,6 +115,7 @@ export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 			"--tools",
 			flow.tools.join(","),
 			buildReviewerPrompt(input.plan, config),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

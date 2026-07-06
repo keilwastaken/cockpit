@@ -6,7 +6,7 @@ const REPO_SCOPE_PATTERN = /\b(?:extensions\/|src\/|package\.json|README(?:\.md)
 
 const DOMAIN_KEYWORDS: Array<[string, RegExp]> = [
 	["auth", /\b(auth|login|logout|oauth|session|token|permission|user role)\b/i],
-	["security", /\b(secret|credential|encrypt|decrypt|xss|csrf|injection|permission|policy|iam)\b/i],
+	["security", /\b(secret|credential|encrypt|decrypt|xss|csrf|injection|iam)\b/i],
 	["persistence", /\b(database|schema|migration|storage|persist|save|delete data)\b/i],
 	["deployment", /\b(deploy|publish|release|ci|terraform|infra|cloud)\b/i],
 	["architecture", /\b(architecture|refactor|redesign|rewrite|framework|pattern|abstraction)\b/i],
@@ -50,7 +50,7 @@ function missingContextQuestions(signals: TaskSignal): string[] {
 	const questions: string[] = [];
 	if (signals.isAmbiguous) questions.push("What exact outcome should the delegate produce?");
 	if (signals.tasksLooksLikeCoding && signals.mentionedFiles.length === 0 && !hasRepoScope(signals.text)) questions.push("Which file should the instant delegate edit?");
-	if (signals.riskDomains.length > 0) questions.push("This looks too risky for instant; should it stay in the main chat?");
+	if (signals.riskDomains.length > 0 && signals.mentionedFiles.length === 0) questions.push("This touches a risk domain; which exact files/paths should the delegate inspect or edit?");
 	return questions;
 }
 

@@ -1,6 +1,7 @@
 import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import { runChildPi } from "./child-pi.js";
+import { contextFilesForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 const uniqueStrings = (values: readonly string[] | undefined): string[] =>
@@ -61,6 +62,8 @@ export const instantDelegate: DelegateFlow<CockpitConfig> = {
 
 		context.onUpdate?.({ content: [{ type: "text", text: "Instant delegate running..." }], details: result });
 
+		const fileArgs = contextFilesForPlan(allowedFiles.join(" "), config).map((file) => `@${file}`);
+
 		const args = [
 			"--mode",
 			"json",
@@ -77,6 +80,7 @@ export const instantDelegate: DelegateFlow<CockpitConfig> = {
 			"--tools",
 			flow.tools.join(","),
 			buildInstantPrompt(input.plan, allowedFiles, input.line, config),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

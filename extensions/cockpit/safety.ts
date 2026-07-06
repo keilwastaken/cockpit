@@ -36,15 +36,16 @@ function blockedShellReason(command: string, config: CockpitConfig): string | un
 	return undefined;
 }
 
-export function shouldBlockToolCall(event: { toolName?: string; input?: unknown }, config: CockpitConfig, _cwd = process.cwd()): string | undefined {
-	if (!config.strictMode) return undefined;
+export function checkToolCallSafety(event: { toolName?: string; input?: unknown }, config: CockpitConfig, _cwd = process.cwd()): { block: boolean; message?: string } {
+	if (!config.strictMode) return { block: false };
 	const toolName = event.toolName;
 	if (toolName === "edit" || toolName === "write") {
-		return "Cockpit strict mode is on. Code mutation should be routed through Cockpit delegation instead of direct edit/write tools.";
+		return { block: false, message: "Warning: You are modifying code in the control room. Consider using a delegate for cleaner history." };
 	}
 	if (toolName === "bash" && isRecord(event.input)) {
 		const command = typeof event.input.command === "string" ? event.input.command : "";
-		return blockedShellReason(command, config);
+		const reason = blockedShellReason(command, config);
+		if (reason) return { block: true, message: reason };
 	}
-	return undefined;
+	return { block: false };
 }

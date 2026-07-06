@@ -1,11 +1,14 @@
 import type { CockpitConfig } from "../config.js";
+import { routeTask } from "../routing.js";
 import { runChildPi } from "./child-pi.js";
+import { promptContextForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
-function buildNormalPrompt(plan: string, config: CockpitConfig): string {
+function buildNormalPrompt(plan: string, config: CockpitConfig, skeleton: string): string {
 	const flow = config.delegateFlows.normal;
 	return [
 		"Normal delegate. You are a bounded coding executor for an implementation plan.",
+		skeleton,
 		`Plan / instructions: ${plan.trim()}`,
 		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read for local discovery; grep is ripgrep-backed. Use edit/write for file changes.`,
 		`Thinking: ${flow.thinking}. The planner owns deep reasoning; execute carefully and concisely.`,
@@ -33,8 +36,25 @@ function baseResult(input: DelegateRunInput, config: CockpitConfig): DelegateRun
 	};
 }
 
-function validateNormal(input: DelegateRunInput): string | undefined {
-	if (!input.plan.trim()) return "Normal delegate needs an implementation plan or coding instructions.";
+function validateNormal(input: DelegateRunInput, config: CockpitConfig): string | undefined {
+	const plan = input.plan.trim();
+	if (!plan) return "Normal delegate needs an implementation plan or coding instructions.";
+
+	const delegatedPlan = /Approved Implementation Plan|Approved plan:|Fix attempt|Reviewer Feedback|Coder Instructions/i.test(plan);
+	if (delegatedPlan) return undefined;
+
+	const decision = routeTask(plan, config);
+	const flow = config.delegateFlows.normal;
+	if (decision.signals.estimatedFiles > flow.maxFiles || decision.signals.estimatedLines > flow.maxEstimatedLines) {
+		return `Task looks too broad for one normal delegate (${decision.signals.estimatedFiles} files, ~${decision.signals.estimatedLines} lines). Split it into a smaller slice or run /cockpit plan first.`;
+	}
+
+	const nonEmptyLines = plan.split("\n").map((line) => line.trim()).filter(Boolean);
+	const actionCount = Array.from(plan.matchAll(/\b(add|implement|fix|update|wire|repair|strengthen|switch|create|remove|rewrite)\b/gi)).length;
+	if (decision.signals.mentionedFiles.length === 0 && (nonEmptyLines.length >= 6 || actionCount >= 5)) {
+		return "Task looks like a multi-slice implementation without exact files. Start with /cockpit plan, or name the first files/slice for /cockpit normal.";
+	}
+
 	return undefined;
 }
 
@@ -43,8 +63,10 @@ export const normalDelegate: DelegateFlow<CockpitConfig> = {
 	async run(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<DelegateRunResult> {
 		const flow = config.delegateFlows.normal;
 		const result = baseResult(input, config);
-		const blockedReason = validateNormal(input);
+		const blockedReason = validateNormal(input, config);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
+
+		const { skeleton, fileArgs } = await promptContextForPlan(context.cwd, input.plan, config);
 
 		context.onUpdate?.({ content: [{ type: "text", text: "Normal delegate running..." }], details: result });
 
@@ -63,7 +85,8 @@ export const normalDelegate: DelegateFlow<CockpitConfig> = {
 			context.projectTrusted ? "--approve" : "--no-approve",
 			"--tools",
 			flow.tools.join(","),
-			buildNormalPrompt(input.plan, config),
+			buildNormalPrompt(input.plan, config, skeleton),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

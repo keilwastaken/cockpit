@@ -47,6 +47,7 @@ export async function runChildPi(options: {
 	onUpdate?: ChildPiUpdate;
 }): Promise<ChildPiResult> {
 	let finalOutput = "";
+	let progressText = "";
 	let stderr = "";
 	let aborted = false;
 	let timedOut = false;
@@ -64,7 +65,7 @@ export async function runChildPi(options: {
 		});
 		let buffer = "";
 
-		const emit = () => options.onUpdate?.({ finalOutput, stderr });
+		const emit = () => options.onUpdate?.({ finalOutput: finalOutput || progressText, stderr });
 
 		const processLine = (line: string) => {
 			if (!line.trim()) return;
@@ -76,6 +77,21 @@ export async function runChildPi(options: {
 			}
 			if (!event || typeof event !== "object" || Array.isArray(event)) return;
 			const record = event as Record<string, unknown>;
+			const type = typeof record.type === "string" ? record.type : "";
+			if (type.includes("tool")) {
+				const name = typeof record.toolName === "string" ? record.toolName
+					: typeof record.name === "string" ? record.name
+						: typeof record.tool === "object" && record.tool && "name" in record.tool ? String((record.tool as Record<string, unknown>).name)
+							: "tool";
+				progressText = `Delegate ${type.replace(/_/g, " ")}: ${name}`;
+				emit();
+				return;
+			}
+			if (type === "message_start" || type === "turn_start") {
+				progressText = "Delegate thinking...";
+				emit();
+				return;
+			}
 			if (record.type !== "message_end") return;
 			const message = record.message;
 			if (!message || typeof message !== "object" || Array.isArray(message)) return;

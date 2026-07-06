@@ -3,10 +3,11 @@ import { routeTask } from "../routing.js";
 import type { AsyncJob, JobFlowName } from "./async-jobs.js";
 import { formatJobSummary, listAsyncJobs, startAsyncJob } from "./async-jobs.js";
 
-type JobUi = {
+export type JobUi = {
 	setStatus(key: string, value: string | undefined): void;
 	setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
 	notify(message: string, level?: "info" | "warning" | "error"): void;
+	sendJobResult(job: AsyncJob): void;
 };
 
 export type JobServiceContext = {
@@ -23,6 +24,7 @@ export type StartDelegateJobInput = {
 	outputFile?: string;
 	approved?: boolean;
 	notify?: boolean;
+	onFinish?: (job: AsyncJob) => void | Promise<void>;
 };
 
 const fileFromPlan = (plan: string, config: CockpitConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
@@ -60,8 +62,15 @@ export function createJobService(config: CockpitConfig, context: JobServiceConte
 			outputFile: input.outputFile,
 			onFinish: (finished) => {
 				refreshProgress();
-				const level = finished.status === "failed" ? "error" : finished.status === "cancelled" ? "warning" : "info";
-				context.ui.notify(`Cockpit job ${finished.id} ${finished.status}. Read it with: /cockpit job ${finished.id}`, level);
+				if (input.onFinish) {
+					void Promise.resolve(input.onFinish(finished)).catch((error: unknown) => {
+						context.ui.notify(`Cockpit job finish handler failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+					});
+				} else {
+					const level = finished.status === "failed" ? "error" : finished.status === "cancelled" ? "warning" : "info";
+					context.ui.notify(`Cockpit job ${finished.id} ${finished.status}. Read it with: /cockpit job ${finished.id}`, level);
+					if (finished.status === "done" || finished.status === "failed") context.ui.sendJobResult(finished);
+				}
 			},
 		});
 		ensureTimer();

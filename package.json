@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck"
+    "test": "node --test --import tsx tests/*.test.ts",
+    "check": "npm run typecheck && npm test"
   },
   "pi": {
     "extensions": [
@@ -30,7 +31,11 @@
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@types/node": "^22.0.0",
-    "typescript": "^5.8.0",
-    "typebox": "*"
+    "tsx": "^4.23.0",
+    "typebox": "*",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@earendil-works/pi-tui": "^0.80.3"
   }
 }

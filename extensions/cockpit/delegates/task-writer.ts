@@ -1,5 +1,6 @@
 import type { CockpitConfig } from "../config.js";
 import { runChildPi } from "./child-pi.js";
+import { fileArgsForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 function buildTaskWriterPrompt(task: string, outputFile: string | undefined, config: CockpitConfig): string {
@@ -69,6 +70,8 @@ export const taskWriterDelegate: DelegateFlow<CockpitConfig> = {
 		const blockedReason = validateTaskWriter(input);
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
+		const fileArgs = fileArgsForPlan(input.plan, config);
+
 		context.onUpdate?.({ content: [{ type: "text", text: "Task writer delegate running..." }], details: result });
 
 		const args = [
@@ -87,6 +90,7 @@ export const taskWriterDelegate: DelegateFlow<CockpitConfig> = {
 			"--tools",
 			flow.tools.join(","),
 			buildTaskWriterPrompt(input.plan, input.outputFile, config),
+			...fileArgs,
 		];
 
 		const child = await runChildPi({

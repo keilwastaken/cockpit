@@ -67,7 +67,7 @@ const DEFAULT_CONFIG = {
 			description: "Read-only diff reviewer with feedback weight for cockpit routing.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "bash"],
-			thinking: "high",
+			thinking: "medium",
 			maxFiles: 10,
 			maxEstimatedLines: 0,
 			maxTurns: 6,
@@ -98,7 +98,7 @@ const DEFAULT_CONFIG = {
 	},
 	maxFiles: 1,
 	maxEstimatedLines: 30,
-	disallowDomains: ["auth", "security", "persistence", "deployment", "architecture"],
+	disallowDomains: ["deployment", "architecture"],
 	forbiddenCommands: ["commit", "push", "deploy", "publish", "reset", "clean"],
 };
 
