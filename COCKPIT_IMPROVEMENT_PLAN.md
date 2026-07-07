@@ -58,8 +58,14 @@ Cockpit is a context-budget autopilot: the Oracle stays small and strategic, whi
 
 **Problem:** Spawning a fresh `pi` CLI process for every child job adds cold-start overhead.
 
-**Solution:**
+**Implemented first step:**
 
-- Investigate persistent workers or the Pi SDK for in-process/background agent execution.
-- If CLI spawning remains required, strip unnecessary startup work for delegate child processes.
-- Keep direct Oracle edits only for latency-sensitive tiny maneuvers.
+- Single-child delegates now prefer warm in-process Pi SDK sessions.
+- Warm delegates keep runtime/model/tool setup hot but clear message history before each prompt to preserve delegate amnesia.
+- Legacy child-process execution remains available with `COCKPIT_DISABLE_WARM_DELEGATES=1` and as startup fallback.
+
+**Next:**
+
+- Measure warm vs child latency per role.
+- Extend warm execution to multi-pass `ideate` if the SDK path is stable.
+- Add pool sizing/eviction if long sessions or many model/tool combinations become expensive.

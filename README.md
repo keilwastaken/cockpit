@@ -82,6 +82,16 @@ This project is a small Pi context-budget autopilot and delegation router:
 
 Cockpit roles are also available as portable markdown skills under `skills/`. Use those directly in other agents when you only want the role discipline. Use the Cockpit runtime when you want background jobs, artifacts, parallel orchestration, approval-gated codeflow, review routing, and Pi UI integration.
 
+## Warm delegates
+
+Child delegates now prefer warm in-process Pi SDK sessions instead of spawning a fresh `pi` CLI process every time. Each warm delegate keeps runtime/model/tool setup hot, but resets message history before every task so delegates remain amnesiac and the Oracle receives only compact summaries.
+
+- Enabled by default for single-child roles: `fast`, `research`, `normal`, `planner`, `reviewer`, `task-writer`.
+- `instant` already uses an in-process deterministic path for supported exact edits.
+- `ideate` still uses multiple child passes for divergent perspectives.
+- Set `COCKPIT_DISABLE_WARM_DELEGATES=1` to force legacy child-process execution.
+- If warm startup fails before a turn begins, Cockpit falls back to the legacy child process unless `COCKPIT_WARM_NO_FALLBACK=1` is set.
+
 ## Jobs and setup
 
 All delegate/codeflow commands and tools start background jobs and immediately return control to the Oracle chat. Use `/cockpit jobs` to list, `/cockpit job <id>` to read output and artifact paths, `/cockpit resume <id>` to continue from a failed/cancelled job's generated resume prompt, `/cockpit cleanup` or `/cleanup` to remove job artifacts, and `/cockpit cancel <id>` to abort.

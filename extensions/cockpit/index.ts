@@ -5,6 +5,7 @@ import { modelLabel } from "./runtime.js";
 import { registerCockpitCommands } from "./commands/cockpit.js";
 import { registerCockpitTools } from "./tools/register.js";
 import { registerMessageRenderers } from "./ui/messages.js";
+import { disposeWarmDelegates } from "./delegates/warm-pi.js";
 
 export default function cockpitExtension(pi: ExtensionAPI) {
 	registerMessageRenderers(pi);
@@ -19,6 +20,10 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 		const safety = checkToolCallSafety(event, config, ctx.cwd);
 		if (safety.block) return { block: true, reason: safety.message };
 		if (safety.message) ctx.ui.notify(safety.message, "warning");
+	});
+
+	pi.on("session_shutdown", () => {
+		disposeWarmDelegates();
 	});
 
 	registerCockpitCommands(pi);

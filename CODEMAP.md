@@ -31,7 +31,8 @@
 │       └── delegates/
 │           ├── protocol.ts          # shared delegate types
 │           ├── registry.ts          # delegate registry/export surface
-│           ├── child-pi.ts          # child Pi process runner and JSON output capture
+│           ├── child-pi.ts          # legacy child Pi process runner and JSON output capture
+│           ├── warm-pi.ts           # warm in-process Pi SDK delegate sessions with amnesiac per-task resets
 │           ├── instant.ts           # instant delegate validation + prompt + run flow
 │           ├── fast.ts              # fast delegate validation + prompt + run flow
 │           ├── research.ts          # read-only research brief validation + prompt + run flow
@@ -191,9 +192,11 @@ Codeflow caps coder fix attempts at 2 and planner revisions at 1 for the initial
 
 `extensions/cockpit/delegates/protocol.ts` defines common names, inputs, outputs, update callbacks, and context shape. `registry.ts` exposes the current flows as `delegates.instant`, `delegates.fast`, `delegates.research`, `delegates.ideate`, `delegates.normal`, `delegates.planner`, `delegates.taskWriter`, canonical `delegates["task-writer"]`, and `delegates.reviewer`.
 
-### Child Pi runner
+### Warm and legacy child runners
 
-`extensions/cockpit/delegates/child-pi.ts` starts a child Pi process with JSON mode, captures assistant `message_end` text as the final output, collects stderr, supports delegate-specific environment variables, and enforces timeout/abort behavior. It chooses the invocation from the current executable/script when possible, otherwise falls back to `pi`.
+`extensions/cockpit/delegates/warm-pi.ts` runs delegates through warm in-process Pi SDK sessions. Sessions are cached by cwd/model/thinking/tools, keep runtime/model/tool setup hot, reset message history before every task to preserve delegate amnesia, stream progress back to jobs, and are disposed on `session_shutdown`.
+
+`extensions/cockpit/delegates/child-pi.ts` is the legacy fallback. It starts a child Pi process with JSON mode, captures assistant `message_end` text as the final output, collects stderr, supports delegate-specific environment variables, and enforces timeout/abort behavior. It chooses the invocation from the current executable/script when possible, otherwise falls back to `pi`. Set `COCKPIT_DISABLE_WARM_DELEGATES=1` to force this path.
 
 
 ### Instant delegate

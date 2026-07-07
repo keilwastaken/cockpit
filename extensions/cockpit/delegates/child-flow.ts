@@ -4,6 +4,7 @@ import type {
 	DelegateRunResult,
 } from "./protocol.js";
 import { runChildPi } from "./child-pi.js";
+import { runWarmPi } from "./warm-pi.js";
 
 // ---------------------------------------------------------------------------
 // Shared child-process argument builder for single-child delegates.
@@ -93,24 +94,53 @@ export async function runChildDelegate(options: {
 	result: DelegateRunResult;
 	context: DelegateRunContext;
 	escalation?: ChildDelegateEscalation;
+	warm?: {
+		model?: string;
+		thinking: string;
+		tools: string[];
+		prompt: string;
+	};
 }): Promise<DelegateRunResult> {
-	const { label, args, flow, result, context, escalation } = options;
+	const { label, args, flow, result, context, escalation, warm } = options;
 
 	context.onUpdate?.({ content: [{ type: "text", text: `${label} running...` }], details: result });
 
-	const child = await runChildPi({
-		cwd: context.cwd,
-		args,
-		timeoutMs: flow.timeoutMs,
-		maxTurns: flow.maxTurns,
-		signal: context.signal,
-		onUpdate: ({ finalOutput, stderr, progressText, turnCount, elapsedMs }) => {
-			context.onUpdate?.({
-				content: [{ type: "text", text: finalOutput || progressText || `${label} running...` }],
-				details: { ...result, finalOutput, stderr, turnCount, elapsedMs },
-			});
-		},
-	});
+	let child = warm && process.env.COCKPIT_DISABLE_WARM_DELEGATES !== "1"
+		? await runWarmPi({
+			cwd: context.cwd,
+			model: warm.model,
+			thinking: warm.thinking,
+			tools: warm.tools,
+			prompt: warm.prompt,
+			timeoutMs: flow.timeoutMs,
+			maxTurns: flow.maxTurns,
+			signal: context.signal,
+			onUpdate: ({ finalOutput, stderr, progressText, turnCount, elapsedMs }) => {
+				context.onUpdate?.({
+					content: [{ type: "text", text: finalOutput || progressText || `${label} running...` }],
+					details: { ...result, finalOutput, stderr, turnCount, elapsedMs },
+				});
+			},
+		})
+		: undefined;
+
+	if (!child || (child.exitCode !== 0 && !child.finalOutput && !child.turnCount && process.env.COCKPIT_WARM_NO_FALLBACK !== "1")) {
+		const warmError = child?.stderr;
+		child = await runChildPi({
+			cwd: context.cwd,
+			args,
+			timeoutMs: flow.timeoutMs,
+			maxTurns: flow.maxTurns,
+			signal: context.signal,
+			onUpdate: ({ finalOutput, stderr, progressText, turnCount, elapsedMs }) => {
+				context.onUpdate?.({
+					content: [{ type: "text", text: finalOutput || progressText || `${label} running...` }],
+					details: { ...result, finalOutput, stderr, turnCount, elapsedMs },
+				});
+			},
+		});
+		if (warmError) child.stderr = [`Warm delegate fallback reason: ${warmError}`, child.stderr].filter(Boolean).join("\n");
+	}
 
 	const finalResult: DelegateRunResult = {
 			...result,

@@ -189,6 +189,12 @@ export async function runRole(roleName: RoleInputName, input: DelegateRunInput, 
 		result,
 		context,
 		escalation: prepared.escalation,
+		warm: {
+			model: flow.model,
+			thinking: flow.thinking,
+			tools: flow.tools,
+			prompt: prepared.prompt,
+		},
 	});
 }
 
