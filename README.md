@@ -12,7 +12,7 @@ The main chat is the **Oracle**: it stays small, pointed, and strategic. Delegat
 2. **Delegate to protect context**: Prefer delegates when work needs search, multiple files, tests, logs, uncertainty, review, or a cheaper/specialized model.
 3. **Direct maneuvers are allowed**: Use direct tools for tiny exact edits, a brief one-file inspection, or interactive steering where a cold delegate spawn would be wasteful.
 4. **Delegates are crew, not hoops**: `instant`, `fast`, `ideate`, `research`, `planner`, `task-writer`, `normal`, and `reviewer` are specialized background workers that return compact summaries.
-5. **Flight safety remains**: Direct edits are allowed, but Cockpit still blocks dangerous shell patterns such as destructive git commands, deploy/publish/apply/destroy patterns, and `rm -rf`.
+5. **Let it rip**: Cockpit no longer installs a global tool-call safety hook. Direct edits and shell commands are governed by the host agent/harness permissions.
 6. **Codeflow is the big machine**: `/cockpit codeflow` is approval-gated. Without explicit approval it runs only read-only preplanning; after approval it can run writer/reviewer orchestration and feedback routing.
 
 ## Code map
@@ -21,13 +21,12 @@ This project is a small Pi context-budget autopilot and delegation router:
 
 - `package.json` — package metadata and scripts.
 - `tsconfig.json` — TypeScript compiler settings.
-- `extensions/cockpit/index.ts` — Pi extension entry point, session status, safety hooks, command/tool registration.
+- `extensions/cockpit/index.ts` — Pi extension entry point, session status, command/tool registration, and warm delegate cleanup.
 - `extensions/cockpit/codeflow.ts` — cockpit/oracle workflow orchestration.
 - `extensions/cockpit/config.ts` — cockpit configuration helpers.
 - `extensions/cockpit/delegates/` — delegate protocol, registry, child Pi runner, prompt builders, and flow implementations.
 - `extensions/cockpit/jobs/` — async job registry/service, progress UI, read/list/resume/cancel/cleanup, and `.pi/cockpit/jobs/<id>/` artifacts.
 - `extensions/cockpit/routing.ts` — context-budget routing diagnostics.
-- `extensions/cockpit/safety.ts` — flight-safety checks for dangerous shell mutations.
 - `extensions/cockpit/tools/register.ts` — model-facing Cockpit tools and delegation guidance.
 - `extensions/cockpit/commands/cockpit.ts` — `/cockpit` command implementation.
 - `skills/` — portable Cockpit role skills (`instant`, `fast`, `ideate`, `research`, `planner`, `normal`, `reviewer`, `task-writer`) for use outside the Cockpit runtime.
@@ -98,7 +97,7 @@ All delegate/codeflow commands and tools start background jobs and immediately r
 
 Run `/cockpit setup` to choose two model families:
 
-- **Hands model** inherited by implementation workers: `instant`, `fast`, `normal`.
-- **Reasoning model** inherited by ideation/research/planning/review/task-writing workers: `ideate`, `research`, `planner`, `reviewer`, `task-writer`.
+- **Hands/cheap model** inherited by most delegates: `instant`, `fast`, `normal`, `research`, `reviewer`, `task-writer`.
+- **Reasoning model** inherited by high-reasoning delegates: `ideate`, `planner`.
 
 Context-budget autopilot is always on. Setup does not ask whether to enable it. Direct edits remain allowed for tiny maneuvers, but delegation is preferred whenever it protects Oracle context.

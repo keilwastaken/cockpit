@@ -1,38 +1,32 @@
 import type { CockpitConfig } from "../config.js";
 
-export function buildResearchPrompt(task: string, config: CockpitConfig): string {
+const section = (title: string, body: string | undefined): string | undefined => body?.trim() ? `${title}\n${body.trim()}` : undefined;
+
+export function buildResearchPrompt(task: string, config: CockpitConfig, skeleton = ""): string {
 	const flow = config.delegateFlows.research;
 	return [
 		"Research delegate. Produce a concise codebase Research Brief for a planner agent.",
-		`Task: ${task.trim()}`,
-		`Tools: ${flow.tools.join(", ")}. Use ls/find/grep/read for local discovery; grep is ripgrep-backed and respects .gitignore by default.`,
+		`Tools: ${flow.tools.join(", ")}. Use ls/find/grep/read for targeted local discovery; grep is ripgrep-backed and respects .gitignore by default.`,
 		`Thinking: ${flow.thinking}. Use the default fast model configuration and keep reasoning lightweight.`,
 		"You are read-only. Do not edit files. Do not write files. Do not implement code. Do not run mutating commands. Do not create a full solution plan. Do not decide final architecture.",
 		"Local research rules:",
-		"- Inspect the local codebase first.",
+		"- Inspect the provided Project Skeleton before running broad search/list commands.",
 		"- Use search commands that respect .gitignore by default; do not bypass ignore rules unless explicitly requested.",
 		`- Read at most ${flow.maxFiles} files fully.`,
 		"- For other files, rely on filenames, grep snippets, imports, exports, and config metadata.",
 		"- Avoid low-signal tracked files unless directly relevant: lockfiles, generated files, minified assets, large snapshots, logs, and vendored code.",
 		"Search strategy:",
-		"1. Inspect repo/package structure.",
-		"2. Search primary task keywords.",
+		"1. Use the Project Skeleton to identify likely directories/files.",
+		"2. Search primary task keywords narrowly.",
 		"3. Search 2-3 synonyms or related domain terms if primary search is weak.",
-		"4. Inspect relevant source files.",
-		"5. Inspect related tests.",
-		"6. Inspect package scripts/configs.",
-		"7. Check hidden-contract locations when relevant: workspace config, shared types, API schemas, env/config loading, CI workflows, and generated-code markers.",
+		"4. Inspect relevant source files, tests, scripts/configs, and hidden-contract locations when relevant.",
 		"Web research rule:",
 		"- If web_search/web_fetch tools are available, use them only when external knowledge is relevant.",
 		"- Always inspect the local codebase first.",
-		"- Use web search/fetch for current documentation, SDK/framework behavior, cloud APIs, plugin APIs, errors, migrations, or version-specific behavior.",
-		"- Keep web research minimal: prefer 1-3 authoritative sources.",
-		"- Prefer official documentation over blogs or forum posts.",
+		"- Prefer official documentation over blogs or forum posts and include consulted URLs.",
 		"- Do not treat web docs as evidence of local repo behavior unless confirmed in repo files.",
-		"- Include consulted URLs in the Research Brief.",
 		"Insufficient context rule:",
-		"- If primary keywords return no useful matches, try a small set of synonyms or related domain terms.",
-		"- If no relevant implementation files, tests, or configs can be found after that, output exactly: INSUFFICIENT_CONTEXT: need deeper search",
+		"- If no relevant implementation files, tests, or configs can be found after narrow search, output exactly: INSUFFICIENT_CONTEXT: need deeper search",
 		"- Also use INSUFFICIENT_CONTEXT if required external docs cannot be checked because web tools are unavailable.",
 		"- Do not invent files, APIs, or behavior.",
 		"Include a Research Tour: recommended file-reading order for the planner, with why each file matters.",
@@ -53,7 +47,6 @@ export function buildResearchPrompt(task: string, config: CockpitConfig): string
 		"- External docs evidence:",
 		"- Gaps:",
 		"## Research Tour",
-		"Recommended order for planner to inspect evidence.",
 		"## Relevant Files",
 		"## Existing Patterns",
 		"## Important Commands",
@@ -61,15 +54,17 @@ export function buildResearchPrompt(task: string, config: CockpitConfig): string
 		"## Risks / Hidden Contracts",
 		"## Open Questions",
 		"## Suggested Next Step for Planner",
-	].join("\n");
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Task Input",
+		`Task: ${task.trim()}`,
+	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-export function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfig): string {
+export function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfig, skeleton = ""): string {
 	const flow = config.delegateFlows.planner;
 	return [
 		"Planner delegate. Convert the user task, human-approved direction, and any Research Brief into a precise implementation plan for a coding agent.",
-		`Input: ${taskAndResearch.trim()}`,
-		`Tools: ${flow.tools.join(", ") || "none"}. Use tools only to verify critical assumptions when the provided research is missing, low-confidence, or contradictory.`,
+		`Tools: ${flow.tools.join(", ") || "none"}. Use tools only to verify critical assumptions when provided research/skeleton is missing, low-confidence, or contradictory.`,
 		`Thinking: ${flow.thinking}. This is the high-leverage reasoning step; be careful and bounded.`,
 		"Do not edit files. Do not write files. Do not implement code. Do not run mutating commands.",
 		"Do not produce broad architecture proposals unless the task explicitly requires them.",
@@ -91,8 +86,8 @@ export function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfi
 		"Tool/search rules if verification is needed:",
 		"- Stay read-only.",
 		`- Read at most ${flow.maxFiles} files fully; use grep snippets for the rest.`,
+		"- Use the Project Skeleton to avoid broad ls/find discovery.",
 		"- Use web only for external SDK/framework/cloud/API contracts when local evidence requires it.",
-		"- Do not browse broadly; prefer official docs and include URLs if consulted.",
 		"If a safe plan cannot be produced, output:",
 		"NEEDS_DEEPER_RESEARCH:",
 		"- <missing context item>",
@@ -107,10 +102,8 @@ export function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfi
 		"## Files to Change",
 		"## Files to Avoid",
 		"## Implementation Tour",
-		"Recommended order for coder to make changes and for reviewer/human to inspect them.",
 		"## Step-by-Step Plan",
 		"## Review Checkpoints",
-		"Natural points to run reviewer and what the reviewer should inspect.",
 		"## Coder Fix Budget",
 		"- Max coder fix attempts before replan: 2 by default unless task risk suggests lower.",
 		"## Execution Routing",
@@ -124,56 +117,59 @@ export function buildPlannerPrompt(taskAndResearch: string, config: CockpitConfi
 		"## Risks / Watchouts",
 		"## Stop Conditions",
 		"## Coder Instructions",
-	].join("\n");
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Task / Research Input",
+		taskAndResearch.trim(),
+	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-
-export function buildFastPrompt(plan: string, outputFile: string | undefined, config: CockpitConfig, fileArgs: readonly string[]): string {
+export function buildFastPrompt(plan: string, outputFile: string | undefined, config: CockpitConfig, fileArgs: readonly string[], skeleton = ""): string {
 	const flow = config.delegateFlows.fast;
 	return [
 		"Fast delegate. Do a small bounded coding/documentation task quickly.",
-		`Plan: ${plan.trim()}`,
-		outputFile ? `Primary output file: ${outputFile}` : undefined,
-		fileArgs.length > 0 ? `Preloaded mentioned files: ${fileArgs.join(", ")}` : "No project skeleton is provided. Use only narrow discovery if needed.",
 		`Budget: at most ${flow.maxTurns} turns and ${Math.round(flow.timeoutMs / 1000)} seconds. If you cannot complete confidently inside this budget, reply exactly: ESCALATE: <reason and useful findings>.`,
 		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read only for targeted discovery; grep is ripgrep-backed.`,
 		`Thinking: ${flow.thinking}. Be quick and avoid broad exploration.`,
 		`Scope: write/edit at most ${flow.maxFiles} file(s), ~${flow.maxEstimatedLines} changed lines total.`,
+		"Use the Project Skeleton to avoid broad ls/find discovery.",
 		"For codemaps: identify entrypoints, major directories, config/package files, extension/tool flows, and delegate flow boundaries.",
 		"Prefer concise targeted discovery over exhaustive reading. Never build or inspect a broad project skeleton in fast mode.",
 		"Do not modify source code unless the plan explicitly asks for it; for codemaps, write/update only the output file.",
 		"Stop with ESCALATE if this needs product/security/persistence/deployment decisions, broad repo context, or a broad refactor.",
 		"Return compactly: Summary / Files Changed / Discovery Notes / Validation / Risks.",
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Task Input",
+		outputFile ? `Primary output file: ${outputFile}` : undefined,
+		fileArgs.length > 0 ? `Preloaded mentioned files: ${fileArgs.join(", ")}` : undefined,
+		`Plan: ${plan.trim()}`,
 	].filter((line): line is string => typeof line === "string").join("\n");
 }
-
 
 export function buildNormalPrompt(plan: string, config: CockpitConfig, skeleton: string): string {
 	const flow = config.delegateFlows.normal;
 	return [
 		"Normal delegate. You are a bounded coding executor for an implementation plan.",
-		skeleton,
-		`Plan / instructions: ${plan.trim()}`,
-		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read for local discovery; grep is ripgrep-backed. Use edit/write for file changes.`,
+		`Tools: ${flow.tools.join(", ")}. Use grep/find/ls/read for targeted local discovery; grep is ripgrep-backed. Use edit/write for file changes.`,
 		`Thinking: ${flow.thinking}. The planner owns deep reasoning; execute carefully and concisely.`,
 		`Scope: edit/write at most ${flow.maxFiles} file(s), ~${flow.maxEstimatedLines} changed lines total.`,
+		"Use the Project Skeleton to avoid broad ls/find discovery.",
 		"Follow the planner's Coder Instructions first. Do not redesign. Do not broaden scope. Do not produce a new plan.",
 		"Prefer minimal diffs and existing project style/patterns. Avoid large rewrites unless the plan explicitly asks for them.",
-		"Bash rules: use bash only for safe validation commands and read-only discovery. Do not mutate files through shell redirection, sed -i, inline scripts, package installs, deletes, commits, pushes, deploys, publishes, or destructive commands.",
 		"Validation: run only the validation commands listed in the plan unless a narrow obvious command is necessary. Do not claim commands/tests passed unless they were run.",
 		"Repair: if validation fails, make at most one focused fix attempt, then report status.",
 		"Prepare the reviewer handoff as you work: what changed, validation, deviations, known risks, and suggested review tour/order.",
 		"Stop and report without further edits if required files/patterns are missing, scope exceeds the plan, or security/auth/persistence/deployment/product/architecture decisions are needed.",
 		"Return compactly: Summary / Files Changed / Validation / Deviations from Plan / Reviewer Handoff / Risks.",
-	].join("\n");
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Plan / Instructions",
+		plan.trim(),
+	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-
-export function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig): string {
+export function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig, skeleton = ""): string {
 	const flow = config.delegateFlows.reviewer;
 	return [
 		"Reviewer delegate. You are a read-only senior code reviewer for completed agent work.",
-		`Review request / context: ${reviewRequest.trim()}`,
 		`Tools: ${flow.tools.join(", ")}. Use bash only for read-only inspection commands such as git status, git diff --stat, git diff, git log, and listed validation commands.`,
 		`Thinking: ${flow.thinking}. Be rigorous, but keep feedback actionable and calibrated.`,
 		"Core principle: review the work product against the task/plan, not the agent's thought process.",
@@ -181,6 +177,7 @@ export function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig
 		"If no explicit git range is provided, review the current working-tree diff. Start with git status --short and git diff --stat, then inspect relevant diffs.",
 		"If a base/head range is provided in the request, review that range with git diff --stat BASE..HEAD and git diff BASE..HEAD.",
 		`Read at most ${flow.maxFiles} files fully; prefer diff hunks, grep snippets, and targeted reads for context.`,
+		"Use the Project Skeleton to identify relevant files without broad discovery.",
 		"What to check:",
 		"- Plan/requirement alignment: implemented what was requested, no unjustified deviations.",
 		"- Correctness: bugs, edge cases, regressions, type/runtime errors.",
@@ -212,40 +209,30 @@ export function buildReviewerPrompt(reviewRequest: string, config: CockpitConfig
 		"- Escalate after coder fix attempt #: 2 for medium, immediately for heavy/blocker",
 		"## Change Summary",
 		"## Review Tour",
-		"Recommended order to inspect changed files, with one-line reason for each.",
 		"## Strengths",
 		"## Issues",
 		"### Critical",
 		"### Important",
 		"### Minor",
-		"For each issue include File:line, Problem, Why it matters, Suggested fix.",
 		"## Plan Alignment",
-		"- Matches plan: Yes / No / Partial",
-		"- Deviations:",
 		"## Validation Assessment",
-		"- Commands reported:",
-		"- Commands reviewer verified:",
-		"- Gaps:",
 		"## Fix Packet for Coder",
-		"Only include actionable fix steps if weight is light or medium; otherwise say N/A.",
 		"## Replan Packet for Planner",
-		"Only include failed assumptions/reconsiderations if weight is heavy; otherwise say N/A.",
 		"## Human Decision Needed",
-		"Only include decision/options/risk if weight is blocker; otherwise say N/A.",
 		"## Final Recommendation",
-	].join("\n");
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Review Request / Context",
+		reviewRequest.trim(),
+	].filter((line): line is string => typeof line === "string").join("\n");
 }
 
-
-export function buildTaskWriterPrompt(task: string, outputFile: string | undefined, config: CockpitConfig): string {
+export function buildTaskWriterPrompt(task: string, outputFile: string | undefined, config: CockpitConfig, skeleton = ""): string {
 	const flow = config.delegateFlows.taskWriter;
 	return [
 		"Task writer delegate. You are a lightweight PM writing clear markdown task plans for later Cockpit agents to execute.",
-		`Input: ${task.trim()}`,
-		outputFile ? `Primary task file to write/update: ${outputFile}` : undefined,
 		`Tools: ${flow.tools.join(", ")}. Use local discovery only when it helps make the task concrete.`,
 		`Thinking: ${flow.thinking}. Be quick, practical, and specific; do not over-plan.`,
-		`Discovery budget: read at most ${flow.maxFiles} files fully; prefer filenames, grep snippets, and existing docs for context.`,
+		`Discovery budget: read at most ${flow.maxFiles} files fully; prefer the Project Skeleton, filenames, grep snippets, and existing docs for context.`,
 		"Use the style of a durable migration/task plan: status metadata, rationale, scope boundaries, phased work tables, acceptance criteria, risks, open questions, and implementation order.",
 		"Do not implement code. Do not refactor. Do not run mutating commands. Do not make product decisions silently; record decisions needed.",
 		outputFile ? "If writing a file, only create/update the primary task file. Do not edit source files." : "Return the task plan in your final answer; do not write files unless a primary task file is provided.",
@@ -257,23 +244,22 @@ export function buildTaskWriterPrompt(task: string, outputFile: string | undefin
 		"> **Scope**: one-sentence boundary",
 		"## 1. Overview",
 		"## 2. Rationale",
-		"Use a table when helpful: Problem | Solution.",
 		"## 3. Scope & Boundaries",
 		"### In Scope",
 		"### Out of Scope",
 		"## 4. Current State / Context",
 		"## 5. Target State / Desired Outcome",
 		"## 6. Phased Task Plan",
-		"Use phase subsections with task tables: Task | Status | Notes.",
 		"## 7. Suggested Cockpit Routing",
 		"Recommended delegate(s): instant / fast / normal / planner / research / reviewer / human",
 		"## 8. Acceptance Criteria",
-		"Use checkboxes.",
 		"## 9. Validation Plan",
 		"## 10. Risks & Open Questions",
-		"Use a table when helpful: Risk / Question | Impact | Mitigation / Notes.",
 		"## 11. Implementation Order",
 		"## 12. Ready-To-Run Agent Prompts",
-		"Include compact prompts for the next Cockpit agents."
+		section("# Project Skeleton", skeleton),
+		"# Dynamic Task Input",
+		outputFile ? `Primary task file to write/update: ${outputFile}` : undefined,
+		`Input: ${task.trim()}`,
 	].filter((line): line is string => typeof line === "string").join("\n");
 }

@@ -1,7 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import type { CockpitConfig } from "../config.js";
-import { routeTask } from "../routing.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
 const uniqueStrings = (values: readonly string[] | undefined): string[] =>
@@ -36,13 +35,9 @@ function baseResult(input: DelegateRunInput, config: CockpitConfig, allowedFiles
 function validateInstant(input: DelegateRunInput, config: CockpitConfig, allowedFiles: string[]): string | undefined {
 	const plan = input.plan.trim();
 	const flow = config.delegateFlows.instant;
-	const decision = routeTask(plan, config, true);
-	const disallowedDomain = decision.signals.riskDomains.find((domain) => config.disallowDomains.includes(domain));
-
 	if (!plan) return "Instant delegate needs a cockpit plan.";
 	if (allowedFiles.length === 0) return "Instant delegate needs exactly one file. Pass file or mention the file in the plan.";
 	if (allowedFiles.length > flow.maxFiles) return `Instant delegate can edit at most ${flow.maxFiles} file(s); got ${allowedFiles.length}.`;
-	if (disallowedDomain) return `Instant delegate refused risky domain: ${disallowedDomain}. Keep this in the cockpit or use a heavier flow.`;
 	return undefined;
 }
 

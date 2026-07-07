@@ -68,7 +68,7 @@ const DEFAULT_CONFIG = {
 			description: "Read-only diff reviewer with feedback weight for cockpit routing.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "bash"],
-			thinking: "medium",
+			thinking: "low",
 			maxFiles: 10,
 			maxEstimatedLines: 0,
 			maxTurns: 0,
@@ -194,11 +194,11 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 		thinking: stringValue(rawPlanner.thinking, basePlanner.thinking),
 	});
 	const reviewer = normalizeDelegateFlow(rawReviewer, baseReviewer, {
-		model: baseReviewer.model,
+		model: instant.model,
 		thinking: stringValue(rawReviewer.thinking, baseReviewer.thinking),
 	});
 	const taskWriter = normalizeDelegateFlow(rawTaskWriter, baseTaskWriter, {
-		model: baseTaskWriter.model,
+		model: instant.model,
 		thinking: "low",
 	});
 	const ideate = normalizeDelegateFlow(rawIdeate, baseIdeate, {

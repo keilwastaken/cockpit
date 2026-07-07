@@ -6,7 +6,7 @@ Cockpit is a context-budget autopilot: the Oracle stays small and strategic, whi
 
 - Retire strict mode as a product concept.
 - Keep direct `edit`/`write` available for tiny maneuvers.
-- Keep flight-safety guards for destructive shell patterns.
+- Remove Cockpit's global safety hook; rely on the host agent/harness permissions.
 - Make setup choose only hands/reasoning models.
 - Make Cockpit's loaded default be context-budget autopilot.
 - Reframe `instant` as a discipline first and a delegate when isolation is worth it.
@@ -36,7 +36,7 @@ Cockpit is a context-budget autopilot: the Oracle stays small and strategic, whi
 
 **Problem:** Role prompts alone are commodity and should be portable.
 
-**Solution:** Keep role definitions under `skills/` for use in other agents, while Cockpit Runtime provides Pi-specific orchestration: background jobs, artifacts, parallel work, approval gates, model routing, review routing, and safety.
+**Solution:** Keep role definitions under `skills/` for use in other agents, while Cockpit Runtime provides Pi-specific orchestration: background jobs, artifacts, parallel work, approval gates, model routing, and review routing.
 
 ## Phase 3: Interactive Codeflow Approval
 

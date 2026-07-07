@@ -23,7 +23,6 @@
 │       ├── config.ts                # defaults, config loading/merging/saving
 │       ├── codeflow.ts              # cockpit/oracle orchestration flow
 │       ├── routing.ts               # task signal analysis and route decisions
-│       ├── safety.ts                # flight-safety guards for dangerous shell mutation patterns
 │       ├── jobs/
 │       │   ├── async-jobs.ts        # delegate/codeflow job registry, progress formatting, cancel/read/list helpers
 │       │   ├── artifacts.ts         # .pi/cockpit/jobs/<id>/ lifecycle artifacts and resume prompts
@@ -67,7 +66,6 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 `extensions/cockpit/index.ts` exports the default Pi extension function. It wires up:
 
 - `session_start` event: loads config and sets a context-budget-autopilot status item with selected hands/reasoning models.
-- `tool_call` event: applies flight-safety checks for dangerous shell mutation patterns while allowing direct `edit`/`write`.
 - `/cockpit` command: user command with subcommands for setup, status, context-budget routing diagnostics, background delegate/codeflow jobs, and job inspection/resume/cancel.
 - `cockpit_job` tool: tool-facing start/list/read/cancel API for Cockpit jobs.
 - `cockpit_codeflow` tool: starts a background cockpit/oracle codeflow job.
@@ -299,7 +297,7 @@ Reviewer boundary: child does not fix code. It produces issue evidence plus a re
 
 ## Safety behavior
 
-`extensions/cockpit/safety.ts` implements flight-safety checks in the cockpit session. Direct `edit`/`write` tools are allowed. Dangerous shell mutation patterns are blocked, including forbidden git commands, deploy/publish/apply/destroy commands, `rm -rf`, shell redirection writes, in-place sed/perl, and inline Python/Node file mutation.
+Cockpit no longer installs a global `tool_call` safety hook. Direct edits and shell commands are governed by the host agent/harness permissions.
 
 ## Development commands
 
@@ -331,4 +329,3 @@ When adding behavior:
 - Routing heuristics belong in `routing.ts`.
 - Process execution concerns belong in `delegates/child-pi.ts`.
 - New delegate flows should extend `protocol.ts`, be implemented under `delegates/`, and be exported from `registry.ts`.
-- Tool/command mutation restrictions belong in `safety.ts`.

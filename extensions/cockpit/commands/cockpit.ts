@@ -112,10 +112,10 @@ function applySetup(config: CockpitConfig, options: { handsModel: string; reason
 			fast: { ...config.delegateFlows.fast, model: handsModel, thinking: "low" },
 			normal: { ...config.delegateFlows.normal, model: handsModel, thinking: "medium" },
 			ideate: { ...config.delegateFlows.ideate, model: reasoningModel, thinking: config.delegateFlows.ideate.thinking },
-			research: { ...config.delegateFlows.research, model: reasoningModel, thinking: "minimal" },
+			research: { ...config.delegateFlows.research, model: handsModel, thinking: "minimal" },
 			planner: { ...config.delegateFlows.planner, model: reasoningModel, thinking: config.delegateFlows.planner.thinking },
-			reviewer: { ...config.delegateFlows.reviewer, model: reasoningModel, thinking: config.delegateFlows.reviewer.thinking },
-			taskWriter: { ...config.delegateFlows.taskWriter, model: reasoningModel, thinking: "low" },
+			reviewer: { ...config.delegateFlows.reviewer, model: handsModel, thinking: "low" },
+			taskWriter: { ...config.delegateFlows.taskWriter, model: handsModel, thinking: "low" },
 		},
 	};
 }
@@ -136,8 +136,8 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 		"The Oracle stays small and strategic; delegates absorb noisy detail work on the cheapest capable model.",
 		"Direct edits remain available for tiny maneuvers where delegation overhead would be wasteful.",
 		"Setup only needs two choices:",
-		"1. Hands model — inherited by instant, fast, and normal coding workers. Recommended: local model, or a strong coding model for heavier work.",
-		"2. Reasoning model — inherited by ideate, research, planner, reviewer, and task-writer. Recommended: latest cloud reasoning model.",
+		"1. Hands model — inherited by instant, fast, normal, research, reviewer, and task-writer. Recommended: local/cheap/fast coding model.",
+		"2. Reasoning model — inherited by ideate and planner. Recommended: latest cloud reasoning model.",
 		`Detected models: ${models.length} total, ${localModels.length} local-looking, ${cloudModels.length} cloud-looking.`,
 	].join("\n"), "info");
 
@@ -149,9 +149,9 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 	const summary = [
 		"Cockpit setup summary:",
 		`Hands model: ${modelLabel(handsModel)}`,
-		"  instant, fast, normal inherit this model.",
+		"  instant, fast, normal, research, reviewer, task-writer inherit this model.",
 		`Reasoning model: ${modelLabel(reasoningModel)}`,
-		"  ideate, research, planner, reviewer, task-writer inherit this model.",
+		"  ideate and planner inherit this model.",
 		"Context-budget autopilot: always on; direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work.",
 	].join("\n");
 	const confirmed = await ctx.ui.confirm("Save Cockpit setup?", summary);
@@ -191,9 +191,9 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 						"Cockpit context-budget autopilot is on: keep Oracle context small and delegate noisy detail work.",
 						"Use direct tools only for tiny/interactive maneuvers; use delegates for search, multiple files, tests/logs, uncertainty, ideation, task packets, reviews, or larger codeflow work.",
 						"Cockpit flows: instant, fast, ideate, research, normal, planner, reviewer, task-writer.",
-						`Hands model: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}`,
-						`Reasoning model: ideate ${modelLabel(ideateFlow.model)}, research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}, task-writer ${modelLabel(taskWriterFlow.model)}`,
-						`Recommendation: local model for hands; latest cloud reasoning model for ideation, research, planning, review, and task writing.`,
+						`Hands/cheap model: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}, research ${modelLabel(researchFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}, task-writer ${modelLabel(taskWriterFlow.model)}`,
+						`Reasoning model: ideate ${modelLabel(ideateFlow.model)}, planner ${modelLabel(plannerFlow.model)}`,
+						`Recommendation: local/cheap model for delegates; latest cloud reasoning model for ideation and planning.`,
 						`Instant: thinking ${flow.thinking}; tools ${flow.tools.join(", ")}; limit ${flow.maxFiles} file, ~${flow.maxEstimatedLines} lines`,
 						`Fast: thinking ${fastFlow.thinking}; tools ${fastFlow.tools.join(", ")}; limit ${fastFlow.maxFiles} files, ~${fastFlow.maxEstimatedLines} lines`,
 						`Ideate: thinking ${ideateFlow.thinking}; tools ${ideateFlow.tools.join(", ")}; read budget ${ideateFlow.maxFiles} files`,
@@ -210,12 +210,12 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 					const updated = await runSetupWizard(ctx, config);
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
-					ctx.ui.setStatus("cockpit", `context-budget · hands: ${modelLabel(updated.delegateFlows.normal.model)} · reasoning: ${modelLabel(updated.delegateFlows.reviewer.model)}`);
+					ctx.ui.setStatus("cockpit", `context-budget · hands: ${modelLabel(updated.delegateFlows.normal.model)} · reasoning: ${modelLabel(updated.delegateFlows.planner.model)}`);
 					ctx.ui.notify([
 						"Cockpit configured.",
 						`Config saved to: ${path}`,
-						`Hands model: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}`,
-						`Reasoning model: ideate ${modelLabel(updated.delegateFlows.ideate.model)}, research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}, task-writer ${modelLabel(updated.delegateFlows.taskWriter.model)}`,
+						`Hands/cheap model: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}, research ${modelLabel(updated.delegateFlows.research.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}, task-writer ${modelLabel(updated.delegateFlows.taskWriter.model)}`,
+						`Reasoning model: ideate ${modelLabel(updated.delegateFlows.ideate.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}`,
 						"Context-budget autopilot: always on; direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work.",
 						`Try: /cockpit codeflow "Add retry handling to an existing workflow"`,
 					].join("\n"), "info");
@@ -445,7 +445,7 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				}
 
 				case "strict": {
-					ctx.ui.notify("Strict mode has been retired. Cockpit context-budget autopilot is always on: direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work, and flight-safety guards still block destructive shell patterns.", "info");
+					ctx.ui.notify("Strict mode has been retired. Cockpit context-budget autopilot is always on. Direct edits and shell commands are governed by the host agent/harness permissions.", "info");
 					return;
 				}
 

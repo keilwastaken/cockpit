@@ -1,7 +1,7 @@
 import type { CockpitConfig } from "../config.js";
-import { routeTask } from "../routing.js";
 import { buildChildDelegateArgs, runChildDelegate } from "./child-flow.js";
 import { fileArgsForPlan, promptContextForPlan } from "./context.js";
+import { getProjectSkeleton } from "./skeleton.js";
 import { ideateDelegate } from "./ideate.js";
 import { instantDelegate } from "./instant.js";
 import { buildFastPrompt, buildNormalPrompt, buildPlannerPrompt, buildResearchPrompt, buildReviewerPrompt, buildTaskWriterPrompt } from "./prompts.js";
@@ -36,35 +36,15 @@ function outputFileForFast(input: DelegateRunInput): string | undefined {
 	return normalized === "CODEMAP" ? DEFAULT_CODEMAP_FILE : normalized;
 }
 
-function validateFast(input: DelegateRunInput, config: CockpitConfig): string | undefined {
+function validateFast(input: DelegateRunInput, _config: CockpitConfig): string | undefined {
 	const plan = input.plan.trim();
-	const decision = routeTask(plan, config, false);
-	const riskyDomain = decision.signals.riskDomains.find((domain) => domain !== "architecture" && config.disallowDomains.includes(domain));
-
 	if (!plan) return "Fast delegate needs a cockpit plan.";
-	if (riskyDomain) return `Fast delegate refused risky domain: ${riskyDomain}. Keep this in the cockpit or use a heavier flow later.`;
 	return undefined;
 }
 
-function validateNormal(input: DelegateRunInput, config: CockpitConfig): string | undefined {
+function validateNormal(input: DelegateRunInput, _config: CockpitConfig): string | undefined {
 	const plan = input.plan.trim();
 	if (!plan) return "Normal delegate needs an implementation plan or coding instructions.";
-
-	const delegatedPlan = /Approved Implementation Plan|Approved plan:|Fix attempt|Reviewer Feedback|Coder Instructions/i.test(plan);
-	if (delegatedPlan) return undefined;
-
-	const decision = routeTask(plan, config);
-	const flow = config.delegateFlows.normal;
-	if (decision.signals.estimatedFiles > flow.maxFiles || decision.signals.estimatedLines > flow.maxEstimatedLines) {
-		return `Task looks too broad for one normal delegate (${decision.signals.estimatedFiles} files, ~${decision.signals.estimatedLines} lines). Split it into a smaller slice or run /cockpit plan first.`;
-	}
-
-	const nonEmptyLines = plan.split("\n").map((line) => line.trim()).filter(Boolean);
-	const actionCount = Array.from(plan.matchAll(/\b(add|implement|fix|update|wire|repair|strengthen|switch|create|remove|rewrite)\b/gi)).length;
-	if (decision.signals.mentionedFiles.length === 0 && (nonEmptyLines.length >= 6 || actionCount >= 5)) {
-		return "Task looks like a multi-slice implementation without exact files. Start with /cockpit plan, or name the first files/slice for /cockpit normal.";
-	}
-
 	return undefined;
 }
 
@@ -72,11 +52,12 @@ const runnerRoleSpecs: Record<ChildRunnerRoleName, RunnerRoleSpec> = {
 	fast: {
 		name: "fast",
 		validate: validateFast,
-		prepare: (input, config, context) => {
+		prepare: async (input, config, context) => {
 			const outputFile = outputFileForFast(input);
 			const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
+			const skeleton = await getProjectSkeleton(context.cwd);
 			return {
-				prompt: buildFastPrompt(input.plan, outputFile, config, fileArgs),
+				prompt: buildFastPrompt(input.plan, outputFile, config, fileArgs, skeleton),
 				fileArgs,
 				allowedFiles: outputFile ? [outputFile] : [],
 				outputFile,
@@ -88,8 +69,8 @@ const runnerRoleSpecs: Record<ChildRunnerRoleName, RunnerRoleSpec> = {
 	research: {
 		name: "research",
 		validate: (input) => input.plan.trim() ? undefined : "Research delegate needs a task.",
-		prepare: (input, config, context) => ({
-			prompt: buildResearchPrompt(input.plan, config),
+		prepare: async (input, config, context) => ({
+			prompt: buildResearchPrompt(input.plan, config, await getProjectSkeleton(context.cwd)),
 			fileArgs: fileArgsForPlan(input.plan, config, context.cwd),
 			extensionMode: "allow",
 		}),
@@ -109,8 +90,8 @@ const runnerRoleSpecs: Record<ChildRunnerRoleName, RunnerRoleSpec> = {
 	planner: {
 		name: "planner",
 		validate: (input) => input.plan.trim() ? undefined : "Planner delegate needs a task, human-approved direction, and/or research brief.",
-		prepare: (input, config, context) => ({
-			prompt: buildPlannerPrompt(input.plan, config),
+		prepare: async (input, config, context) => ({
+			prompt: buildPlannerPrompt(input.plan, config, await getProjectSkeleton(context.cwd)),
 			fileArgs: fileArgsForPlan(input.plan, config, context.cwd),
 			extensionMode: "allow",
 		}),
@@ -118,8 +99,8 @@ const runnerRoleSpecs: Record<ChildRunnerRoleName, RunnerRoleSpec> = {
 	reviewer: {
 		name: "reviewer",
 		validate: (input) => input.plan.trim() ? undefined : "Reviewer delegate needs review context: task/plan and what changed.",
-		prepare: (input, config, context) => ({
-			prompt: buildReviewerPrompt(input.plan, config),
+		prepare: async (input, config, context) => ({
+			prompt: buildReviewerPrompt(input.plan, config, await getProjectSkeleton(context.cwd)),
 			fileArgs: fileArgsForPlan(input.plan, config, context.cwd),
 			extensionMode: "disable",
 		}),
@@ -127,8 +108,8 @@ const runnerRoleSpecs: Record<ChildRunnerRoleName, RunnerRoleSpec> = {
 	"task-writer": {
 		name: "task-writer",
 		validate: (input) => input.plan.trim() ? undefined : "Task writer needs a task, idea, or backlog item to turn into a task packet.",
-		prepare: (input, config, context) => ({
-			prompt: buildTaskWriterPrompt(input.plan, input.outputFile, config),
+		prepare: async (input, config, context) => ({
+			prompt: buildTaskWriterPrompt(input.plan, input.outputFile, config, await getProjectSkeleton(context.cwd)),
 			fileArgs: fileArgsForPlan(input.plan, config, context.cwd),
 			allowedFiles: input.outputFile ? [input.outputFile] : [],
 			outputFile: input.outputFile,
