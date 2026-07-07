@@ -11,7 +11,7 @@ export default function cockpitExtension(pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		const { config } = await loadConfig(ctx.cwd, ctx.isProjectTrusted());
-		ctx.ui.setStatus("cockpit", `hands: ${modelLabel(config.delegateFlows.normal.model)}; reasoning: ${modelLabel(config.delegateFlows.reviewer.model)} ${config.strictMode ? "strict" : ""}`.trim());
+		ctx.ui.setStatus("cockpit", `autopilot · hands: ${modelLabel(config.delegateFlows.normal.model)} · reasoning: ${modelLabel(config.delegateFlows.reviewer.model)}`);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {

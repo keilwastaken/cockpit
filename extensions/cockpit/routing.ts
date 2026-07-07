@@ -48,9 +48,9 @@ type TaskSignal = ReturnType<typeof analyzeTask>;
 
 function missingContextQuestions(signals: TaskSignal): string[] {
 	const questions: string[] = [];
-	if (signals.isAmbiguous) questions.push("What exact outcome should the delegate produce?");
-	if (signals.tasksLooksLikeCoding && signals.mentionedFiles.length === 0 && !hasRepoScope(signals.text)) questions.push("Which file should the instant delegate edit?");
-	if (signals.riskDomains.length > 0 && signals.mentionedFiles.length === 0) questions.push("This touches a risk domain; which exact files/paths should the delegate inspect or edit?");
+	if (signals.isAmbiguous) questions.push("What exact outcome should the Oracle produce?");
+	if (signals.tasksLooksLikeCoding && signals.mentionedFiles.length === 0 && !hasRepoScope(signals.text)) questions.push("Which file or area should the Oracle inspect first?");
+	if (signals.riskDomains.length > 0 && signals.mentionedFiles.length === 0) questions.push("This touches a risk domain; which exact files/paths should be inspected or edited?");
 	return questions;
 }
 
@@ -88,11 +88,15 @@ function fitsNormal(signals: TaskSignal, config: CockpitConfig): boolean {
 
 function makeDecision(route: CockpitRoute, config: CockpitConfig, signals: TaskSignal, forced = false, reasons: string[] = [], risks: string[] = []) {
 	const tier = route === "instant" || route === "fast" || route === "normal" ? route : undefined;
+	const delegateValue = route === "instant" ? "low" : route === "fast" ? "medium" : route === "normal" ? "medium" : route === "need-decision" ? "unknown" : "low";
+	const directIsFine = route === "instant" || route === "cockpit-only" || (route === "fast" && signals.estimatedFiles <= 2 && signals.riskDomains.length === 0);
 	return {
 		route,
 		tier,
 		suggestedAgent: tier ? config.delegateFlows[tier].agent : undefined,
-		requiresApproval: route === "instant" || route === "fast" || route === "normal",
+		requiresApproval: route === "normal",
+		directIsFine,
+		delegateValue,
 		confidence: confidenceFor(route, signals, forced),
 		missingContextQuestions: missingContextQuestions(signals),
 		suggestedRefinement: suggestedRefinement(signals.text, signals),
@@ -131,11 +135,23 @@ export function routeTask(task: string, config: CockpitConfig, forcedInstant = f
 }
 
 export function formatDecision(decision: ReturnType<typeof routeTask>): string {
+	const recommendedPath = decision.route === "instant"
+		? "direct edit using instant discipline; delegate only if isolation is useful"
+		: decision.route === "fast"
+			? "direct if interactive, otherwise fast delegate for noisy local discovery"
+			: decision.route === "normal"
+				? "normal delegate or codeflow if the user wants background implementation/review"
+				: decision.route === "cockpit-only"
+					? "keep in the main Oracle chat"
+					: "ask for direction, ideate/research, or preplan before implementation";
 	const lines = [
-		`Route/profile: ${decision.route}`,
-		decision.suggestedAgent ? `Suggested agent: ${decision.suggestedAgent}` : undefined,
+		`Recommendation: ${recommendedPath}`,
+		`Legacy route/profile: ${decision.route}`,
+		decision.suggestedAgent ? `Suggested delegate if delegating: ${decision.suggestedAgent}` : undefined,
+		`Direct is fine: ${decision.directIsFine ? "yes" : "not recommended yet"}`,
+		`Delegate value: ${decision.delegateValue}`,
 		`Route confidence: ${Math.round(decision.confidence * 100)}%`,
-		`Requires approval: ${decision.requiresApproval ? "yes" : "no"}`,
+		`Requires approval before writer execution: ${decision.requiresApproval ? "yes" : "no"}`,
 		`Estimated scope: ${decision.signals.estimatedFiles} file(s), ~${decision.signals.estimatedLines} line(s)`,
 		decision.signals.mentionedFiles.length > 0 ? `Mentioned files: ${decision.signals.mentionedFiles.join(", ")}` : undefined,
 		decision.reasons.length > 0 ? `Reasons:\n${decision.reasons.map((reason) => `- ${reason}`).join("\n")}` : undefined,

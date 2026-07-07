@@ -24,24 +24,21 @@ function blockedShellReason(command: string, config: CockpitConfig): string | un
 	const forbidden = new Set(config.forbiddenCommands.map((entry) => entry.toLowerCase()));
 	for (const segment of shellSegments(command)) {
 		const gitMatch = segment.match(GIT_FORBIDDEN);
-		if (gitMatch && forbidden.has(gitMatch[1].toLowerCase())) return `Cockpit strict mode blocked forbidden git command: git ${gitMatch[1]}`;
-		if ((forbidden.has("deploy") || forbidden.has("publish")) && DEPLOY_OR_PUBLISH.test(segment)) return "Cockpit strict mode blocked deploy/publish command pattern.";
-		if (RM_RF.test(segment)) return "Cockpit strict mode blocked rm -rf usage.";
-		if (REDIRECTING_WRITE.test(segment)) return "Cockpit strict mode blocked shell redirection that can mutate files.";
-		if (IN_PLACE_SED.test(segment)) return "Cockpit strict mode blocked in-place sed edits.";
-		if (IN_PLACE_PERL.test(segment)) return "Cockpit strict mode blocked in-place perl edits.";
-		if (PYTHON_FILE_MUTATION.test(segment)) return "Cockpit strict mode blocked inline python file mutation.";
-		if (NODE_FILE_MUTATION.test(segment)) return "Cockpit strict mode blocked inline node file mutation.";
+		if (gitMatch && forbidden.has(gitMatch[1].toLowerCase())) return `Cockpit flight safety blocked forbidden git command: git ${gitMatch[1]}`;
+		if ((forbidden.has("deploy") || forbidden.has("publish")) && DEPLOY_OR_PUBLISH.test(segment)) return "Cockpit flight safety blocked deploy/publish command pattern.";
+		if (RM_RF.test(segment)) return "Cockpit flight safety blocked rm -rf usage.";
+		if (REDIRECTING_WRITE.test(segment)) return "Cockpit flight safety blocked shell redirection that can mutate files. Use direct edit/write tools instead.";
+		if (IN_PLACE_SED.test(segment)) return "Cockpit flight safety blocked in-place sed edits. Use direct edit/write tools instead.";
+		if (IN_PLACE_PERL.test(segment)) return "Cockpit flight safety blocked in-place perl edits. Use direct edit/write tools instead.";
+		if (PYTHON_FILE_MUTATION.test(segment)) return "Cockpit flight safety blocked inline python file mutation. Use direct edit/write tools instead.";
+		if (NODE_FILE_MUTATION.test(segment)) return "Cockpit flight safety blocked inline node file mutation. Use direct edit/write tools instead.";
 	}
 	return undefined;
 }
 
 export function checkToolCallSafety(event: { toolName?: string; input?: unknown }, config: CockpitConfig, _cwd = process.cwd()): { block: boolean; message?: string } {
-	if (!config.strictMode) return { block: false };
 	const toolName = event.toolName;
-	if (toolName === "edit" || toolName === "write") {
-		return { block: false, message: "Warning: You are modifying code in the control room. Consider using a delegate for cleaner history." };
-	}
+	if (toolName === "edit" || toolName === "write") return { block: false };
 	if (toolName === "bash" && isRecord(event.input)) {
 		const command = typeof event.input.command === "string" ? event.input.command : "";
 		const reason = blockedShellReason(command, config);

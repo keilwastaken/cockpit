@@ -2,7 +2,7 @@ import { runCodeflow, runCodeflowPreplan } from "../codeflow.js";
 import type { CockpitConfig } from "../config.js";
 import type { DelegateRunResult } from "../delegates/protocol.js";
 import { runRole } from "../delegates/runner.js";
-import { flowConfigKeyForRole, isRoleName, normalizeRoleName, type RoleInputName } from "../delegates/roles.js";
+import { flowConfigKeyForRole, isRoleName, type RoleInputName } from "../delegates/roles.js";
 import { appendJobEvent, artifactDirFor, initJobArtifacts, writeJobSnapshot, writeResumePrompt } from "./artifacts.js";
 
 export type JobFlowName = RoleInputName | "codeflow" | "codeflow-preplan";
@@ -105,21 +105,7 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 		job.stderr = [job.stderr, `Cockpit artifact init failed: ${error instanceof Error ? error.message : String(error)}`].filter(Boolean).join("\n");
 	});
 
-	const codeflowContext = {
-		cwd: options.cwd,
-		projectTrusted: options.projectTrusted,
-		signal: controller.signal,
-		onUpdate: (partial: { content: Array<{ text?: string }>; details: DelegateRunResult & { stderr: string } }) => {
-			const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
-			if (text) job.output = text;
-			job.stderr = partial.details.stderr;
-			job.result = partial.details;
-			void appendJobEvent(job, "cockpit.job.update", { message: text.slice(0, 500) }).catch(() => undefined);
-			void writeJobSnapshot(job).catch(() => undefined);
-		},
-	};
-
-	const delegateContext = {
+	const context = {
 		cwd: options.cwd,
 		projectTrusted: options.projectTrusted,
 		signal: controller.signal,
@@ -141,10 +127,10 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 	};
 
 	const runner = flow === "codeflow"
-		? runCodeflow({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
+		? runCodeflow({ plan: job.plan, outputFile: options.outputFile }, options.config, context)
 		: flow === "codeflow-preplan"
-			? runCodeflowPreplan({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
-			: runRole(normalizeRoleName(flow) ?? flow, delegateInput, options.config, delegateContext);
+			? runCodeflowPreplan({ plan: job.plan, outputFile: options.outputFile }, options.config, context)
+			: runRole(flow, delegateInput, options.config, context);
 
 	void runner
 		.then((result) => {

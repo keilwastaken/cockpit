@@ -41,7 +41,7 @@ export const roleDefinitions = {
 		name: "normal",
 		configKey: "normal",
 		kind: "child",
-		label: "Normal delegate",
+		label: "Normal role",
 	},
 	planner: {
 		name: "planner",

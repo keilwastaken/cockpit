@@ -13,15 +13,15 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_job",
 		label: "Cockpit Async Job",
-		description: "Start one or many, list, read, resume, or cancel async Cockpit delegate/codeflow jobs without blocking the main chat.",
+		description: "Manage Cockpit background jobs. Cockpit is advisory autopilot: the Oracle may edit directly, and should delegate only when isolation, parallelism, noisy output, review, or larger codeflow orchestration creates value.",
 		promptSnippet: "Manage a Cockpit async job",
 		promptGuidelines: [
-			"Use action=start when the user wants one delegate to run in the background while the Oracle keeps chatting.",
+			"Prefer direct tools for tiny/interactive edits; use action=start when a delegate should run in the background while the Oracle keeps chatting.",
 			"For codeflow UX, prefer flow=codeflow-preplan before any writer execution unless the user explicitly approved a concrete initial plan/slice.",
 			"If action=start uses flow=codeflow without approved=true, Cockpit will run codeflow-preplan instead of writer execution.",
 			"Use action=startMany for parallel independent jobs; this does not group or synthesize results.",
 			"Use list/read/cancel to inspect or stop jobs. Use resume to continue a failed/cancelled job from its generated resume prompt.",
-			"Prefer read-only flows like research/reviewer for background exploration; use normal only for scoped coding work.",
+			"Prefer read-only flows like ideate/research/reviewer for background exploration; use normal only for scoped coding work that benefits from isolation.",
 		],
 		parameters: Type.Object({
 			action: Type.String({ description: "start, startMany, list, read, resume, or cancel" }),
@@ -116,7 +116,7 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_codeflow",
 		label: "Cockpit Codeflow",
-		description: "Start Cockpit codeflow. Without explicit approval this starts only a read-only preplan; with approval it starts writer execution, review loop, and feedback-weight routing.",
+		description: "Start Cockpit's larger-work autopilot. Use for multi-step or risky work that deserves read-only preplanning, explicit approval, writer execution, review loop, and feedback-weight routing; do not use for tiny edits that are faster direct.",
 		promptSnippet: "Run or preplan the Cockpit codeflow",
 		promptGuidelines: [
 			"Use cockpit_codeflow when the user asks to run the full codeflow or wants planning, coding, and review handled by Cockpit.",
@@ -179,10 +179,10 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_delegate",
 		label: "Instant Cockpit Delegate",
-		description: "Run the instant delegate flow for one tiny, exact code edit from a cockpit-supplied plan.",
+		description: "Run the instant delegate for a tiny, exact one-file edit only when isolation is useful. For most tiny edits, the Oracle should edit directly while following instant discipline.",
 		promptSnippet: "Run an instant delegate flow",
 		promptGuidelines: [
-			"Use cockpit_delegate directly when the Oracle already has a concrete one-file plan for a tiny, low-risk edit; do not call the planner first unless a verbose handoff would materially help.",
+			"Default to direct edit/write for tiny interactive changes; use cockpit_delegate when the Oracle already has a concrete one-file plan and a background isolated worker is worth the spawn overhead.",
 			"Always pass the exact file, and pass line when known, so the instant delegate does not discover scope.",
 			"Do not use cockpit_delegate for security, persistence, deployment, architecture, or ambiguous product decisions.",
 		],
@@ -205,11 +205,11 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_fast",
 		label: "Fast Cockpit Delegate",
-		description: "Run the fast delegate flow for a small semantic task with local discovery and low thinking.",
+		description: "Run the fast delegate for small bounded work whose local discovery would clutter the main chat. Use direct tools instead for quick interactive edits.",
 		promptSnippet: "Run a fast delegate flow",
 		promptGuidelines: [
-			"Use cockpit_fast directly for small semantic tasks where the delegate should discover local context itself, such as building a codemap; do not call the planner first unless the Oracle wants a more verbose plan.",
-			"Keep the cockpit prompt compact; do not pre-scan the project in the main chat.",
+			"Use cockpit_fast when a compact background worker should do targeted local discovery or a small semantic task, such as building a codemap.",
+			"Do not use cockpit_fast merely because editing is allowed; if the Oracle can patch it directly faster, patch it directly. Keep the cockpit prompt compact; do not pre-scan the project in the main chat.",
 			"Do not use cockpit_fast for risky security, persistence, deployment, or broad refactor decisions.",
 		],
 		parameters: Type.Object({
@@ -230,7 +230,7 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_research",
 		label: "Research Cockpit Delegate",
-		description: "Run the read-only research delegate to produce a concise codebase brief for planner handoff, with optional web context when available.",
+		description: "Run a read-only research delegate when codebase search/output would pollute the main Oracle context or should happen in the background; returns a concise evidence brief.",
 		promptSnippet: "Run a research delegate flow",
 		promptGuidelines: [
 			"Use cockpit_research as Node 1 before planning/coding when the planner needs codebase context.",
@@ -254,7 +254,7 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_ideate",
 		label: "Ideate Cockpit Delegate",
-		description: "Run the read-only ideate delegate: divergent multi-pass council for unclear features, refactors, and product/implementation direction.",
+		description: "Run read-only divergent ideation when the user's desired direction is unclear or tradeoff-heavy. This is for option space, not implementation.",
 		promptSnippet: "Run an ideation delegate flow",
 		promptGuidelines: [
 			"Use cockpit_ideate when the user wants to explore what to build before planning or implementation.",
@@ -278,7 +278,7 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_normal",
 		label: "Normal Cockpit Delegate",
-		description: "Run the normal coding delegate: implementation model, medium thinking, bounded implementation from a plan.",
+		description: "Run a bounded background coding delegate from a concrete plan when implementation benefits from context isolation. Use direct editing for small interactive work.",
 		promptSnippet: "Run a normal coding delegate flow",
 		promptGuidelines: [
 			"Use cockpit_normal after planning for bounded multi-file implementation work.",
@@ -327,7 +327,7 @@ export function registerCockpitTools(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "cockpit_review",
 		label: "Reviewer Cockpit Delegate",
-		description: "Run the read-only reviewer delegate over current changes or a git range, returning issue severities and feedback weight for cockpit routing.",
+		description: "Run a read-only reviewer over nontrivial changes or a git range, returning issue severities and feedback weight for Cockpit's next maneuver.",
 		promptSnippet: "Run a reviewer delegate flow",
 		promptGuidelines: [
 			"Use cockpit_review after coder work and before approval or the next task.",

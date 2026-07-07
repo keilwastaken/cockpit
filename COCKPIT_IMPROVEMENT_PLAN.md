@@ -1,38 +1,62 @@
-# Cockpit Extension Improvement Plan
+# Cockpit Advisory Autopilot Improvement Plan
 
-This plan outlines the next phase of development for the `cockpit` extension to transition it from a "heavy scripting" feel to a fast, cohesive, and intelligent AI dev team.
+Cockpit is moving from a strict delegation framework to an advisory autopilot: the Oracle can act directly, and delegates are used when they create value.
 
-## Phase 1: Hybrid Strict Mode (Quick Win)
-**Problem:** `strictMode` hard-blocks the user from using standard edit tools in the main chat, causing friction.
+## Completed refactor direction
+
+- Retire strict mode as a product concept.
+- Keep direct `edit`/`write` available to the Oracle.
+- Keep flight-safety guards for destructive shell patterns.
+- Make setup choose only hands/reasoning models.
+- Make Cockpit's loaded default be advisory autopilot.
+- Reframe `instant` as a discipline first and a delegate only when isolation is worth it.
+- Keep `/cockpit route` as optional diagnostic output, not a normal user step.
+
+## Phase 1: Better ambient autopilot guidance
+
+**Problem:** The Oracle needs to know when to act directly vs delegate without the user saying "use fast" or "use ideate".
+
+**Solution:** Continue improving tool descriptions, command descriptions, and delegate prompt snippets so the model naturally chooses:
+
+- direct tools for tiny/interactive edits,
+- `fast` for bounded noisy local work,
+- `ideate` for unclear direction,
+- `research` for noisy read-only investigation,
+- `reviewer` for nontrivial diffs,
+- `codeflow` for larger approved workflows.
+
+## Phase 2: Interactive Codeflow Approval
+
+**Problem:** Codeflow preplans should smoothly become approved execution when the human agrees.
+
+**Solution:** Keep and refine the approval dialog shown when a `codeflow-preplan` finishes. Ensure approval starts `codeflow` with the original task plus approved plan/constraints.
+
+## Phase 3: Rich Reviewer Context
+
+**Problem:** The reviewer currently relies heavily on broad `git diff`, which can get messy with unrelated changes or multiple jobs.
+
 **Solution:**
-- Update `extensions/cockpit/safety.ts`.
-- Instead of returning a block reason for `edit` and `write`, we will allow the operation but inject a warning (e.g., via `ctx.ui.notify`) that code is being modified in the Oracle control room.
-- Remove the hard block for these tools.
 
-## Phase 2: Interactive Codeflow Approval (UI Smoothing)
-**Problem:** `codeflow` forces the user to manually read the pre-plan job and then type `/cockpit codeflow --approved <task>`.
-**Solution:**
-- Update the `codeflow-preplan` job completion logic in `extensions/cockpit/jobs/service.ts`.
-- When a `codeflow-preplan` job finishes, trigger an interactive TUI overlay using `ctx.ui.custom()`.
-- Display the generated plan and provide `[Approve and Execute]` and `[Reject]` buttons.
-- If approved, automatically start the `codeflow` job without requiring the user to type another command.
+- Capture changed files from `normal`/`fast` job outputs.
+- Store changed files in job artifacts.
+- Feed focused diffs for only those files into reviewer prompts when possible.
 
-## Phase 3: Rich Reviewer Context (Isolating Diffs)
-**Problem:** The `reviewer` relies on global `git diff`, which gets messy if files are uncommitted or multiple jobs run in parallel.
-**Solution:**
-- Update the `normal` (and `fast`) delegates to reliably report exactly which files they modified (already in the "Files Changed" section).
-- Update the job service to capture these changed files in the job's artifact state.
-- When `/cockpit review` is called, automatically fetch the pre-run and post-run state of *only* those specific files and inject that exact diff into the `reviewer` delegate's prompt.
+## Phase 4: Structural Map for Discovery
 
-## Phase 4: Structural Map for Discovery (Context Pre-loading)
-**Problem:** Delegates waste tokens and time running `ls` and `grep` to understand the codebase layout.
-**Solution:**
-- Create a lightweight directory and structural mapper (e.g., parsing imports and class/function signatures for TypeScript/Python).
-- Pre-inject this "Project Skeleton" into the `fast` and `normal` delegate prompts automatically.
-- This eliminates the need for initial "guess who" `find`/`grep` commands.
+**Problem:** Delegates waste time and tokens rediscovering basic repo layout.
 
-## Phase 5: Fast Execution Model (Solving Child Process Overhead)
-**Problem:** Spawning a fresh `pi` CLI process for every job adds massive cold-start overhead.
 **Solution:**
-- Investigate the `@earendil-works/pi-coding-agent` SDK for programmatic execution or Node.js `Worker` threads to run agents in the background *within the same memory space*.
-- If the SDK requires CLI spawning for isolation, optimize the spawned command by stripping out unnecessary plugins, UI loading, and theme initializations to achieve a sub-second boot time.
+
+- Maintain a lightweight project skeleton.
+- Pre-inject it into `fast`/`normal` where helpful.
+- Avoid broad discovery in fast mode.
+
+## Phase 5: Fast Execution Model
+
+**Problem:** Spawning a fresh `pi` CLI process for every child job adds cold-start overhead.
+
+**Solution:**
+
+- Investigate persistent workers or the Pi SDK for in-process/background agent execution.
+- If CLI spawning remains required, strip unnecessary startup work for delegate child processes.
+- Keep direct Oracle edits as the default for latency-sensitive work.

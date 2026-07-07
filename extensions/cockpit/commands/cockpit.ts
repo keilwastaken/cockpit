@@ -35,7 +35,6 @@ const HELP_TEXT = [
 	"- /cockpit resume <id>",
 	"- /cockpit cleanup",
 	"- /cockpit cancel <id>",
-	"- /cockpit strict on|off",
 	"- /cleanup"
 ].join("\n");
 
@@ -102,11 +101,11 @@ async function chooseModel(ctx: SetupContext, title: string, models: AvailableMo
 	return selected ? selectedModelId(selected) : undefined;
 }
 
-function applySetup(config: CockpitConfig, options: { handsModel: string; reasoningModel: string; strictMode: boolean }): CockpitConfig {
-	const { handsModel, reasoningModel, strictMode } = options;
+function applySetup(config: CockpitConfig, options: { handsModel: string; reasoningModel: string }): CockpitConfig {
+	const { handsModel, reasoningModel } = options;
 	return {
 		...config,
-		strictMode,
+		strictMode: false,
 		delegateFlows: {
 			...config.delegateFlows,
 			instant: { ...config.delegateFlows.instant, model: handsModel, thinking: "off" },
@@ -133,7 +132,8 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 	const handsModels = uniqueModels([...localModels, ...models]);
 	const reasoningModels = uniqueModels([...cloudModels, ...models]);
 	ctx.ui.notify([
-		"Cockpit keeps the main chat as the Oracle / Control Room.",
+		"Cockpit advisory autopilot is always on.",
+		"The Oracle may edit directly, and delegates are available when isolation, parallelism, ideation, research, or review creates value.",
 		"Setup only needs two choices:",
 		"1. Hands model — inherited by instant, fast, and normal coding workers. Recommended: local model, or a strong coding model for heavier work.",
 		"2. Reasoning model — inherited by ideate, research, planner, reviewer, and task-writer. Recommended: latest cloud reasoning model.",
@@ -144,19 +144,14 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 	if (handsModel === undefined) return undefined;
 	const reasoningModel = await chooseModel(ctx, "Choose reasoning model for ideation, research, planning, review, and task writing", reasoningModels);
 	if (reasoningModel === undefined) return undefined;
-	const strictMode = await ctx.ui.confirm(
-		"Enable Cockpit strict mode?",
-		"Recommended: yes. Strict mode prevents the main chat from directly editing files, keeping the Oracle clean and forcing code mutation through delegates.",
-	);
-
-	const updated = applySetup(config, { handsModel, reasoningModel, strictMode });
+	const updated = applySetup(config, { handsModel, reasoningModel });
 	const summary = [
 		"Cockpit setup summary:",
 		`Hands model: ${modelLabel(handsModel)}`,
 		"  instant, fast, normal inherit this model.",
 		`Reasoning model: ${modelLabel(reasoningModel)}`,
 		"  ideate, research, planner, reviewer, task-writer inherit this model.",
-		`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
+		"Advisory autopilot: always on; direct edits are allowed.",
 	].join("\n");
 	const confirmed = await ctx.ui.confirm("Save Cockpit setup?", summary);
 	return confirmed ? updated : undefined;
@@ -165,7 +160,7 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 
 export function registerCockpitCommands(pi: ExtensionAPI) {
 	pi.registerCommand("cockpit", {
-		description: "Route coding workflow tasks through Cockpit delegate flows",
+		description: "Cockpit advisory autopilot commands and background delegate flows",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed || trimmed === "help") {
@@ -192,9 +187,9 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
-						"Cockpit keeps the main chat as the Oracle / Control Room and routes work through isolated delegates.",
+						"Cockpit advisory autopilot is on: the Oracle may act directly and delegates when delegation creates value.",
+						"Use direct tools for tiny/interactive edits; use delegates for isolation, parallelism, noisy research, ideation, task packets, reviews, or larger codeflow work.",
 						"Cockpit flows: instant, fast, ideate, research, normal, planner, reviewer, task-writer.",
-						`Strict mode: ${config.strictMode ? "on" : "off"}`,
 						`Hands model: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}`,
 						`Reasoning model: ideate ${modelLabel(ideateFlow.model)}, research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}, task-writer ${modelLabel(taskWriterFlow.model)}`,
 						`Recommendation: local model for hands; latest cloud reasoning model for ideation, research, planning, review, and task writing.`,
@@ -214,13 +209,13 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 					const updated = await runSetupWizard(ctx, config);
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
-					ctx.ui.setStatus("cockpit", `hands: ${modelLabel(updated.delegateFlows.normal.model)}; reasoning: ${modelLabel(updated.delegateFlows.reviewer.model)} ${updated.strictMode ? "strict" : ""}`.trim());
+					ctx.ui.setStatus("cockpit", `autopilot · hands: ${modelLabel(updated.delegateFlows.normal.model)} · reasoning: ${modelLabel(updated.delegateFlows.reviewer.model)}`);
 					ctx.ui.notify([
 						"Cockpit configured.",
 						`Config saved to: ${path}`,
 						`Hands model: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}`,
 						`Reasoning model: ideate ${modelLabel(updated.delegateFlows.ideate.model)}, research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}, task-writer ${modelLabel(updated.delegateFlows.taskWriter.model)}`,
-						`Strict mode: ${updated.strictMode ? "enabled" : "disabled"}`,
+						"Advisory autopilot: always on; direct edits are allowed.",
 						`Try: /cockpit codeflow "Add retry handling to an existing workflow"`,
 					].join("\n"), "info");
 					return;
@@ -449,14 +444,7 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				}
 
 				case "strict": {
-					const desired = body.toLowerCase();
-					if (desired !== "on" && desired !== "off") {
-						ctx.ui.notify("Usage: /cockpit strict on|off", "warning");
-						return;
-					}
-					const path = await saveGlobalConfig({ ...config, strictMode: desired === "on" });
-					ctx.ui.setStatus("cockpit", `hands: ${modelLabel(normalFlow.model)}; reasoning: ${modelLabel(reviewerFlow.model)} strict ${desired}`);
-					ctx.ui.notify(`Cockpit strict mode ${desired}; saved ${path}`, "info");
+					ctx.ui.notify("Strict mode has been retired. Cockpit advisory autopilot is always on, direct edits are allowed, and flight-safety guards still block destructive shell patterns.", "info");
 					return;
 				}
 

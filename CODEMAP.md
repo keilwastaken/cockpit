@@ -23,7 +23,7 @@
 │       ├── config.ts                # defaults, config loading/merging/saving
 │       ├── codeflow.ts              # cockpit/oracle orchestration flow
 │       ├── routing.ts               # task signal analysis and route decisions
-│       ├── safety.ts                # strict-mode and delegate tool-call guards
+│       ├── safety.ts                # flight-safety guards for dangerous shell mutation patterns
 │       ├── jobs/
 │       │   ├── async-jobs.ts        # delegate/codeflow job registry, progress formatting, cancel/read/list helpers
 │       │   ├── artifacts.ts         # .pi/cockpit/jobs/<id>/ lifecycle artifacts and resume prompts
@@ -64,9 +64,9 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 
 `extensions/cockpit/index.ts` exports the default Pi extension function. It wires up:
 
-- `session_start` event: loads config and sets a status item showing the selected delegate model and strict-mode state.
-- `tool_call` event: applies `shouldBlockToolCall()` to enforce instant-delegate restrictions or global strict mode.
-- `/cockpit` command: user command with subcommands for setup, status, routing, background delegate/codeflow jobs, job inspection/resume/cancel, and strict mode.
+- `session_start` event: loads config and sets an advisory-autopilot status item with selected hands/reasoning models.
+- `tool_call` event: applies flight-safety checks for dangerous shell mutation patterns while allowing direct `edit`/`write`.
+- `/cockpit` command: user command with subcommands for setup, status, advisory routing diagnostics, background delegate/codeflow jobs, and job inspection/resume/cancel.
 - `cockpit_job` tool: tool-facing start/list/read/cancel API for Cockpit jobs.
 - `cockpit_codeflow` tool: starts a background cockpit/oracle codeflow job.
 - `cockpit_delegate` tool: starts a background instant delegate job.
@@ -83,8 +83,8 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 Registered `/cockpit` subcommands:
 
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
-- `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, answer the strict mode prompt, and save global config.
-- `/cockpit route <task>` — analyze a task and print the selected route/profile.
+- `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, and save global config. Advisory autopilot is always on.
+- `/cockpit route <task>` — analyze a task and print an advisory recommendation, direct-is-fine signal, and delegate-value signal.
 - `/cockpit preplan <task>` — start a read-only codeflow preplan job: optional research plus planner only, no writer execution.
 - `/cockpit codeflow --approved <task plus approved plan/constraints>` — start a background cockpit/oracle workflow job after explicit plan approval: optional research, planner, selected executor, reviewer, and feedback routing. Without `--approved`, this command is downgraded to `codeflow-preplan`.
 - `/cockpit instant <plan>` — start a background instant delegate job; the file is inferred from the plan.
@@ -103,7 +103,6 @@ Registered `/cockpit` subcommands:
 - `/cockpit cleanup` — remove Cockpit job artifact files under `.pi/cockpit/jobs`.
 - `/cleanup` — shortcut for removing Cockpit job artifact files under `.pi/cockpit/jobs`.
 - `/cockpit cancel <id>` — abort a running job and refresh the Cockpit jobs widget/status.
-- `/cockpit strict on|off` — toggle strict-mode mutation guards in global config.
 
 Registered tools:
 
@@ -129,7 +128,7 @@ Registered tools:
 
 Important defaults:
 
-- `strictMode: false`
+- `strictMode: false` — deprecated compatibility field; advisory autopilot is always on and direct edits are allowed.
 - `instant` tools: `read`, `edit`; thinking `off`; max 1 file / ~30 lines / 60s.
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
 - `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `minimal`; max 7 fully-read files / 180s.
@@ -141,7 +140,7 @@ Important defaults:
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains the Oracle/control-room model, detects available models, asks for two model choices, prompts for strict mode, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains advisory autopilot, detects available models, asks for two model choices, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning. Advisory autopilot is always on and direct edits are allowed.
 
 ## Routing model
 
@@ -296,7 +295,7 @@ Reviewer boundary: child does not fix code. It produces issue evidence plus a re
 
 ## Safety behavior
 
-`extensions/cockpit/safety.ts` currently only enforces strict mode in the cockpit session. When strict mode is on, direct `edit`/`write` tools are blocked and risky shell mutation patterns are blocked, including forbidden git commands, deploy/publish/apply/destroy commands, `rm -rf`, shell redirection writes, in-place sed/perl, and inline Python/Node file mutation.
+`extensions/cockpit/safety.ts` implements flight-safety checks in the cockpit session. Direct `edit`/`write` tools are allowed. Dangerous shell mutation patterns are blocked, including forbidden git commands, deploy/publish/apply/destroy commands, `rm -rf`, shell redirection writes, in-place sed/perl, and inline Python/Node file mutation.
 
 ## Development commands
 

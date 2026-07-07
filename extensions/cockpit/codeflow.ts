@@ -49,14 +49,6 @@ function baseResult(input: DelegateRunInput, config: CockpitConfig): CodeflowRun
 	};
 }
 
-function codeflowBudgetConfig(config: CockpitConfig): CockpitConfig {
-	const clone = structuredClone(config);
-	for (const name of ["research", "planner", "reviewer", "normal", "taskWriter", "ideate"] as const) {
-		clone.delegateFlows[name].maxTurns = 0;
-	}
-	return clone;
-}
-
 function shouldRunResearch(task: string, config: CockpitConfig): boolean {
 	const decision = routeTask(task, config);
 	const signals = decision.signals;
@@ -231,7 +223,6 @@ async function runExecutor(
 }
 
 export async function runCodeflowPreplan(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
-	config = codeflowBudgetConfig(config);
 	const task = input.plan.trim();
 	const result = baseResult(input, config);
 	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow preplan needs a task." };
@@ -294,7 +285,6 @@ export async function runCodeflowPreplan(input: DelegateRunInput, config: Cockpi
 }
 
 export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
-	config = codeflowBudgetConfig(config);
 	const task = input.plan.trim();
 	const result = baseResult(input, config);
 	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow needs a task." };

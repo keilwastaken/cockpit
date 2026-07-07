@@ -4,12 +4,13 @@ import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
+	// Deprecated compatibility flag. Cockpit advisory autopilot is always on; direct edit/write tools are allowed.
 	strictMode: false,
 	agents: ["instant", "fast", "ideate", "research", "normal", "planner", "reviewer", "task-writer"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
-			description: "Tiny exact one-file edits from a cockpit-supplied plan.",
+			description: "Tiny exact one-file edits when isolation is useful; otherwise the Oracle should edit directly using instant discipline.",
 			model: "",
 			tools: ["read", "edit"],
 			thinking: "off",
@@ -20,7 +21,7 @@ const DEFAULT_CONFIG = {
 		},
 		fast: {
 			agent: "fast",
-			description: "Small semantic edits with local discovery in a child context.",
+			description: "Small bounded tasks with local discovery in a child context when delegation creates value.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "write", "edit"],
 			thinking: "low",
@@ -42,7 +43,7 @@ const DEFAULT_CONFIG = {
 		},
 		normal: {
 			agent: "normal",
-			description: "Background coding executor using the implementation model with medium thinking.",
+			description: "Background coding executor for concrete plans that benefit from context isolation.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "edit", "write", "bash"],
 			thinking: "medium",
@@ -209,7 +210,7 @@ const mergeConfig = (raw: unknown, base: CockpitConfig): CockpitConfig => {
 	return {
 		...base,
 		...(raw as Partial<CockpitConfig>),
-		strictMode: typeof raw.strictMode === "boolean" ? raw.strictMode : base.strictMode,
+		strictMode: false,
 		agents: Array.from(new Set([...agents, instant.agent, fast.agent, ideate.agent, research.agent, normal.agent, planner.agent, reviewer.agent, taskWriter.agent])),
 		delegateFlows: { instant, fast, ideate, research, normal, planner, reviewer, taskWriter },
 		maxFiles: numberValue(raw.maxFiles, instant.maxFiles),

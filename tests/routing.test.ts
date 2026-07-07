@@ -37,13 +37,14 @@ test("extractFilePaths deduplicates paths", () => {
 	assert.deepEqual(extractFilePaths("Changed src/a.ts, src/a.ts and tests/a.test.ts"), ["src/a.ts", "tests/a.test.ts"]);
 });
 
-test("strict edit/write warns but does not block", () => {
+test("direct edit/write is allowed without warning", () => {
 	const result = checkToolCallSafety({ toolName: "edit", input: {} }, config);
 	assert.equal(result.block, false);
-	assert.match(result.message ?? "", /control room/i);
+	assert.equal(result.message, undefined);
 });
 
-test("strict destructive shell command still blocks", () => {
+test("flight safety destructive shell command blocks", () => {
 	const result = checkToolCallSafety({ toolName: "bash", input: { command: "rm -rf tmp" } }, config);
 	assert.equal(result.block, true);
+	assert.match(result.message ?? "", /flight safety/i);
 });
