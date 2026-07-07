@@ -139,11 +139,12 @@ export const ideateDelegate: DelegateFlow<CockpitConfig> = {
 				cwd: context.cwd,
 				args,
 				timeoutMs: flow.timeoutMs,
+				maxTurns: flow.maxTurns,
 				signal: context.signal,
-				onUpdate: ({ finalOutput, stderr }) => {
+				onUpdate: ({ finalOutput, stderr, progressText, turnCount, elapsedMs }) => {
 					context.onUpdate?.({
-						content: [{ type: "text", text: finalOutput || `Ideate ${perspective.name} running...` }],
-						details: { ...result, stderr },
+						content: [{ type: "text", text: finalOutput || progressText || `Ideate ${perspective.name} running...` }],
+						details: { ...result, stderr, turnCount, elapsedMs },
 					});
 				},
 			}).then((child) => ({ perspective, model, child }));
@@ -153,7 +154,7 @@ export const ideateDelegate: DelegateFlow<CockpitConfig> = {
 		const variantOutputs = variants.map(({ perspective, model, child }) => ({ name: perspective.name, model, output: child.finalOutput }));
 		const variantText = variantOutputs.map((variant, index) => [`## Variant ${index + 1}: ${variant.name}`, `Model: ${variant.model || "current Pi default"}`, variant.output || "No output."].join("\n")).join("\n\n");
 		const stderr = variants.map(({ child }) => child.stderr).filter(Boolean).join("\n");
-		const failed = variants.filter(({ child }) => child.exitCode !== 0 || child.timedOut || child.aborted);
+		const failed = variants.filter(({ child }) => child.exitCode !== 0 || child.timedOut || child.aborted || child.maxTurnsExceeded);
 
 		const synthesisArgs = [
 			"--mode",
@@ -171,15 +172,21 @@ export const ideateDelegate: DelegateFlow<CockpitConfig> = {
 			flow.tools.join(","),
 			buildSynthesisPrompt(input.plan, variantOutputs, config),
 		];
-		const synthesis = await runChildPi({ cwd: context.cwd, args: synthesisArgs, timeoutMs: flow.timeoutMs, signal: context.signal });
+		const synthesis = await runChildPi({ cwd: context.cwd, args: synthesisArgs, timeoutMs: flow.timeoutMs, maxTurns: flow.maxTurns, signal: context.signal });
 		const finalOutput = synthesis.finalOutput || [`# Ideation Result`, "Synthesis did not return output. Raw variants:", variantText].join("\n\n");
 		const finalResult = {
 			...result,
 			exitCode: failed.length === variants.length ? 1 : 0,
 			finalOutput: `${finalOutput}\n\n---\n\n# Divergent Passes\n\n${variantText}`,
 			stderr: [stderr, synthesis.stderr].filter(Boolean).join("\n"),
+			timedOut: synthesis.timedOut,
+			aborted: synthesis.aborted,
+			maxTurnsExceeded: synthesis.maxTurnsExceeded,
+			turnCount: synthesis.turnCount,
+			elapsedMs: synthesis.elapsedMs,
 		};
 		if (synthesis.timedOut) return { ...finalResult, blockedReason: `Ideate synthesis timed out after ${flow.timeoutMs}ms.` };
+		if (synthesis.maxTurnsExceeded) return { ...finalResult, blockedReason: `Ideate synthesis exceeded max turns (${synthesis.turnCount}/${flow.maxTurns}).` };
 		if (synthesis.aborted) return { ...finalResult, blockedReason: "Ideate delegate was aborted." };
 		return finalResult;
 	},

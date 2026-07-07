@@ -18,6 +18,12 @@ export type DelegateRunResult = {
 	finalOutput: string;
 	stderr: string;
 	blockedReason?: string;
+	timedOut?: boolean;
+	aborted?: boolean;
+	maxTurnsExceeded?: boolean;
+	turnCount?: number;
+	elapsedMs?: number;
+	escalateTo?: DelegateFlowName;
 };
 
 export type DelegateUpdate = (partial: { content: Array<{ type: "text"; text: string }>; details: DelegateRunResult }) => void;

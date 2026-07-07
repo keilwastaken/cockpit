@@ -1,6 +1,6 @@
 import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
-import { runChildPi } from "./child-pi.js";
+import { runChildDelegate } from "./child-flow.js";
 import { promptContextForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
@@ -68,7 +68,6 @@ export const normalDelegate: DelegateFlow<CockpitConfig> = {
 
 		const { skeleton, fileArgs } = await promptContextForPlan(context.cwd, input.plan, config);
 
-		context.onUpdate?.({ content: [{ type: "text", text: "Normal delegate running..." }], details: result });
 
 		const args = [
 			"--mode",
@@ -89,22 +88,13 @@ export const normalDelegate: DelegateFlow<CockpitConfig> = {
 			...fileArgs,
 		];
 
-		const child = await runChildPi({
-			cwd: context.cwd,
+		return runChildDelegate({
+			label: "Normal delegate",
 			args,
-			timeoutMs: flow.timeoutMs,
-			signal: context.signal,
-			onUpdate: ({ finalOutput, stderr }) => {
-				context.onUpdate?.({
-					content: [{ type: "text", text: finalOutput || "Normal delegate running..." }],
-					details: { ...result, finalOutput, stderr },
-				});
-			},
+			flow,
+			result,
+			context,
+			escalation: undefined,
 		});
-
-		const finalResult = { ...result, exitCode: child.exitCode, finalOutput: child.finalOutput, stderr: child.stderr };
-		if (child.timedOut) return { ...finalResult, exitCode: 1, blockedReason: `Normal delegate timed out after ${flow.timeoutMs}ms.` };
-		if (child.aborted) return { ...finalResult, exitCode: 1, blockedReason: "Normal delegate was aborted." };
-		return finalResult;
 	},
 };

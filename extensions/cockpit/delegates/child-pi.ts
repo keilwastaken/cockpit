@@ -29,7 +29,7 @@ const getPiInvocation = (args: string[]): { command: string; args: string[] } =>
 	return { command: "pi", args };
 };
 
-export type ChildPiUpdate = (state: { finalOutput: string; stderr: string }) => void;
+export type ChildPiUpdate = (state: { finalOutput: string; stderr: string; progressText: string; turnCount: number; elapsedMs: number }) => void;
 
 export type ChildPiResult = {
 	exitCode: number;
@@ -37,12 +37,16 @@ export type ChildPiResult = {
 	stderr: string;
 	timedOut: boolean;
 	aborted: boolean;
+	maxTurnsExceeded: boolean;
+	turnCount: number;
+	elapsedMs: number;
 };
 
 export async function runChildPi(options: {
 	cwd: string;
 	args: string[];
 	timeoutMs: number;
+	maxTurns?: number;
 	signal?: AbortSignal;
 	onUpdate?: ChildPiUpdate;
 }): Promise<ChildPiResult> {
@@ -51,6 +55,9 @@ export async function runChildPi(options: {
 	let stderr = "";
 	let aborted = false;
 	let timedOut = false;
+	let maxTurnsExceeded = false;
+	let turnCount = 0;
+	const startedAt = Date.now();
 
 	const exitCode = await new Promise<number>((resolve) => {
 		const invocation = getPiInvocation(options.args);
@@ -65,7 +72,7 @@ export async function runChildPi(options: {
 		});
 		let buffer = "";
 
-		const emit = () => options.onUpdate?.({ finalOutput: finalOutput || progressText, stderr });
+		const emit = () => options.onUpdate?.({ finalOutput: finalOutput || progressText, stderr, progressText, turnCount, elapsedMs: Date.now() - startedAt });
 
 		const processLine = (line: string) => {
 			if (!line.trim()) return;
@@ -87,8 +94,19 @@ export async function runChildPi(options: {
 				emit();
 				return;
 			}
-			if (type === "message_start" || type === "turn_start") {
-				progressText = "Delegate thinking...";
+			if (type === "turn_start") {
+				turnCount += 1;
+				progressText = options.maxTurns ? `Delegate turn ${turnCount}/${options.maxTurns}` : `Delegate turn ${turnCount}`;
+				emit();
+				if (options.maxTurns && turnCount > options.maxTurns) {
+					maxTurnsExceeded = true;
+					stderr = [stderr, `Max turns exceeded: ${turnCount}/${options.maxTurns}`].filter(Boolean).join("\n");
+					killProc();
+				}
+				return;
+			}
+			if (type === "message_start") {
+				progressText = options.maxTurns ? `Delegate thinking (turn ${Math.max(1, turnCount)}/${options.maxTurns})` : "Delegate thinking...";
 				emit();
 				return;
 			}
@@ -151,5 +169,5 @@ export async function runChildPi(options: {
 		}
 	});
 
-	return { exitCode, finalOutput, stderr, timedOut, aborted };
+	return { exitCode, finalOutput, stderr, timedOut, aborted, maxTurnsExceeded, turnCount, elapsedMs: Date.now() - startedAt };
 }

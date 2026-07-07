@@ -19,6 +19,7 @@ const HELP_TEXT = [
 	"- /cockpit route <task>",
 	"- /cockpit preplan <task>",
 	"- /cockpit codeflow --approved <task>",
+	"- /cockpit codeflow --dangerous <task>",
 	"- /cockpit instant <simple plan mentioning one file>",
 	"- /cockpit fast <small semantic task>",
 	"- /cockpit research <task>",
@@ -247,10 +248,15 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				case "codeflow":
 				case "code": {
 					if (!body) {
-						ctx.ui.notify("Usage: /cockpit codeflow --approved <task> (or /cockpit preplan <task> first)", "warning");
+						ctx.ui.notify("Usage: /cockpit codeflow --approved <task>, /cockpit codeflow --dangerous <task>, or /cockpit preplan <task> first", "warning");
 						return;
 					}
 					const approvedPrefix = body.match(/^(?:--approved|approved:)\s+([\s\S]+)$/i);
+					const dangerousPrefix = body.match(/^--dangerous\s+([\s\S]+)$/i);
+					if (dangerousPrefix) {
+						jobService.start({ flow: "codeflow", plan: dangerousPrefix[1].trim(), approved: true });
+						return;
+					}
 					if (!approvedPrefix) {
 						const job = jobService.start({
 							flow: "codeflow-preplan",

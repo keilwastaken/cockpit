@@ -1,5 +1,5 @@
 import type { CockpitConfig } from "../config.js";
-import { runChildPi } from "./child-pi.js";
+import { runChildDelegate } from "./child-flow.js";
 import { fileArgsForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
@@ -97,7 +97,6 @@ export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 
 		const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
 
-		context.onUpdate?.({ content: [{ type: "text", text: "Reviewer delegate running..." }], details: result });
 
 		const args = [
 			"--mode",
@@ -118,22 +117,13 @@ export const reviewerDelegate: DelegateFlow<CockpitConfig> = {
 			...fileArgs,
 		];
 
-		const child = await runChildPi({
-			cwd: context.cwd,
+		return runChildDelegate({
+			label: "Reviewer delegate",
 			args,
-			timeoutMs: flow.timeoutMs,
-			signal: context.signal,
-			onUpdate: ({ finalOutput, stderr }) => {
-				context.onUpdate?.({
-					content: [{ type: "text", text: finalOutput || "Reviewer delegate running..." }],
-					details: { ...result, finalOutput, stderr },
-				});
-			},
+			flow,
+			result,
+			context,
+			escalation: undefined,
 		});
-
-		const finalResult = { ...result, exitCode: child.exitCode, finalOutput: child.finalOutput, stderr: child.stderr };
-		if (child.timedOut) return { ...finalResult, exitCode: 1, blockedReason: `Reviewer delegate timed out after ${flow.timeoutMs}ms.` };
-		if (child.aborted) return { ...finalResult, exitCode: 1, blockedReason: "Reviewer delegate was aborted." };
-		return finalResult;
 	},
 };

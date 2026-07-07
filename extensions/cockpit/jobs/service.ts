@@ -1,12 +1,14 @@
 import type { CockpitConfig } from "../config.js";
 import { routeTask } from "../routing.js";
 import type { AsyncJob, JobFlowName } from "./async-jobs.js";
+import type { DelegateFlowName } from "../delegates/protocol.js";
 import { formatJobSummary, listAsyncJobs, startAsyncJob } from "./async-jobs.js";
 
 export type JobUi = {
 	setStatus(key: string, value: string | undefined): void;
 	setWidget(key: string, value: string[] | undefined, options?: { placement?: "aboveEditor" | "belowEditor" }): void;
 	notify(message: string, level?: "info" | "warning" | "error"): void;
+	confirm(title: string, message?: string): Promise<boolean>;
 	sendJobResult(job: AsyncJob): void;
 };
 
@@ -28,6 +30,18 @@ export type StartDelegateJobInput = {
 };
 
 const fileFromPlan = (plan: string, config: CockpitConfig): string => routeTask(plan, config, true).signals.mentionedFiles[0] ?? "";
+const isEscalatableJobFlow = (flow: DelegateFlowName | undefined): flow is "fast" | "normal" => flow === "fast" || flow === "normal";
+
+function escalatedPlanFrom(job: AsyncJob): string {
+	return [
+		job.plan,
+		"",
+		"Escalated from Cockpit delegate:",
+		`- Previous flow: ${job.flow}`,
+		job.blockedReason ? `- Reason: ${job.blockedReason}` : undefined,
+		job.output ? `\nPrevious findings/output:\n${job.output}` : undefined,
+	].filter((line): line is string => line !== undefined).join("\n");
+}
 
 let progressTimer: NodeJS.Timeout | undefined;
 let activeRefreshProgress: (() => void) | undefined;
@@ -67,9 +81,32 @@ export function createJobService(config: CockpitConfig, context: JobServiceConte
 						context.ui.notify(`Cockpit job finish handler failed: ${error instanceof Error ? error.message : String(error)}`, "error");
 					});
 				} else {
-					const level = finished.status === "failed" ? "error" : finished.status === "cancelled" ? "warning" : "info";
-					context.ui.notify(`Cockpit job ${finished.id} ${finished.status}. Read it with: /cockpit job ${finished.id}`, level);
-					if (finished.status === "done" || finished.status === "failed") context.ui.sendJobResult(finished);
+					void (async () => {
+						const escalationTarget = finished.status === "failed" && isEscalatableJobFlow(finished.result?.escalateTo) ? finished.result.escalateTo : undefined;
+						if (escalationTarget) {
+							context.ui.sendJobResult(finished);
+							const ok = await context.ui.confirm(
+								"Cockpit escalation available",
+								[
+									`Cockpit ${finished.flow} job ${finished.id} could not finish within its budget.`,
+									finished.blockedReason ? `Reason: ${finished.blockedReason}` : undefined,
+									`Start as ${escalationTarget}?`,
+								].filter((line): line is string => line !== undefined).join("\n"),
+							);
+							if (ok) {
+								start({ flow: escalationTarget, plan: escalatedPlanFrom(finished) });
+							} else {
+								context.ui.notify(`Cockpit escalation to ${escalationTarget} cancelled.`, "warning");
+							}
+							return;
+						}
+
+						const level = finished.status === "failed" ? "error" : finished.status === "cancelled" ? "warning" : "info";
+						context.ui.notify(`Cockpit job ${finished.id} ${finished.status}. Read it with: /cockpit job ${finished.id}`, level);
+						if (finished.status === "done" || finished.status === "failed") context.ui.sendJobResult(finished);
+					})().catch((error: unknown) => {
+						context.ui.notify(`Cockpit job finish handler failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+					});
 				}
 			},
 		});

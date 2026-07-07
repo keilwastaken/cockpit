@@ -49,6 +49,14 @@ function baseResult(input: DelegateRunInput, config: CockpitConfig): CodeflowRun
 	};
 }
 
+function codeflowBudgetConfig(config: CockpitConfig): CockpitConfig {
+	const clone = structuredClone(config);
+	for (const name of ["research", "planner", "reviewer", "normal", "taskWriter", "ideate"] as const) {
+		clone.delegateFlows[name].maxTurns = 0;
+	}
+	return clone;
+}
+
 function shouldRunResearch(task: string, config: CockpitConfig): boolean {
 	const decision = routeTask(task, config);
 	const signals = decision.signals;
@@ -171,15 +179,14 @@ async function runStep(
 	return stepResult;
 }
 
-async function runExecutor(
+const isExecutorName = (value: unknown): value is ExecutorName => value === "instant" || value === "fast" || value === "normal";
+
+async function runOneExecutor(
 	executor: ExecutorName,
-	task: string,
-	plannerOutput: string,
-	researchOutput: string | undefined,
+	plan: string,
 	config: CockpitConfig,
 	context: DelegateRunContext,
 ): Promise<DelegateRunResult> {
-	const plan = buildExecutionPlan(task, plannerOutput, researchOutput);
 	if (executor === "instant") {
 		const file = fileFromText(plan, config);
 		if (!file) return delegates.normal.run({ plan }, config, context);
@@ -189,7 +196,42 @@ async function runExecutor(
 	return delegates.normal.run({ plan }, config, context);
 }
 
+async function runExecutor(
+	executor: ExecutorName,
+	task: string,
+	plannerOutput: string,
+	researchOutput: string | undefined,
+	config: CockpitConfig,
+	context: DelegateRunContext,
+): Promise<DelegateRunResult> {
+	let currentExecutor = executor;
+	let plan = buildExecutionPlan(task, plannerOutput, researchOutput);
+	const visited = new Set<ExecutorName>();
+
+	while (true) {
+		visited.add(currentExecutor);
+		const result = await runOneExecutor(currentExecutor, plan, config, context);
+		if (result.exitCode === 0 || !isExecutorName(result.escalateTo) || visited.has(result.escalateTo)) return result;
+
+		const nextExecutor = result.escalateTo;
+		context.onUpdate?.({
+			content: [{ type: "text", text: `Codeflow: ${currentExecutor} escalated to ${nextExecutor}.` }],
+			details: { ...result, finalOutput: result.finalOutput || result.blockedReason || "" },
+		});
+		plan = [
+			plan,
+			"",
+			"Escalated within codeflow:",
+			`- Previous executor: ${currentExecutor}`,
+			result.blockedReason ? `- Reason: ${result.blockedReason}` : undefined,
+			result.finalOutput ? `\nPrevious findings/output:\n${result.finalOutput}` : undefined,
+		].filter((line): line is string => line !== undefined).join("\n");
+		currentExecutor = nextExecutor;
+	}
+}
+
 export async function runCodeflowPreplan(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
+	config = codeflowBudgetConfig(config);
 	const task = input.plan.trim();
 	const result = baseResult(input, config);
 	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow preplan needs a task." };
@@ -252,6 +294,7 @@ export async function runCodeflowPreplan(input: DelegateRunInput, config: Cockpi
 }
 
 export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig, context: DelegateRunContext): Promise<CodeflowRunResult> {
+	config = codeflowBudgetConfig(config);
 	const task = input.plan.trim();
 	const result = baseResult(input, config);
 	if (!task) return { ...result, exitCode: 1, blockedReason: "Codeflow needs a task." };
@@ -300,6 +343,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 	const executor = parseExecutor(plannerOutput) ?? fallbackExecutor(task, plannerOutput, config);
 	result.executor = executor;
 	let coder = await runStep(`executor-${executor}`, result, context, () => runExecutor(executor, task, plannerOutput, researchOutput, config, context));
+	if (isExecutorName(coder.flow)) result.executor = coder.flow;
 	coderOutput = coder.finalOutput;
 	if (coder.exitCode !== 0 || coder.blockedReason) {
 		return { ...result, exitCode: 1, blockedReason: coder.blockedReason ?? `${executor} executor failed.`, finalOutput: coder.finalOutput || coder.stderr };
@@ -349,6 +393,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 		const revisedExecutor = parseExecutor(plannerOutput) ?? "normal";
 		result.executor = revisedExecutor;
 		coder = await runStep(`executor-after-replan-${revisedExecutor}`, result, context, () => runExecutor(revisedExecutor, task, plannerOutput, researchOutput, config, context));
+		if (isExecutorName(coder.flow)) result.executor = coder.flow;
 		coderOutput = coder.finalOutput;
 		if (coder.exitCode !== 0 || coder.blockedReason) {
 			return { ...result, exitCode: 1, blockedReason: coder.blockedReason ?? "Executor after replan failed.", finalOutput: coder.finalOutput || coder.stderr };

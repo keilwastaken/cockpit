@@ -22,6 +22,7 @@ export type AsyncJob = {
 	startedAt: number;
 	finishedAt?: number;
 	timeoutMs: number;
+	maxTurns?: number;
 	controller: AbortController;
 };
 
@@ -45,6 +46,7 @@ const canonicalFlowName = (flow: JobFlowName): CanonicalJobFlowName => (flow ===
 const age = (job: AsyncJob): number => (job.finishedAt ?? Date.now()) - job.startedAt;
 const progress = (job: AsyncJob): number => {
 	if (job.status === "done") return 1;
+	if (job.result?.turnCount && job.maxTurns) return Math.min(0.95, job.result.turnCount / job.maxTurns);
 	if (job.status === "failed" || job.status === "cancelled") return Math.min(1, age(job) / job.timeoutMs);
 	return Math.min(0.95, age(job) / job.timeoutMs);
 };
@@ -52,7 +54,8 @@ const progress = (job: AsyncJob): number => {
 export function formatProgressBar(job: AsyncJob, width = 16): string {
 	const ratio = progress(job);
 	const filled = Math.max(0, Math.min(width, Math.round(ratio * width)));
-	return `[${"█".repeat(filled)}${"░".repeat(width - filled)}] ${Math.round(ratio * 100).toString().padStart(3)}%`;
+	const turnText = job.result?.turnCount && job.maxTurns ? ` turn ${job.result.turnCount}/${job.maxTurns}` : "";
+	return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]${turnText}`;
 }
 
 function trimCompletedJobs(): void {
@@ -74,6 +77,7 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 	const flow = canonicalFlowName(options.flow);
 	const flowConfigKey = (flow === "task-writer" ? "taskWriter" : flow) as keyof CockpitConfig["delegateFlows"];
 	const timeoutMs = flow === "codeflow" ? 900000 : flow === "codeflow-preplan" ? 420000 : options.config.delegateFlows[flowConfigKey].timeoutMs;
+	const maxTurns = flow === "codeflow" || flow === "codeflow-preplan" ? undefined : options.config.delegateFlows[flowConfigKey].maxTurns;
 	const job: AsyncJob = {
 		id,
 		flow,
@@ -84,6 +88,7 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 		artifactsDir: artifactDirFor(options.cwd, id),
 		startedAt: Date.now(),
 		timeoutMs,
+		maxTurns,
 		controller,
 	};
 	jobs.set(id, job);
@@ -178,7 +183,8 @@ export function cancelAsyncJob(idPrefix: string): AsyncJob | undefined {
 
 export function formatJobSummary(job: AsyncJob): string {
 	const elapsed = `${Math.round(age(job) / 1000)}s`;
-	const suffix = job.status === "running" ? `running ${elapsed}` : `${job.status} in ${elapsed}`;
+	const turnText = job.result?.turnCount && job.maxTurns ? `turn ${job.result.turnCount}/${job.maxTurns}, ` : "";
+	const suffix = job.status === "running" ? `running ${turnText}${elapsed}` : `${job.status} in ${turnText}${elapsed}`;
 	return `${job.id}  ${job.flow.padEnd(11)}  ${formatProgressBar(job)}  ${suffix}  ${job.plan.slice(0, 80)}`;
 }
 
@@ -188,6 +194,7 @@ export function formatJobDetail(job: AsyncJob): string {
 		`Flow: ${job.flow}`,
 		`Status: ${job.status}`,
 		`Elapsed: ${Math.round(age(job) / 1000)}s`,
+		job.result?.turnCount && job.maxTurns ? `Turns: ${job.result.turnCount}/${job.maxTurns}` : undefined,
 		`Progress: ${formatProgressBar(job, 24)}`,
 		job.blockedReason ? `Blocked: ${job.blockedReason}` : undefined,
 		job.error ? `Error: ${job.error}` : undefined,

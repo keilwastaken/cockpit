@@ -1,5 +1,5 @@
 import type { CockpitConfig } from "../config.js";
-import { runChildPi } from "./child-pi.js";
+import { buildChildDelegateArgs, runChildDelegate } from "./child-flow.js";
 import { fileArgsForPlan } from "./context.js";
 import type { DelegateFlow, DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./protocol.js";
 
@@ -92,43 +92,25 @@ export const plannerDelegate: DelegateFlow<CockpitConfig> = {
 		if (blockedReason) return { ...result, exitCode: 1, blockedReason };
 
 		const fileArgs = fileArgsForPlan(input.plan, config, context.cwd);
-
-		context.onUpdate?.({ content: [{ type: "text", text: "Planner delegate running..." }], details: result });
-
-		const args = [
-			"--mode",
-			"json",
-			"-p",
-			"--no-session",
-			...(flow.model ? ["--model", flow.model] : []),
-			"--thinking",
-			flow.thinking,
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			context.projectTrusted ? "--approve" : "--no-approve",
-			"--tools",
-			flow.tools.join(","),
-			buildPlannerPrompt(input.plan, config),
-			...fileArgs,
-		];
-
-		const child = await runChildPi({
-			cwd: context.cwd,
-			args,
-			timeoutMs: flow.timeoutMs,
-			signal: context.signal,
-			onUpdate: ({ finalOutput, stderr }) => {
-				context.onUpdate?.({
-					content: [{ type: "text", text: finalOutput || "Planner delegate running..." }],
-					details: { ...result, finalOutput, stderr },
-				});
+		const args = buildChildDelegateArgs(
+			{
+				model: flow.model,
+				thinking: flow.thinking,
+				tools: flow.tools,
+				prompt: buildPlannerPrompt(input.plan, config),
+				fileArgs,
+				extensionMode: "allow",
 			},
-		});
+			context.projectTrusted,
+		);
 
-		const finalResult = { ...result, exitCode: child.exitCode, finalOutput: child.finalOutput, stderr: child.stderr };
-		if (child.timedOut) return { ...finalResult, exitCode: 1, blockedReason: `Planner delegate timed out after ${flow.timeoutMs}ms.` };
-		if (child.aborted) return { ...finalResult, exitCode: 1, blockedReason: "Planner delegate was aborted." };
-		return finalResult;
+		return runChildDelegate({
+			label: "Planner delegate",
+			args,
+			flow,
+			result,
+			context,
+			escalation: undefined,
+		});
 	},
 };
