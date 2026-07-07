@@ -4,13 +4,13 @@ import { dirname, join } from "node:path";
 import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_CONFIG = {
-	// Deprecated compatibility flag. Cockpit advisory autopilot is always on; direct edit/write tools are allowed.
+	// Deprecated compatibility flag. Cockpit context-budget autopilot is always on; direct edit/write tools are allowed for tiny maneuvers.
 	strictMode: false,
 	agents: ["instant", "fast", "ideate", "research", "normal", "planner", "reviewer", "task-writer"],
 	delegateFlows: {
 		instant: {
 			agent: "instant",
-			description: "Tiny exact one-file edits when isolation is useful; otherwise the Oracle should edit directly using instant discipline.",
+			description: "Tiny exact one-file edits when isolation is useful; otherwise the Oracle may edit directly using instant discipline.",
 			model: "",
 			tools: ["read", "edit"],
 			thinking: "off",
@@ -21,7 +21,7 @@ const DEFAULT_CONFIG = {
 		},
 		fast: {
 			agent: "fast",
-			description: "Small bounded tasks with local discovery in a child context when delegation creates value.",
+			description: "Small bounded tasks with local discovery in a child context to protect Oracle context.",
 			model: "",
 			tools: ["ls", "find", "grep", "read", "write", "edit"],
 			thinking: "low",

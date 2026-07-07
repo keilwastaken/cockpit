@@ -40,6 +40,7 @@
 │           ├── planner.ts           # high-reasoning implementation plan validation + prompt + run flow
 │           ├── task-writer.ts       # low-thinking PM-style task packet validation + prompt + run flow
 │           └── reviewer.ts          # read-only diff reviewer validation + prompt + run flow
+├── skills/                          # portable markdown role skills extracted from Cockpit
 ├── package.json                     # package metadata, Pi extension registration, scripts
 ├── tsconfig.json                    # strict NodeNext TypeScript config
 ├── README.md                        # user-facing summary and command list
@@ -58,15 +59,15 @@ Ignored/generated paths include `node_modules/`, `dist/`, `.pi/`, logs, `.DS_Sto
 "pi": { "extensions": ["./extensions"] }
 ```
 
-The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src/` directory or build output checked in.
+The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src/` directory or build output checked in. Portable role skills live under `skills/` and are packaged alongside the extension.
 
 ### Extension entrypoint
 
 `extensions/cockpit/index.ts` exports the default Pi extension function. It wires up:
 
-- `session_start` event: loads config and sets an advisory-autopilot status item with selected hands/reasoning models.
+- `session_start` event: loads config and sets a context-budget-autopilot status item with selected hands/reasoning models.
 - `tool_call` event: applies flight-safety checks for dangerous shell mutation patterns while allowing direct `edit`/`write`.
-- `/cockpit` command: user command with subcommands for setup, status, advisory routing diagnostics, background delegate/codeflow jobs, and job inspection/resume/cancel.
+- `/cockpit` command: user command with subcommands for setup, status, context-budget routing diagnostics, background delegate/codeflow jobs, and job inspection/resume/cancel.
 - `cockpit_job` tool: tool-facing start/list/read/cancel API for Cockpit jobs.
 - `cockpit_codeflow` tool: starts a background cockpit/oracle codeflow job.
 - `cockpit_delegate` tool: starts a background instant delegate job.
@@ -83,8 +84,8 @@ The TypeScript compiler includes `extensions/**/*.ts`; there is no separate `src
 Registered `/cockpit` subcommands:
 
 - `/cockpit status` or `/cockpit config` — show flow settings, limits, tools, and loaded config paths.
-- `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, and save global config. Advisory autopilot is always on.
-- `/cockpit route <task>` — analyze a task and print an advisory recommendation, direct-is-fine signal, and delegate-value signal.
+- `/cockpit setup` — run the onboarding wizard: choose a hands model, choose a reasoning model, and save global config. Context-budget autopilot is always on.
+- `/cockpit route <task>` — analyze a task and print a context-budget recommendation, direct-is-fine signal, and delegate-value signal.
 - `/cockpit preplan <task>` — start a read-only codeflow preplan job: optional research plus planner only, no writer execution.
 - `/cockpit codeflow --approved <task plus approved plan/constraints>` — start a background cockpit/oracle workflow job after explicit plan approval: optional research, planner, selected executor, reviewer, and feedback routing. Without `--approved`, this command is downgraded to `codeflow-preplan`.
 - `/cockpit instant <plan>` — start a background instant delegate job; the file is inferred from the plan.
@@ -128,7 +129,7 @@ Registered tools:
 
 Important defaults:
 
-- `strictMode: false` — deprecated compatibility field; advisory autopilot is always on and direct edits are allowed.
+- `strictMode: false` — deprecated compatibility field; context-budget autopilot is always on and direct edits are allowed.
 - `instant` tools: `read`, `edit`; thinking `off`; max 1 file / ~30 lines / 60s.
 - `fast` tools: `ls`, `find`, `grep`, `read`, `write`, `edit`; thinking `low`; max 3 files / ~300 lines / 180s.
 - `research` tools: `ls`, `find`, `grep`, `read`, `web_search`, `web_fetch`; thinking `minimal`; max 7 fully-read files / 180s.
@@ -140,7 +141,7 @@ Important defaults:
 - Disallowed domains: auth, security, persistence, deployment, architecture.
 - Forbidden shell command classes include commit, push, deploy, publish, reset, clean.
 
-`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains advisory autopilot, detects available models, asks for two model choices, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning. Advisory autopilot is always on and direct edits are allowed.
+`/cockpit setup` saves only global config through `saveGlobalConfig()`. The setup wizard explains context-budget autopilot, detects available models, asks for two model choices, previews the delegate map, and saves on confirmation. The hands model is inherited by implementation workers (`instant`, `fast`, `normal`). The reasoning model is inherited by ideation/research/planning/review/task-writing workers (`ideate`, `research`, `planner`, `reviewer`, `task-writer`). Recommended setup: local model for hands and latest cloud reasoning model for reasoning. Context-budget autopilot is always on; direct edits are allowed for tiny maneuvers, while delegation is preferred for noisy work.
 
 ## Routing model
 

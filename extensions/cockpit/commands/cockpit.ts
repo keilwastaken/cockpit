@@ -132,8 +132,9 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 	const handsModels = uniqueModels([...localModels, ...models]);
 	const reasoningModels = uniqueModels([...cloudModels, ...models]);
 	ctx.ui.notify([
-		"Cockpit advisory autopilot is always on.",
-		"The Oracle may edit directly, and delegates are available when isolation, parallelism, ideation, research, or review creates value.",
+		"Cockpit context-budget autopilot is always on.",
+		"The Oracle stays small and strategic; delegates absorb noisy detail work on the cheapest capable model.",
+		"Direct edits remain available for tiny maneuvers where delegation overhead would be wasteful.",
 		"Setup only needs two choices:",
 		"1. Hands model — inherited by instant, fast, and normal coding workers. Recommended: local model, or a strong coding model for heavier work.",
 		"2. Reasoning model — inherited by ideate, research, planner, reviewer, and task-writer. Recommended: latest cloud reasoning model.",
@@ -151,7 +152,7 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 		"  instant, fast, normal inherit this model.",
 		`Reasoning model: ${modelLabel(reasoningModel)}`,
 		"  ideate, research, planner, reviewer, task-writer inherit this model.",
-		"Advisory autopilot: always on; direct edits are allowed.",
+		"Context-budget autopilot: always on; direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work.",
 	].join("\n");
 	const confirmed = await ctx.ui.confirm("Save Cockpit setup?", summary);
 	return confirmed ? updated : undefined;
@@ -160,7 +161,7 @@ async function runSetupWizard(ctx: SetupContext, config: CockpitConfig): Promise
 
 export function registerCockpitCommands(pi: ExtensionAPI) {
 	pi.registerCommand("cockpit", {
-		description: "Cockpit advisory autopilot commands and background delegate flows",
+		description: "Cockpit context-budget autopilot commands and background delegate flows",
 		handler: async (args, ctx) => {
 			const trimmed = args.trim();
 			if (!trimmed || trimmed === "help") {
@@ -187,8 +188,8 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				case "status":
 				case "config":
 					ctx.ui.notify([
-						"Cockpit advisory autopilot is on: the Oracle may act directly and delegates when delegation creates value.",
-						"Use direct tools for tiny/interactive edits; use delegates for isolation, parallelism, noisy research, ideation, task packets, reviews, or larger codeflow work.",
+						"Cockpit context-budget autopilot is on: keep Oracle context small and delegate noisy detail work.",
+						"Use direct tools only for tiny/interactive maneuvers; use delegates for search, multiple files, tests/logs, uncertainty, ideation, task packets, reviews, or larger codeflow work.",
 						"Cockpit flows: instant, fast, ideate, research, normal, planner, reviewer, task-writer.",
 						`Hands model: instant ${modelLabel(flow.model)}, fast ${modelLabel(fastFlow.model)}, normal ${modelLabel(normalFlow.model)}`,
 						`Reasoning model: ideate ${modelLabel(ideateFlow.model)}, research ${modelLabel(researchFlow.model)}, planner ${modelLabel(plannerFlow.model)}, reviewer ${modelLabel(reviewerFlow.model)}, task-writer ${modelLabel(taskWriterFlow.model)}`,
@@ -209,13 +210,13 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 					const updated = await runSetupWizard(ctx, config);
 					if (!updated) return;
 					const path = await saveGlobalConfig(updated);
-					ctx.ui.setStatus("cockpit", `autopilot · hands: ${modelLabel(updated.delegateFlows.normal.model)} · reasoning: ${modelLabel(updated.delegateFlows.reviewer.model)}`);
+					ctx.ui.setStatus("cockpit", `context-budget · hands: ${modelLabel(updated.delegateFlows.normal.model)} · reasoning: ${modelLabel(updated.delegateFlows.reviewer.model)}`);
 					ctx.ui.notify([
 						"Cockpit configured.",
 						`Config saved to: ${path}`,
 						`Hands model: instant ${modelLabel(updated.delegateFlows.instant.model)}, fast ${modelLabel(updated.delegateFlows.fast.model)}, normal ${modelLabel(updated.delegateFlows.normal.model)}`,
 						`Reasoning model: ideate ${modelLabel(updated.delegateFlows.ideate.model)}, research ${modelLabel(updated.delegateFlows.research.model)}, planner ${modelLabel(updated.delegateFlows.planner.model)}, reviewer ${modelLabel(updated.delegateFlows.reviewer.model)}, task-writer ${modelLabel(updated.delegateFlows.taskWriter.model)}`,
-						"Advisory autopilot: always on; direct edits are allowed.",
+						"Context-budget autopilot: always on; direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work.",
 						`Try: /cockpit codeflow "Add retry handling to an existing workflow"`,
 					].join("\n"), "info");
 					return;
@@ -444,7 +445,7 @@ export function registerCockpitCommands(pi: ExtensionAPI) {
 				}
 
 				case "strict": {
-					ctx.ui.notify("Strict mode has been retired. Cockpit advisory autopilot is always on, direct edits are allowed, and flight-safety guards still block destructive shell patterns.", "info");
+					ctx.ui.notify("Strict mode has been retired. Cockpit context-budget autopilot is always on: direct edits are allowed for tiny maneuvers, delegation is preferred for noisy work, and flight-safety guards still block destructive shell patterns.", "info");
 					return;
 				}
 

@@ -88,8 +88,8 @@ function fitsNormal(signals: TaskSignal, config: CockpitConfig): boolean {
 
 function makeDecision(route: CockpitRoute, config: CockpitConfig, signals: TaskSignal, forced = false, reasons: string[] = [], risks: string[] = []) {
 	const tier = route === "instant" || route === "fast" || route === "normal" ? route : undefined;
-	const delegateValue = route === "instant" ? "low" : route === "fast" ? "medium" : route === "normal" ? "medium" : route === "need-decision" ? "unknown" : "low";
-	const directIsFine = route === "instant" || route === "cockpit-only" || (route === "fast" && signals.estimatedFiles <= 2 && signals.riskDomains.length === 0);
+	const delegateValue = route === "instant" ? "low" : route === "fast" ? "high" : route === "normal" ? "high" : route === "need-decision" ? "unknown" : "low";
+	const directIsFine = route === "instant" || route === "cockpit-only";
 	return {
 		route,
 		tier,
@@ -136,11 +136,11 @@ export function routeTask(task: string, config: CockpitConfig, forcedInstant = f
 
 export function formatDecision(decision: ReturnType<typeof routeTask>): string {
 	const recommendedPath = decision.route === "instant"
-		? "direct edit using instant discipline; delegate only if isolation is useful"
+		? "direct edit using instant discipline unless isolation is worth the spawn"
 		: decision.route === "fast"
-			? "direct if interactive, otherwise fast delegate for noisy local discovery"
+			? "fast delegate to protect Oracle context from local discovery"
 			: decision.route === "normal"
-				? "normal delegate or codeflow if the user wants background implementation/review"
+				? "normal delegate or codeflow to keep implementation/debug output isolated"
 				: decision.route === "cockpit-only"
 					? "keep in the main Oracle chat"
 					: "ask for direction, ideate/research, or preplan before implementation";
@@ -148,7 +148,7 @@ export function formatDecision(decision: ReturnType<typeof routeTask>): string {
 		`Recommendation: ${recommendedPath}`,
 		`Legacy route/profile: ${decision.route}`,
 		decision.suggestedAgent ? `Suggested delegate if delegating: ${decision.suggestedAgent}` : undefined,
-		`Direct is fine: ${decision.directIsFine ? "yes" : "not recommended yet"}`,
+		`Direct is fine: ${decision.directIsFine ? "yes" : "not recommended; delegate to protect Oracle context"}`,
 		`Delegate value: ${decision.delegateValue}`,
 		`Route confidence: ${Math.round(decision.confidence * 100)}%`,
 		`Requires approval before writer execution: ${decision.requiresApproval ? "yes" : "no"}`,
