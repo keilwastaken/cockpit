@@ -22,28 +22,28 @@ export type ChildDelegateArgsOptions = {
  * Build a standard argv array for a single-child Pi delegate.
  *
  * Arg order (must be preserved):
- *   --mode json
- *   -p
- *   --no-session
- *   --model <model>            (if model is provided)
- *   --thinking <thinking>
- *   --no-extensions            (only when extensionMode === "disable")
- *   --no-skills
- *   --no-prompt-templates
- *   --no-context-files
- *   --approve | --no-approve   (based on projectTrusted)
- *   --tools <comma-list>
- *   <prompt>
- *   <file args>              (if any)
+ *     --mode json
+ *     -p
+ *     --no-session
+ *     --model <model>             (if model is provided)
+ *     --thinking <thinking>
+ *     --no-extensions             (only when extensionMode === "disable")
+ *     --no-skills
+ *     --no-prompt-templates
+ *     --no-context-files
+ *     --approve | --no-approve    (based on projectTrusted)
+ *     --tools <comma-list>
+ *     <prompt>
+ *     <file args>               (if any)
  */
 export function buildChildDelegateArgs(options: ChildDelegateArgsOptions, projectTrusted: boolean): string[] {
 	const { model, thinking, tools, prompt, fileArgs, extensionMode } = options;
 
 	const args: string[] = [
-		"--mode",
-		"json",
-		"-p",
-		"--no-session",
+			"--mode",
+			"json",
+			"-p",
+			"--no-session",
 	];
 
 	if (model) {
@@ -51,7 +51,7 @@ export function buildChildDelegateArgs(options: ChildDelegateArgsOptions, projec
 	}
 
 	args.push(
-		"--thinking",
+			"--thinking",
 		thinking,
 	);
 
@@ -60,11 +60,11 @@ export function buildChildDelegateArgs(options: ChildDelegateArgsOptions, projec
 	}
 
 	args.push(
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
+			"--no-skills",
+			"--no-prompt-templates",
+			"--no-context-files",
 		projectTrusted ? "--approve" : "--no-approve",
-		"--tools",
+			"--tools",
 		tools.join(","),
 		prompt,
 	);
@@ -113,7 +113,7 @@ export async function runChildDelegate(options: {
 	});
 
 	const finalResult: DelegateRunResult = {
-		...result,
+			...result,
 		exitCode: child.exitCode,
 		finalOutput: child.finalOutput,
 		stderr: child.stderr,
@@ -126,19 +126,19 @@ export async function runChildDelegate(options: {
 
 	if (child.timedOut) {
 		return {
-			...finalResult,
+				...finalResult,
 			exitCode: 1,
 			blockedReason: `${label} timed out after ${flow.timeoutMs}ms.`,
 			escalateTo: escalation?.onTimeout,
-		};
+			};
 	}
 	if (child.maxTurnsExceeded) {
 		return {
-			...finalResult,
+				...finalResult,
 			exitCode: 1,
 			blockedReason: `${label} exceeded max turns (${child.turnCount}/${flow.maxTurns}).`,
 			escalateTo: escalation?.onMaxTurns,
-		};
+			};
 	}
 	if (child.aborted) return { ...finalResult, exitCode: 1, blockedReason: `${label} was aborted.` };
 	return finalResult;

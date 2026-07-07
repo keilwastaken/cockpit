@@ -1,7 +1,7 @@
 import type { CockpitConfig } from "./config.js";
 import { extractFilePaths } from "./delegates/context.js";
-import { delegates } from "./delegates/registry.js";
 import type { DelegateRunContext, DelegateRunInput, DelegateRunResult } from "./delegates/protocol.js";
+import { runRole } from "./delegates/runner.js";
 import { routeTask } from "./routing.js";
 
 type CodeflowRoute = "approved" | "coder_fix" | "planner_revision" | "human_decision" | "preplan_ready" | "stopped";
@@ -189,11 +189,11 @@ async function runOneExecutor(
 ): Promise<DelegateRunResult> {
 	if (executor === "instant") {
 		const file = fileFromText(plan, config);
-		if (!file) return delegates.normal.run({ plan }, config, context);
-		return delegates.instant.run({ plan, file }, config, context);
+		if (!file) return runRole("normal", { plan }, config, context);
+		return runRole("instant", { plan, file }, config, context);
 	}
-	if (executor === "fast") return delegates.fast.run({ plan }, config, context);
-	return delegates.normal.run({ plan }, config, context);
+	if (executor === "fast") return runRole("fast", { plan }, config, context);
+	return runRole("normal", { plan }, config, context);
 }
 
 async function runExecutor(
@@ -240,7 +240,7 @@ export async function runCodeflowPreplan(input: DelegateRunInput, config: Cockpi
 	let plannerOutput = "";
 
 	if (shouldRunResearch(task, config)) {
-		const research = await runStep("research", result, context, () => delegates.research.run({ plan: task }, config, context));
+		const research = await runStep("research", result, context, () => runRole("research", { plan: task }, config, context));
 		result.researchUsed = true;
 		researchOutput = research.finalOutput;
 		if (research.exitCode !== 0 || research.blockedReason) {
@@ -248,20 +248,20 @@ export async function runCodeflowPreplan(input: DelegateRunInput, config: Cockpi
 		}
 	}
 
-	let planner = await runStep("planner", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+	let planner = await runStep("planner", result, context, () => runRole("planner", { plan: plannerInput(task, researchOutput) }, config, context));
 	plannerOutput = planner.finalOutput;
 	if (planner.exitCode !== 0 || planner.blockedReason) {
 		return { ...result, exitCode: 1, blockedReason: planner.blockedReason ?? "Planner step failed.", finalOutput: planner.finalOutput || planner.stderr };
 	}
 
 	if (needsMoreResearch(plannerOutput) && !researchOutput) {
-		const research = await runStep("research-after-planner-request", result, context, () => delegates.research.run({ plan: task }, config, context));
+		const research = await runStep("research-after-planner-request", result, context, () => runRole("research", { plan: task }, config, context));
 		result.researchUsed = true;
 		researchOutput = research.finalOutput;
 		if (research.exitCode !== 0 || research.blockedReason) {
 			return { ...result, exitCode: 1, blockedReason: research.blockedReason ?? "Research step failed after planner request.", finalOutput: research.finalOutput || research.stderr };
 		}
-		planner = await runStep("planner-after-research", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+		planner = await runStep("planner-after-research", result, context, () => runRole("planner", { plan: plannerInput(task, researchOutput) }, config, context));
 		plannerOutput = planner.finalOutput;
 	}
 
@@ -305,7 +305,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 	let reviewOutput = "";
 
 	if (shouldRunResearch(task, config)) {
-		const research = await runStep("research", result, context, () => delegates.research.run({ plan: task }, config, context));
+		const research = await runStep("research", result, context, () => runRole("research", { plan: task }, config, context));
 		result.researchUsed = true;
 		researchOutput = research.finalOutput;
 		if (research.exitCode !== 0 || research.blockedReason) {
@@ -313,20 +313,20 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 		}
 	}
 
-	let planner = await runStep("planner", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+	let planner = await runStep("planner", result, context, () => runRole("planner", { plan: plannerInput(task, researchOutput) }, config, context));
 	plannerOutput = planner.finalOutput;
 	if (planner.exitCode !== 0 || planner.blockedReason) {
 		return { ...result, exitCode: 1, blockedReason: planner.blockedReason ?? "Planner step failed.", finalOutput: planner.finalOutput || planner.stderr };
 	}
 
 	if (needsMoreResearch(plannerOutput) && !researchOutput) {
-		const research = await runStep("research-after-planner-request", result, context, () => delegates.research.run({ plan: task }, config, context));
+		const research = await runStep("research-after-planner-request", result, context, () => runRole("research", { plan: task }, config, context));
 		result.researchUsed = true;
 		researchOutput = research.finalOutput;
 		if (research.exitCode !== 0 || research.blockedReason) {
 			return { ...result, exitCode: 1, blockedReason: research.blockedReason ?? "Research step failed after planner request.", finalOutput: research.finalOutput || research.stderr };
 		}
-		planner = await runStep("planner-after-research", result, context, () => delegates.planner.run({ plan: plannerInput(task, researchOutput) }, config, context));
+		planner = await runStep("planner-after-research", result, context, () => runRole("planner", { plan: plannerInput(task, researchOutput) }, config, context));
 		plannerOutput = planner.finalOutput;
 	}
 
@@ -349,7 +349,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 		return { ...result, exitCode: 1, blockedReason: coder.blockedReason ?? `${executor} executor failed.`, finalOutput: coder.finalOutput || coder.stderr };
 	}
 
-	let review = await runStep("reviewer", result, context, () => delegates.reviewer.run({ plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context));
+	let review = await runStep("reviewer", result, context, () => runRole("reviewer", { plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context));
 	reviewOutput = review.finalOutput;
 	if (review.exitCode !== 0 || review.blockedReason) {
 		return { ...result, exitCode: 1, blockedReason: review.blockedReason ?? "Reviewer step failed.", finalOutput: review.finalOutput || review.stderr };
@@ -361,14 +361,14 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 	while (route === "coder_fix" && result.fixAttempts < MAX_CODER_FIX_ATTEMPTS) {
 		result.fixAttempts += 1;
 		coder = await runStep(`coder-fix-${result.fixAttempts}`, result, context, () =>
-			delegates.normal.run({ plan: buildFixPlan(task, plannerOutput, coderOutput, reviewOutput, result.fixAttempts) }, config, context),
+			runRole("normal", { plan: buildFixPlan(task, plannerOutput, coderOutput, reviewOutput, result.fixAttempts) }, config, context),
 		);
 		coderOutput = coder.finalOutput;
 		if (coder.exitCode !== 0 || coder.blockedReason) {
 			return { ...result, exitCode: 1, blockedReason: coder.blockedReason ?? "Coder fix step failed.", finalOutput: coder.finalOutput || coder.stderr };
 		}
 		review = await runStep(`reviewer-after-fix-${result.fixAttempts}`, result, context, () =>
-			delegates.reviewer.run({ plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context),
+			runRole("reviewer", { plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context),
 		);
 		reviewOutput = review.finalOutput;
 		weight = parseFeedbackWeight(reviewOutput);
@@ -378,7 +378,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 	if (route === "planner_revision" && result.plannerRevisions < MAX_PLANNER_REVISIONS) {
 		result.plannerRevisions += 1;
 		const revisedPlanner = await runStep("planner-revision", result, context, () =>
-			delegates.planner.run({ plan: plannerInput(task, researchOutput, reviewOutput) }, config, context),
+			runRole("planner", { plan: plannerInput(task, researchOutput, reviewOutput) }, config, context),
 		);
 		plannerOutput = revisedPlanner.finalOutput;
 		if (revisedPlanner.exitCode !== 0 || revisedPlanner.blockedReason || needsMoreResearch(plannerOutput)) {
@@ -399,7 +399,7 @@ export async function runCodeflow(input: DelegateRunInput, config: CockpitConfig
 			return { ...result, exitCode: 1, blockedReason: coder.blockedReason ?? "Executor after replan failed.", finalOutput: coder.finalOutput || coder.stderr };
 		}
 		review = await runStep("reviewer-after-replan", result, context, () =>
-			delegates.reviewer.run({ plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context),
+			runRole("reviewer", { plan: buildReviewInput(task, researchOutput, plannerOutput, coderOutput) }, config, context),
 		);
 		reviewOutput = review.finalOutput;
 		weight = parseFeedbackWeight(reviewOutput);

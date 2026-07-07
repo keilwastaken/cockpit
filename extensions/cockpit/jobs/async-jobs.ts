@@ -1,10 +1,11 @@
 import { runCodeflow, runCodeflowPreplan } from "../codeflow.js";
 import type { CockpitConfig } from "../config.js";
-import { delegates } from "../delegates/registry.js";
 import type { DelegateRunResult } from "../delegates/protocol.js";
+import { runRole } from "../delegates/runner.js";
+import { flowConfigKeyForRole, isRoleName, normalizeRoleName, type RoleInputName } from "../delegates/roles.js";
 import { appendJobEvent, artifactDirFor, initJobArtifacts, writeJobSnapshot, writeResumePrompt } from "./artifacts.js";
 
-export type JobFlowName = keyof typeof delegates | "codeflow" | "codeflow-preplan";
+export type JobFlowName = RoleInputName | "codeflow" | "codeflow-preplan";
 export type CanonicalJobFlowName = Exclude<JobFlowName, "taskWriter">;
 export type JobStatus = "running" | "done" | "failed" | "cancelled";
 
@@ -43,6 +44,15 @@ const maxCompletedJobs = 50;
 
 const makeId = (): string => crypto.randomUUID().slice(0, 8);
 const canonicalFlowName = (flow: JobFlowName): CanonicalJobFlowName => (flow === "taskWriter" ? "task-writer" : flow);
+const timeoutMsForFlow = (flow: CanonicalJobFlowName, config: CockpitConfig): number => {
+	if (flow === "codeflow") return 900000;
+	if (flow === "codeflow-preplan") return 420000;
+	return config.delegateFlows[flowConfigKeyForRole(flow)].timeoutMs;
+};
+const maxTurnsForFlow = (flow: CanonicalJobFlowName, config: CockpitConfig): number | undefined => {
+	if (flow === "codeflow" || flow === "codeflow-preplan") return undefined;
+	return config.delegateFlows[flowConfigKeyForRole(flow)].maxTurns;
+};
 const age = (job: AsyncJob): number => (job.finishedAt ?? Date.now()) - job.startedAt;
 const progress = (job: AsyncJob): number => {
 	if (job.status === "done") return 1;
@@ -68,16 +78,15 @@ function trimCompletedJobs(): void {
 }
 
 export function isJobFlowName(value: string): value is JobFlowName {
-	return value === "codeflow" || value === "codeflow-preplan" || Object.prototype.hasOwnProperty.call(delegates, value);
+	return value === "codeflow" || value === "codeflow-preplan" || value === "taskWriter" || isRoleName(value);
 }
 
 export function startAsyncJob(options: StartJobOptions): AsyncJob {
 	const id = makeId();
 	const controller = new AbortController();
 	const flow = canonicalFlowName(options.flow);
-	const flowConfigKey = (flow === "task-writer" ? "taskWriter" : flow) as keyof CockpitConfig["delegateFlows"];
-	const timeoutMs = flow === "codeflow" ? 900000 : flow === "codeflow-preplan" ? 420000 : options.config.delegateFlows[flowConfigKey].timeoutMs;
-	const maxTurns = flow === "codeflow" || flow === "codeflow-preplan" ? undefined : options.config.delegateFlows[flowConfigKey].maxTurns;
+	const timeoutMs = timeoutMsForFlow(flow, options.config);
+	const maxTurns = maxTurnsForFlow(flow, options.config);
 	const job: AsyncJob = {
 		id,
 		flow,
@@ -110,32 +119,32 @@ export function startAsyncJob(options: StartJobOptions): AsyncJob {
 		},
 	};
 
+	const delegateContext = {
+		cwd: options.cwd,
+		projectTrusted: options.projectTrusted,
+		signal: controller.signal,
+		onUpdate: (partial: { content: Array<{ text?: string }>; details: DelegateRunResult & { stderr: string } }) => {
+			const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
+			if (text) job.output = text;
+			job.stderr = partial.details.stderr;
+			job.result = partial.details;
+			void appendJobEvent(job, "cockpit.job.update", { message: text.slice(0, 500) }).catch(() => undefined);
+			void writeJobSnapshot(job).catch(() => undefined);
+		},
+	};
+
+	const delegateInput = {
+		plan: job.plan,
+		file: options.file,
+		line: options.line,
+		outputFile: options.outputFile,
+	};
+
 	const runner = flow === "codeflow"
 		? runCodeflow({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
 		: flow === "codeflow-preplan"
 			? runCodeflowPreplan({ plan: job.plan, outputFile: options.outputFile }, options.config, codeflowContext)
-			: delegates[flow].run(
-			{
-				plan: job.plan,
-				file: options.file,
-				line: options.line,
-				outputFile: options.outputFile,
-			},
-			options.config,
-			{
-				cwd: options.cwd,
-				projectTrusted: options.projectTrusted,
-				signal: controller.signal,
-				onUpdate: (partial) => {
-					const text = partial.content.map((item) => item.text).filter(Boolean).join("\n").trim();
-					if (text) job.output = text;
-					job.stderr = partial.details.stderr;
-					job.result = partial.details;
-					void appendJobEvent(job, "cockpit.job.update", { message: text.slice(0, 500) }).catch(() => undefined);
-					void writeJobSnapshot(job).catch(() => undefined);
-				},
-			},
-		);
+			: runRole(normalizeRoleName(flow) ?? flow, delegateInput, options.config, delegateContext);
 
 	void runner
 		.then((result) => {
