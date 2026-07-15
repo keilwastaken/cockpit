@@ -1,40 +1,30 @@
 # Cockpit Skills
 
-Portable role skills extracted from Cockpit.
+Cockpit is a portable, skills-first methodology for context-efficient and evidence-driven software work. Skill identifiers are namespaced so Cockpit can coexist with other skill packages.
 
-These are useful on their own in agents that support skill folders, markdown agents, or custom instructions. Cockpit Runtime provides the heavier Pi-specific context-budget layer: background jobs, artifacts, parallel work, approval-gated codeflow, review routing, model routing, and flight-safety guards.
+## Workflow skills
 
-## Skills
+- `using-cockpit` — select and compose the smallest safe workflow.
+- `cockpit-work-mode` — choose direct work, exploration, research, bounded execution, parallel work, or a human decision.
+- `cockpit-explore` — compare unresolved directions and stop for human approval.
+- `cockpit-research` — gather compact read-only evidence.
+- `cockpit-plan` — turn an approved direction into an executable plan.
+- `cockpit-execute` — implement without silently redesigning or expanding scope.
+- `cockpit-parallel` — divide genuinely independent work with explicit ownership.
+- `cockpit-review` — inspect actual changes and route findings by weight.
+- `cockpit-review-response` — verify and address feedback without blind compliance.
+- `cockpit-verify` — require fresh evidence for completion claims.
+- `cockpit-capture` — produce durable task packets without implementing them.
 
-- `instant/` — tiny exact one-file edits; direct only when spawn overhead would be wasteful, no scouting.
-- `fast/` — small bounded work with targeted local discovery.
-- `ideate/` — divergent option-space exploration before planning/coding.
-- `research/` — read-only codebase/external evidence brief.
-- `planner/` — read-only implementation plan from an approved direction.
-- `normal/` — bounded implementation executor from a concrete plan.
-- `reviewer/` — read-only calibrated diff/code review with feedback weight.
-- `task-writer/` — durable markdown task packet writer.
+## Composition
 
-## Suggested usage model
-
-Default to protecting the main Oracle context. Use direct agent work only for tiny/interactive maneuvers. Load or invoke these skills when the role discipline keeps search, logs, diffs, uncertainty, or implementation detail out of the main chat:
+A typical nontrivial flow is:
 
 ```text
-Use cockpit-ideate to explore this refactor direction before we plan it.
-Use cockpit-research to inspect how auth currently works, read-only.
-Use cockpit-reviewer to review the current diff against the plan.
+choose mode -> explore if unclear -> human approval -> research if needed
+            -> plan -> execute -> review -> respond -> verify
 ```
 
-## Cockpit Runtime vs skills
+Tiny deterministic work can go directly from mode selection to action and verification. Harnesses without subagents can execute every stage sequentially.
 
-Use skills when you want portable instructions.
-
-Use Cockpit Runtime when you want orchestration:
-
-- background jobs,
-- parallel workers,
-- persisted artifacts,
-- approval-gated codeflow,
-- reviewer feedback routing,
-- Pi UI/status/progress integration,
-- shell flight-safety guards.
+See [`../docs/methodology.md`](../docs/methodology.md) and [`../docs/handoff-contracts.md`](../docs/handoff-contracts.md).

@@ -1,42 +1,35 @@
 {
   "name": "cockpit",
   "version": "0.1.0",
-  "description": "Pi Cockpit: orchestrating research, planning, execution, and review.",
+  "description": "Portable workflow skills for context-efficient, evidence-driven coding agents.",
   "type": "module",
+  "main": ".opencode/plugins/cockpit.js",
   "keywords": [
     "pi-package",
-    "pi",
-    "delegation",
-    "coding-agent"
+    "opencode",
+    "skills",
+    "coding-agent",
+    "workflow"
   ],
   "license": "MIT",
   "files": [
-    "extensions",
+    ".opencode",
+    "docs",
+    "evals",
+    "scripts",
     "skills",
+    "icon.png",
+    "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx tests/*.test.ts",
-    "check": "npm run typecheck && npm test"
+    "test": "node --test tests/*.test.js",
+    "check": "npm test",
+    "eval": "node scripts/run-behavioral-evals.mjs"
   },
   "pi": {
-    "extensions": [
-      "./extensions"
+    "skills": [
+      "./skills"
     ]
-  },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*"
-  },
-  "devDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@types/node": "^22.0.0",
-    "tsx": "^4.23.0",
-    "typebox": "*",
-    "typescript": "^5.8.0"
-  },
-  "dependencies": {
-    "@earendil-works/pi-tui": "^0.80.3"
   }
 }

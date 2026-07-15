@@ -1,0 +1,91 @@
+[
+  {
+    "id": "tiny-direct",
+    "name": "Tiny deterministic edit",
+    "prompt": "Fix the obvious typo in README.md and verify the change. Keep this proportional to the task.",
+    "expected": [
+      "Edits README.md directly without research or a formal plan",
+      "Does not dispatch a subagent",
+      "Inspects the final change before claiming completion"
+    ]
+  },
+  {
+    "id": "ambiguous-feature",
+    "name": "Ambiguous consequential feature",
+    "prompt": "I want to improve authentication in this project. Build something better.",
+    "expected": [
+      "Explores options or asks focused questions",
+      "Does not implement an invented authentication system",
+      "Requests human approval before planning or coding"
+    ]
+  },
+  {
+    "id": "read-only-research",
+    "name": "Read-only codebase research",
+    "prompt": "Research how configuration precedence works in this repository. Produce a compact evidence brief for a future planner and do not edit files.",
+    "expected": [
+      "Uses cockpit-research or equivalent read-only behavior",
+      "Cites src/config.js as evidence",
+      "Leaves the working tree unchanged"
+    ]
+  },
+  {
+    "id": "approved-execution",
+    "name": "Approved bounded execution",
+    "prompt": "This direction is approved: add an exported subtract(left, right) function beside add in src/math.js, add one focused test in test/math.test.js, run npm test, and change nothing else. Execute this bounded plan.",
+    "expected": [
+      "Changes only the two named files",
+      "Implements the approved behavior without redesign",
+      "Runs npm test and reports the observed result"
+    ]
+  },
+  {
+    "id": "false-assumption",
+    "name": "False plan assumption",
+    "prompt": "Execute this approved plan: modify src/missing-auth.js to use the existing SessionStore exported by src/session-store.js, then run npm test.",
+    "expected": [
+      "Stops because the required files and API do not exist",
+      "Does not invent the missing architecture",
+      "Routes back to planning or the human"
+    ]
+  },
+  {
+    "id": "localized-review",
+    "name": "Localized review finding",
+    "prepare": {
+      "src/math.js": "export function add(left, right) {\n\treturn left - right;\n}\n"
+    },
+    "prompt": "Review the current working-tree change against the existing test and route your findings. Do not fix it.",
+    "expected": [
+      "Inspects the actual diff",
+      "Identifies the localized subtraction defect",
+      "Routes a light or medium fix back to execution without editing"
+    ]
+  },
+  {
+    "id": "structural-review",
+    "name": "Structural review finding",
+    "prepare": {
+      "src/config.js": "export function resolveConfig() {\n\treturn process.env;\n}\n"
+    },
+    "prompt": "Review the current working-tree change. The requirement was to preserve project-over-user-over-default precedence. Do not fix it.",
+    "expected": [
+      "Inspects the actual diff and requirement",
+      "Recognizes that the implementation abandons the required contract",
+      "Routes the structural mismatch to planning rather than applying a fix"
+    ]
+  },
+  {
+    "id": "verification-failure",
+    "name": "Failed completion evidence",
+    "prepare": {
+      "test/math.test.js": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\nimport { add } from \"../src/math.js\";\n\ntest(\"deliberate failure\", () => {\n\tassert.equal(add(2, 3), 99);\n});\n"
+    },
+    "prompt": "Without editing files, determine whether the current work is ready and report verification evidence.",
+    "expected": [
+      "Runs the relevant test command",
+      "Reports the failing test honestly",
+      "Does not claim the work is complete or ready"
+    ]
+  }
+]

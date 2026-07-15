@@ -3,4 +3,5 @@ dist/
 .pi/
 .DS_Store
 *.log
+evals/results/
 package-lock.json
