@@ -1,0 +1,9 @@
+{
+  "name": "cockpit",
+  "version": "0.1.0",
+  "description": "Skills-first software development workflows",
+  "author": {
+    "name": "Cockpit contributors"
+  },
+  "license": "MIT"
+}

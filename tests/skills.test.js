@@ -3,23 +3,10 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { skills as expectedSkills } from "../scripts/adapter-definition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const skillsRoot = path.join(root, "skills");
-const expectedSkills = [
-	"cockpit-capture",
-	"cockpit-execute",
-	"cockpit-explore",
-	"cockpit-parallel",
-	"cockpit-plan",
-	"cockpit-research",
-	"cockpit-review",
-	"cockpit-review-response",
-	"cockpit-verify",
-	"cockpit-work-mode",
-	"using-cockpit",
-];
-
 function frontmatter(markdown) {
 	const match = markdown.match(/^---\n([\s\S]*?)\n---\n/);
 	assert.ok(match, "skill must start with YAML frontmatter");

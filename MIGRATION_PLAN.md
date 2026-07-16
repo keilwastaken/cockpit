@@ -15,7 +15,9 @@ The migration is complete. Cockpit's core package is now a portable Markdown met
 - [x] Add scrollable conversational `/cockpit-setup` model configuration.
 - [x] Add read-only `/cockpit-doctor` diagnostics.
 - [x] Add eight isolated behavioral model scenarios.
-- [x] Retain native Pi skill discovery without a Pi-specific runtime.
+- [x] Retain native Pi skill discovery with a thin sequential setup/doctor extension.
+- [x] Add a native Claude Code plugin with scoped skills, agents, and bootstrap.
+- [x] Generate harness adapters from shared semantic definitions.
 - [x] Remove the legacy TypeScript runtime, dependencies, build config, and tests.
 - [x] Add package, metadata, adapter, and skill-reference tests.
 
@@ -32,3 +34,5 @@ The migration is complete. Cockpit's core package is now a portable Markdown met
 ## Product constraint
 
 Do not rebuild model routers, background jobs, warm delegates, progress UI, automatic fix loops, or task managers in the core. Optional harness integrations must remain thin and inspectable.
+
+The universal cross-harness installer remains deferred. Each harness owns installation, updates, disablement, and removal.

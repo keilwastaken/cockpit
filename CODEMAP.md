@@ -8,7 +8,10 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 
 ```text
 .
-├── .opencode/plugins/cockpit.js # Thin OpenCode adapter and commands
+├── .claude-plugin/plugin.json   # Claude Code plugin manifest
+├── .opencode/plugins/cockpit.js # Generated OpenCode adapter and commands
+├── agents/                      # Generated Claude Code agents
+├── commands/                    # Generated Claude setup and doctor skills
 ├── docs/
 │   ├── methodology.md           # Principles, workflow, approval, escalation
 │   ├── handoff-contracts.md     # Interfaces between workflow stages
@@ -17,7 +20,11 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 │   ├── fixture/                 # Disposable evaluation repository
 │   ├── scenarios.json           # Eight behavioral scenarios and rubrics
 │   └── README.md
+├── extensions/cockpit.js        # Generated Pi extension
+├── hooks/                       # Generated Claude SessionStart hook
 ├── scripts/
+│   ├── adapter-definition.mjs   # Shared adapter semantics
+│   ├── generate-adapters.mjs    # Deterministic adapter generator
 │   └── run-behavioral-evals.mjs # Isolated OpenCode scenario runner
 ├── skills/
 │   ├── using-cockpit/           # Workflow entry and composition rules
@@ -31,7 +38,8 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 │   ├── cockpit-review-response/ # Evidence-based review response
 │   ├── cockpit-verify/          # Fresh completion evidence
 │   └── cockpit-capture/         # Durable task packets
-├── tests/skills.test.js         # Metadata, references, adapter, commands
+├── tests/adapters.test.js       # Pi, Claude, generation contracts
+├── tests/skills.test.js         # Metadata, references, OpenCode behavior
 ├── LICENSE
 ├── README.md
 └── package.json
@@ -57,7 +65,15 @@ It does not implement jobs, model invocation, routing state, or execution loops.
 
 ### Pi
 
-`package.json#pi.skills` exposes the same canonical `skills/` directory through Pi's native skill discovery. There is no Pi-specific runtime.
+`package.json#pi` exposes the canonical skills and `extensions/cockpit.js`. The extension injects the bootstrap and registers native setup and doctor commands. It changes only Pi's active session model after confirmation and adds no subagent runtime.
+
+### Claude Code
+
+`.claude-plugin/plugin.json` makes the repository a native plugin. Claude discovers root `skills/`, `commands/`, and `agents/`; `hooks/hooks.json` injects the bootstrap at `SessionStart` through `additionalContext`.
+
+### Generation
+
+`scripts/adapter-definition.mjs` owns shared inventory, role mappings, and adapter intent. `scripts/generate-adapters.mjs` renders committed harness artifacts. `npm run check:generated` detects drift.
 
 ## Handoff flow
 
@@ -85,5 +101,8 @@ Behavioral model runs require an explicit `--model`; listing scenarios is free.
 - Stage behavior: corresponding `skills/*/SKILL.md`
 - Handoff shape: `docs/handoff-contracts.md`
 - OpenCode discovery/setup/doctor only: `.opencode/plugins/cockpit.js`
+- Shared adapter semantics: `scripts/adapter-definition.mjs`
+- Pi integration: `extensions/cockpit.js`
+- Claude integration: `.claude-plugin/`, `agents/`, `commands/`, and `hooks/`
 - Behavioral regressions: `evals/scenarios.json`
-- Adapter and metadata regressions: `tests/skills.test.js`
+- Adapter and metadata regressions: `tests/adapters.test.js` and `tests/skills.test.js`

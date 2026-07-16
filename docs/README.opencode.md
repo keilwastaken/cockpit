@@ -1,6 +1,14 @@
 # Cockpit for OpenCode
 
+The OpenCode plugin is a committed generated artifact. Change shared metadata in `scripts/adapter-definition.mjs`, then run `npm run generate`; do not edit `.opencode/plugins/cockpit.js` directly.
+
 Cockpit's OpenCode adapter registers the canonical skills and injects the `using-cockpit` bootstrap into conversations. Workflow policy remains in the Markdown skills.
+
+To regenerate:
+
+```bash
+npm run generate
+```
 
 ## Local development install
 
@@ -67,6 +75,20 @@ It does not implement jobs, model invocation, execution loops, or hidden workflo
 - fetch current documentation → `webfetch`
 
 Cockpit still works sequentially when a particular agent or model cannot dispatch subagents.
+
+## Native subagents (optional)
+
+Run `/cockpit-setup` to create five native OpenCode subagents:
+
+| Subagent | Model Role | Skill | Permissions |
+|----------|------------|-------|-------------|
+| `cockpit-explorer` | reasoning | `cockpit-explore` | read-only |
+| `cockpit-planner` | reasoning | `cockpit-plan` | read-only |
+| `cockpit-reviewer` | reasoning | `cockpit-review` | read-only |
+| `cockpit-research` | hands | `cockpit-research` | read-only |
+| `cockpit-executor` | hands | `cockpit-execute` | edit allowed |
+
+These are ordinary OpenCode subagent definitions in your config. You can invoke them via the `task` tool or let the workflow skills delegate to them.
 
 ## Verification
 
