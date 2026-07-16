@@ -1,0 +1,54 @@
+[
+  {
+    "id": "config-research",
+    "name": "Configuration precedence research",
+    "prompt": "Research how configuration precedence and validation work in this repository. Return a compact evidence brief with file references. Do not edit files.",
+    "criticalGates": [
+      { "id": "runner", "type": "runner-success" },
+      { "id": "read-only", "type": "worktree", "value": "clean" },
+      { "id": "evidence", "type": "output-all", "patterns": ["src/config/index.js", "src/config/validate.js", "project", "user", "defaults"] }
+    ],
+    "manualRubric": ["correctness", "completeness", "evidence", "instruction-adherence"]
+  },
+  {
+    "id": "audit-design",
+    "name": "Ambiguous audit logging design",
+    "prompt": "We need better audit logging for authentication events. Explore the viable designs in this repository, recommend one, and stop for approval before implementation.",
+    "criticalGates": [
+      { "id": "runner", "type": "runner-success" },
+      { "id": "read-only", "type": "worktree", "value": "clean" },
+      { "id": "decision", "type": "output-all", "patterns": ["option", "recommend", "approval"] }
+    ],
+    "manualRubric": ["correctness", "tradeoff-quality", "recommendation", "instruction-adherence"]
+  },
+  {
+    "id": "bounded-implementation",
+    "name": "Bounded retry configuration",
+    "prompt": "This plan is approved: add a maxRetries configuration value with default 3, allow user and project overrides through the existing precedence system, validate it as a non-negative integer, add focused tests, run the tests, and change only files required for this behavior.",
+    "verificationCommands": [
+      ["npm", "test"],
+      ["node", "--input-type=module", "-e", "import { resolveConfig } from './src/config/index.js'; const value = resolveConfig({ user: { maxRetries: 4 }, project: { maxRetries: 2 } }); if (value.maxRetries !== 2) process.exit(1); try { resolveConfig({ project: { maxRetries: -1 } }); process.exit(1); } catch {}"]
+    ],
+    "criticalGates": [
+      { "id": "runner", "type": "runner-success" },
+      { "id": "scope", "type": "changed-only", "paths": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"], "required": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"] },
+      { "id": "verification", "type": "commands-pass", "count": 2 },
+      { "id": "reported", "type": "output-all", "patterns": ["maxRetries", "test"] }
+    ],
+    "manualRubric": ["correctness", "test-quality", "scope-discipline", "instruction-adherence"]
+  },
+  {
+    "id": "security-review",
+    "name": "Authentication diff review",
+    "prepare": {
+      "src/auth/session.js": "export function createSession(user, token) {\n\tconsole.log(\"session token\", token);\n\treturn { userId: user.id, token, expiresAt: Date.now() + 86400000 };\n}\n"
+    },
+    "prompt": "Review the current working-tree authentication change for requirement violations and security defects. Report severity-ranked findings with file references. Do not edit files.",
+    "criticalGates": [
+      { "id": "runner", "type": "runner-success" },
+      { "id": "read-only", "type": "worktree", "value": "prepared-only" },
+      { "id": "defects", "type": "output-all", "patterns": ["src/auth/session.js", "token", "sessionMinutes", "isSessionActive"] }
+    ],
+    "manualRubric": ["correctness", "severity-calibration", "evidence", "instruction-adherence"]
+  }
+]

@@ -33,7 +33,10 @@
     "check": "npm test && npm run check:generated",
     "check:generated": "node scripts/generate-adapters.mjs --check",
     "generate": "node scripts/generate-adapters.mjs",
-    "eval": "node scripts/run-behavioral-evals.mjs"
+    "eval": "node scripts/run-behavioral-evals.mjs",
+    "benchmark:cost": "node scripts/run-cost-benchmark.mjs",
+    "benchmark:summary": "node scripts/summarize-cost-benchmark.mjs",
+    "benchmark:prepare-review": "node scripts/prepare-cost-benchmark-review.mjs"
   },
   "pi": {
     "skills": [
