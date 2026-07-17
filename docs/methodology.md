@@ -5,14 +5,15 @@ Cockpit is a portable workflow for keeping coding-agent work deliberate, bounded
 ## Principles
 
 1. **Context is a budget.** Keep broad discovery, logs, diffs, and failed attempts out of the primary conversation when isolation is available and useful.
-2. **Use the smallest sufficient workflow.** Tiny deterministic work should stay direct. Process overhead must earn its cost.
-3. **Resolve direction before implementation.** Ambiguous product or architecture choices require exploration and human approval.
+2. **Use the smallest sufficient workflow.** Tiny deterministic work should stay direct. Process overhead must earn its cost. Broad/noisy research and bounded execution may delegate to host-native workers when available.
+3. **Resolve direction before implementation.** Ambiguous product or architecture choices require exploration and human approval. Exploration, planning, and review are reasoning-sensitive and must not transfer consequential judgment to hands-only workers.
 4. **Evidence precedes commitment.** Research establishes facts and gaps. Plans distinguish verified facts from assumptions.
 5. **Plans are bounded contracts.** A useful plan names scope, files, order, acceptance criteria, validation, risks, and stop conditions.
 6. **Executors execute rather than redesign.** Unexpected scope or invalid assumptions trigger escalation.
 7. **Review routes work.** Local defects return to execution, structural defects return to planning, and consequential ambiguity returns to the human.
 8. **Verification precedes completion.** Never claim success based on expectation or an earlier run.
 9. **Handoffs are compact.** Pass conclusions, evidence, decisions, and unresolved risks—not a transcript of the work.
+10. **Orchestration-free.** Cockpit has no route engine, dispatch function, queue, retry loop, state machine, or automatic invocation mechanism. All routing decisions are explicit, inline, and made by the reading agent.
 
 ## Workflow
 
@@ -21,21 +22,37 @@ intake
   |
   v
 choose work mode ----> direct maneuver ----> verify
+  |                       |
+  |                       + (tiny deterministic only)
   |
   +--> unclear direction --> explore options --> human approval
-  |                                           |
+  |                           (reasoning agent)
   +--> missing facts ------> research <--------+
-  |                            |
+  |                           (hands agent)
   +--> approved nontrivial work --> plan --> execute --> review
-                                                    ^       |
-                                                    |       +-- local issue
-                                                    |
-                                      replan <------+-- structural issue
-                                                    |
-                                             human decision
+  |                               (reasoning)  (hands)  (reasoning)
+  |                                           ^       |
+  |                                           |       +-- local issue
+  |                                             |
+  |                               replan <------+-- structural issue
+  |                                             |
+  |                                      human decision
+  |
+  +--> broad/noisy research --------> research (hands agent)
+  +--> low-risk bounded exec -------> execute (hands agent)
 ```
 
 Not every task traverses every stage. The work-mode decision selects the shortest safe path.
+
+### Host-specific behavior
+
+- **Pi:** All Cockpit work runs sequentially in the current agent. No dispatch, no subagents, no model routing. Setup selects a single per-session model.
+- **OpenCode:** Native subagents and the task tool provide dispatch. Reasoning roles (explorer/planner/reviewer) use the reasoning model; hands roles (research/executor) use the hands model. Orchestration-free: no custom route engine, dispatch function, queue, retry loop, or automatic invocation.
+- **Claude Code:** Native Agent tool provides dispatch. Agents inherit the current model. SessionStart hook loads `using-cockpit`. No custom routing or orchestration.
+
+### Worker fallback
+
+When a host-native worker is unavailable, perform the same work sequentially in the current agent. Never spin up a custom runtime, queue, or dispatch mechanism.
 
 ## Work modes
 
@@ -95,6 +112,7 @@ Cockpit is not:
 
 - a mandatory ceremony for every edit,
 - a model router,
+- a dispatch engine or route invoker,
 - a background job manager,
 - a replacement for harness permissions,
 - a guarantee that all work should be delegated,

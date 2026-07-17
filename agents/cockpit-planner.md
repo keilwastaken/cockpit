@@ -1,6 +1,6 @@
 ---
 name: cockpit-planner
-description: Turn an approved direction into a bounded implementation plan.
+description: Reasoning-sensitive planning that turns approved direction into a bounded implementation plan. Do not use for exploration, research, or implementation.
 model: inherit
 skills:
   - cockpit:cockpit-plan

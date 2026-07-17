@@ -46,6 +46,15 @@ test("skill references resolve to canonical skill IDs", async () => {
 	}
 });
 
+test("using-cockpit contains orchestration-free policy statement", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /orchestration-free/i);
+	assert.match(content, /no route engine/i);
+	assert.match(content, /no.*dispatch/i);
+	assert.match(content, /no.*queue/i);
+	assert.match(content, /no.*retry/i);
+});
+
 test("OpenCode adapter registers skills, setup, doctor, and bootstrap", async () => {
 	const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
 	const hooks = await CockpitPlugin();

@@ -1,6 +1,6 @@
 ---
 name: cockpit-research
-description: Gather compact codebase and external evidence without editing files.
+description: Read-only hands work for broad or noisy evidence gathering. Use when facts are unknown; do not use for implementation or consequential decisions.
 model: inherit
 skills:
   - cockpit:cockpit-research

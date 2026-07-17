@@ -2,10 +2,33 @@
 
 These evaluations test workflow behavior rather than exact wording. Each scenario runs in a fresh disposable Git repository copied from `evals/fixture/`.
 
+Scenarios are categorized to cover each workflow mode:
+
+| Category | Scenario IDs | What is tested |
+|---|---|---|
+| direct | `tiny-direct` | Tiny deterministic work handled without delegation |
+| exploration | `ambiguous-feature` | Ambiguous direction exploration; reasoning agent delegation |
+| research | `read-only-research` | Read-only evidence gathering; noisy search delegation |
+| execution | `approved-execution`, `false-assumption` | Hands-worker execution and invalid-plan stop conditions |
+| review | `localized-review`, `structural-review` | Localized vs structural defects; reasoning agent delegation |
+| verification | `verification-failure` | Fresh evidence before completion claims |
+
+## Config isolation
+
+When running with OpenCode, the eval runner creates a standalone temporary config using Cockpit's generated plugin and canonical native-agent definitions. Every role uses the supplied evaluation model. An isolated `XDG_CONFIG_HOME` prevents global OpenCode configuration from merging, and Claude Code compatibility loading is disabled, while OpenCode's separate data directory remains available for authentication. Before any model call, the runner resolves the effective config and rejects unexpected plugins or mismatched role definitions. It removes the temporary config in a `finally` block and never reads or mutates user configuration. Provider authentication must already be available through OpenCode's auth store or the process environment; models that require custom provider configuration are not supported by this isolated runner.
+
+## Usage
+
 List scenarios:
 
 ```bash
 npm run eval
+```
+
+Validate the isolated native-agent configuration without making a model call:
+
+```bash
+npm run eval -- --model openai/gpt-5.6-sol --validate-config
 ```
 
 Preview prompts without model calls:

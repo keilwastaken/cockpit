@@ -18,31 +18,31 @@ export const roles = [
   {
     name: "cockpit-explorer",
     skill: "cockpit-explore",
-    description: "Explore unresolved product and architecture choices without editing files.",
+    description: "Reasoning-sensitive exploration for unresolved product and architecture choices. Use when direction is ambiguous; do not use for implementation, factual research, or approved direction.",
     readOnly: true,
   },
   {
     name: "cockpit-planner",
     skill: "cockpit-plan",
-    description: "Turn an approved direction into a bounded implementation plan.",
+    description: "Reasoning-sensitive planning that turns approved direction into a bounded implementation plan. Do not use for exploration, research, or implementation.",
     readOnly: true,
   },
   {
     name: "cockpit-reviewer",
     skill: "cockpit-review",
-    description: "Review completed changes against requirements, risks, and tests.",
+    description: "Reasoning-sensitive review of completed changes against requirements, risks, and tests. Use after implementation; do not use to fix defects directly.",
     readOnly: true,
   },
   {
     name: "cockpit-research",
     skill: "cockpit-research",
-    description: "Gather compact codebase and external evidence without editing files.",
+    description: "Read-only hands work for broad or noisy evidence gathering. Use when facts are unknown; do not use for implementation or consequential decisions.",
     readOnly: true,
   },
   {
     name: "cockpit-executor",
     skill: "cockpit-execute",
-    description: "Implement an approved bounded plan and verify the result.",
+    description: "Hands work for approved low-risk bounded implementation with explicit validation and stop conditions. Do not use for exploration, planning, or consequential decisions.",
     readOnly: false,
   },
 ];

@@ -1,6 +1,6 @@
 ---
 name: cockpit-reviewer
-description: Review completed changes against requirements, risks, and tests.
+description: Reasoning-sensitive review of completed changes against requirements, risks, and tests. Use after implementation; do not use to fix defects directly.
 model: inherit
 skills:
   - cockpit:cockpit-review

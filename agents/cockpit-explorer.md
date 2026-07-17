@@ -1,6 +1,6 @@
 ---
 name: cockpit-explorer
-description: Explore unresolved product and architecture choices without editing files.
+description: Reasoning-sensitive exploration for unresolved product and architecture choices. Use when direction is ambiguous; do not use for implementation, factual research, or approved direction.
 model: inherit
 skills:
   - cockpit:cockpit-explore

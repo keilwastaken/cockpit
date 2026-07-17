@@ -1,11 +1,23 @@
 ---
 name: cockpit-explore
-description: Use before planning or coding when feature behavior, refactor direction, architecture, migration strategy, or important tradeoffs remain unresolved.
+description: Use before planning or coding when feature behavior, refactor direction, architecture, migration strategy, or important tradeoffs remain unresolved. Do not use for implementation, research, or when direction is already approved.
 ---
 
 # Exploring Options
 
 Clarify what should be built before deciding how to build it.
+
+## When to use
+
+- Feature behavior, refactor direction, architecture, or migration strategy is unresolved.
+- Important tradeoffs need comparison before a direction can be approved.
+- The request contains "make this better" or similar ambiguity.
+
+## Do not use
+
+- For implementation, research, or factual fact-finding.
+- When the direction is already approved.
+- As a substitute for a bounded plan or execution.
 
 ## Boundaries
 

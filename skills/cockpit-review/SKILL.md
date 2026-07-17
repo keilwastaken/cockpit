@@ -1,11 +1,22 @@
 ---
 name: cockpit-review
-description: Use after nontrivial implementation to inspect the actual diff against requirements, tests, risks, and the approved plan and route findings by weight.
+description: Use after nontrivial implementation to inspect the actual diff against requirements, tests, risks, and the approved plan and route findings by weight. Do not use before implementation is complete, or to fix defects directly.
 ---
 
 # Reviewing Changes
 
 Review the work product, not the implementer's narrative.
+
+## When to use
+
+- Nontrivial implementation is complete and needs inspection against requirements, tests, and risks.
+- A handoff claims completion and the diff or test results need independent verification.
+
+## Do not use
+
+- Before implementation is complete.
+- To fix defects directly (route findings instead).
+- For trivial changes where self-verification is sufficient.
 
 ## Boundaries
 

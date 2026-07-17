@@ -2,7 +2,8 @@ import { spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { roles } from "./adapter-definition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const scenarios = JSON.parse(await readFile(path.join(root, "evals/scenarios.json"), "utf8"));
@@ -16,6 +17,7 @@ function value(flag) {
 const model = value("--model");
 const selectedID = value("--scenario");
 const dryRun = args.includes("--dry-run");
+const validateConfig = args.includes("--validate-config");
 const selected = selectedID ? scenarios.filter((scenario) => scenario.id === selectedID) : scenarios;
 
 if (selectedID && selected.length === 0) {
@@ -23,33 +25,38 @@ if (selectedID && selected.length === 0) {
 	process.exit(1);
 }
 
-if (!model || args.includes("--help")) {
-	console.log("Usage: npm run eval -- --model <provider/model> [--scenario <id>] [--dry-run]");
+if (args.includes("--help") || !model && !dryRun) {
+	console.log("Usage: npm run eval -- --model <provider/model> [--scenario <id>] [--dry-run] [--validate-config]");
 	console.log("\nScenarios:");
 	for (const scenario of scenarios) console.log(`  ${scenario.id.padEnd(22)} ${scenario.name}`);
-	process.exit(model ? 0 : 0);
+	process.exit(args.includes("--help") ? 0 : 1);
+}
+
+if (dryRun) {
+	for (const scenario of selected) {
+		const route = scenario.route.role ?? "current-agent";
+		console.log(`[${scenario.category.padEnd(12)}] ${scenario.id.padEnd(22)} ${scenario.route.mode}:${route}`);
+	}
+	process.exit(0);
 }
 
 const timestamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
-const resultsDirectory = path.join(root, "evals/results", `${timestamp}-${model.replaceAll("/", "-")}`);
-await mkdir(resultsDirectory, { recursive: true });
+const resultsDirectory = validateConfig ? null : path.join(root, "evals/results", `${timestamp}-${model.replaceAll("/", "-")}`);
+if (resultsDirectory) await mkdir(resultsDirectory, { recursive: true });
 
-function run(command, commandArgs, cwd) {
+function run(command, commandArgs, cwd, environment = process.env) {
 	return spawnSync(command, commandArgs, {
 		cwd,
 		encoding: "utf8",
 		timeout: 10 * 60 * 1000,
 		maxBuffer: 10 * 1024 * 1024,
+		env: environment,
 	});
 }
 
 for (const scenario of selected) {
-	if (dryRun) {
-		console.log(`\n[${scenario.id}] ${scenario.prompt}`);
-		continue;
-	}
-
 	const workspace = await mkdtemp(path.join(os.tmpdir(), `cockpit-eval-${scenario.id}-`));
+	const configDirectory = await mkdtemp(path.join(os.tmpdir(), "cockpit-eval-config-"));
 	try {
 		await cp(path.join(root, "evals/fixture"), workspace, { recursive: true });
 		run("git", ["init", "-q"], workspace);
@@ -64,15 +71,53 @@ for (const scenario of selected) {
 			await writeFile(destination, content);
 		}
 
-		console.log(`Running ${scenario.id} with ${model}...`);
-		const result = run("opencode", ["run", "-m", model, scenario.prompt], workspace);
+		const agent = Object.fromEntries(roles.map((role) => [role.name, {
+			mode: "subagent",
+			model,
+			description: role.description,
+			prompt: `Load the ${role.skill} skill before acting and follow it. Return only the requested handoff.`,
+			permission: { edit: role.readOnly ? "deny" : "allow" },
+		}]));
+		const config = {
+			$schema: "https://opencode.ai/config.json",
+			model,
+			small_model: model,
+			plugin: [pathToFileURL(path.join(root, ".opencode/plugins/cockpit.js")).href],
+			agent,
+		};
+		await writeFile(path.join(configDirectory, "opencode.json"), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
+		const environment = {
+			...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("OPENCODE_"))),
+			XDG_CONFIG_HOME: path.join(configDirectory, "xdg-config"),
+			OPENCODE_CONFIG_DIR: configDirectory,
+			OPENCODE_DISABLE_CLAUDE_CODE: "1",
+		};
+		const resolvedResult = run("opencode", ["debug", "config"], workspace, environment);
+		if (resolvedResult.status !== 0) throw new Error(`Could not resolve isolated OpenCode config: ${resolvedResult.stderr}`);
+		const resolved = JSON.parse(resolvedResult.stdout);
+		const unexpectedPlugins = (resolved.plugin ?? []).filter((plugin) => plugin !== config.plugin[0]);
+		if (unexpectedPlugins.length) throw new Error(`Isolated OpenCode config loaded unexpected plugins: ${unexpectedPlugins.join(", ")}`);
+		for (const role of roles) {
+			const actual = resolved.agent?.[role.name];
+			if (!actual || actual.model !== model || actual.description !== role.description) throw new Error(`Isolated OpenCode config mismatch for ${role.name}`);
+		}
+		if (validateConfig) {
+			console.log(`Validated isolated OpenCode config for ${model}`);
+			break;
+		}
+
+		console.log(`[${scenario.category.padEnd(12)}] Running ${scenario.id} with ${model}...`);
+		const result = run("opencode", ["run", "-m", model, scenario.prompt], workspace, environment);
 		const status = result.error ? `runner error: ${result.error.message}` : `exit ${result.status}`;
 		const report = [
 			`# ${scenario.name}`,
 			"",
 			`- Scenario: \`${scenario.id}\``,
+			`- Category: \`${scenario.category}\``,
+			`- Expected route: \`${scenario.route.mode}:${scenario.route.role ?? "current-agent"}\``,
 			`- Model: \`${model}\``,
 			`- Runner: ${status}`,
+			"- Config isolation: resolved and validated before model invocation",
 			"",
 			"## Prompt",
 			"",
@@ -105,7 +150,8 @@ for (const scenario of selected) {
 		await writeFile(path.join(resultsDirectory, `${scenario.id}.md`), report);
 	} finally {
 		await rm(workspace, { recursive: true, force: true });
+		await rm(configDirectory, { recursive: true, force: true });
 	}
 }
 
-if (!dryRun) console.log(`Results: ${resultsDirectory}`);
+if (resultsDirectory) console.log(`Results: ${resultsDirectory}`);

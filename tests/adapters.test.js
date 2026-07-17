@@ -136,14 +136,83 @@ test("generated adapters are fresh", () => {
 });
 
 test("package contains every native adapter", () => {
-  const result = spawnSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8" });
-  assert.equal(result.status, 0, result.stderr);
-  const paths = new Set(JSON.parse(result.stdout)[0].files.map((file) => file.path));
-  for (const required of [
-    ".claude-plugin/plugin.json",
-    ".opencode/plugins/cockpit.js",
-    "extensions/cockpit.js",
-    "hooks/hooks.json",
-    "hooks/session-start.mjs",
-  ]) assert.ok(paths.has(required), `package is missing ${required}`);
+	const result = spawnSync("npm", ["pack", "--dry-run", "--json"], { cwd: root, encoding: "utf8" });
+	assert.equal(result.status, 0, result.stderr);
+	const paths = new Set(JSON.parse(result.stdout)[0].files.map((file) => file.path));
+	for (const required of [
+		".claude-plugin/plugin.json",
+		".opencode/plugins/cockpit.js",
+		"extensions/cockpit.js",
+		"hooks/hooks.json",
+		"hooks/session-start.mjs",
+		"evals/scenarios.json",
+		"evals/fixture/package.json",
+		"evals/cost/fixture/package.json",
+		"evals/cost/scorecards/v1.0.0.md",
+		"scripts/run-cost-benchmark.mjs",
+	]) assert.ok(paths.has(required), `package is missing ${required}`);
+	assert.ok([...paths].every((file) => !file.startsWith("evals/results/")), "package must exclude raw evaluation results");
+});
+
+test("scenario metadata defines routing expectations", async () => {
+	const scenarios = JSON.parse(await readFile(path.join(root, "evals/scenarios.json"), "utf8"));
+	const byID = new Map(scenarios.map((scenario) => [scenario.id, scenario.route]));
+	const categories = new Set();
+	for (const scenario of scenarios) {
+		assert.ok(scenario.id, `scenario missing id`);
+		assert.ok(scenario.name, `scenario ${scenario.id} missing name`);
+		assert.ok(scenario.category, `scenario ${scenario.id} missing category`);
+		assert.ok(scenario.prompt, `scenario ${scenario.id} missing prompt`);
+		assert.ok(Array.isArray(scenario.expected) && scenario.expected.length > 0,
+			`scenario ${scenario.id} missing expected behaviors`);
+		assert.ok(["direct", "delegate"].includes(scenario.route?.mode), `scenario ${scenario.id} has invalid route mode`);
+		if (scenario.route.mode === "delegate") assert.ok(roles.some((role) => role.name === scenario.route.role), `scenario ${scenario.id} has unknown route role`);
+		else assert.equal(scenario.route.role, null, `direct scenario ${scenario.id} must not name a role`);
+		categories.add(scenario.category);
+	}
+	// Verify coverage of key workflow categories
+	for (const category of ["direct", "exploration", "research", "execution", "review", "verification"]) {
+		assert.ok(categories.has(category), `missing scenarios for category: ${category}`);
+	}
+	assert.deepEqual(byID.get("tiny-direct"), { mode: "direct", role: null });
+	assert.deepEqual(byID.get("ambiguous-feature"), { mode: "delegate", role: "cockpit-explorer" });
+	assert.deepEqual(byID.get("read-only-research"), { mode: "delegate", role: "cockpit-research" });
+	assert.deepEqual(byID.get("approved-execution"), { mode: "delegate", role: "cockpit-executor" });
+	assert.deepEqual(byID.get("localized-review"), { mode: "delegate", role: "cockpit-reviewer" });
+});
+
+test("behavioral eval uses a standalone native OpenCode configuration", async () => {
+	const runner = await readFile(path.join(root, "scripts/run-behavioral-evals.mjs"), "utf8");
+	assert.match(runner, /OPENCODE_CONFIG_DIR/);
+	assert.match(runner, /OPENCODE_DISABLE_CLAUDE_CODE/);
+	assert.match(runner, /XDG_CONFIG_HOME/);
+	assert.match(runner, /\["debug", "config"\]/);
+	assert.match(runner, /unexpected plugins/);
+	assert.match(runner, /\.opencode\/plugins\/cockpit\.js/);
+	assert.match(runner, /agent,/);
+	assert.doesNotMatch(runner, /subAgents|readUserOpenCodeConfig|OPENCODE_DISABLE_PROJECT_CONFIG|\.config["',]/);
+});
+
+test("role descriptions distinguish reasoning-sensitive and hands work", () => {
+	for (const role of roles) {
+		assert.match(role.description, /do not use/i, `${role.name}: description missing "do not use"`);
+		assert.match(role.description, ["cockpit-research", "cockpit-executor"].includes(role.name) ? /hands work/i : /reasoning-sensitive/i);
+	}
+});
+
+test("role permissions are correctly set", () => {
+	const readOnlyRoles = ["cockpit-explorer", "cockpit-planner", "cockpit-reviewer", "cockpit-research"];
+	for (const role of roles) {
+		if (readOnlyRoles.includes(role.name)) {
+			assert.equal(role.readOnly, true, `${role.name} should be read-only`);
+		} else if (role.name === "cockpit-executor") {
+			assert.equal(role.readOnly, false, "cockpit-executor should have write permission");
+		}
+	}
+});
+
+test("every role maps to a registered skill", () => {
+	for (const role of roles) {
+		assert.ok(skills.includes(role.skill), `${role.name}: skill ${role.skill} not in skills list`);
+	}
 });

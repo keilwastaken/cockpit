@@ -1,11 +1,23 @@
 ---
 name: cockpit-research
-description: Use when implementation or planning depends on unknown codebase behavior, tests, configuration, external APIs, or version-specific facts.
+description: Use when implementation or planning depends on unknown codebase behavior, tests, configuration, external APIs, or version-specific facts. Do not use for implementation, design decisions, or planning.
 ---
 
 # Researching Codebases
 
 Produce a compact evidence brief. Research establishes facts and uncertainty; it does not implement or silently choose product direction.
+
+## When to use
+
+- Planning or implementation depends on unknown codebase behavior, tests, configuration, external APIs, or version-specific facts.
+- A claim or assumption needs evidence before it can inform a plan.
+- Broad/noisy search is needed and a dedicated research worker is available.
+
+## Do not use
+
+- For implementation, editing, or design decisions.
+- When the relevant facts are already known.
+- As a substitute for exploration of ambiguous direction or tradeoffs.
 
 ## Boundaries
 

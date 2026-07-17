@@ -1,11 +1,22 @@
 ---
 name: cockpit-plan
-description: Use after direction is approved when nontrivial work needs an executable implementation plan with exact scope, validation, risks, and stop conditions.
+description: Use after direction is approved when nontrivial work needs an executable implementation plan with exact scope, validation, risks, and stop conditions. Do not use for exploration, research, or implementation.
 ---
 
 # Writing Bounded Plans
 
 Convert an approved direction and available evidence into a plan another coding agent can execute without redesigning the task.
+
+## When to use
+
+- Direction is approved and nontrivial work needs an executable plan.
+- The outcome is clear but sequencing, scope, and validation need specification.
+
+## Do not use
+
+- For exploration, research, or implementation.
+- When the direction has not been approved.
+- When consequential decisions remain unresolved.
 
 ## Preconditions
 

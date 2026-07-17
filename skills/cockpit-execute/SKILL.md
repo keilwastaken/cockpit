@@ -1,11 +1,23 @@
 ---
 name: cockpit-execute
-description: Use when an approved concrete plan is ready for implementation and work must remain within explicit files, behavior, validation, and stop conditions.
+description: Use when an approved concrete plan is ready for implementation and work must remain within explicit files, behavior, validation, and stop conditions. Do not use for exploration, planning, or design decisions.
 ---
 
 # Executing Bounded Plans
 
 Implement the approved plan. Execution is not a second design phase.
+
+## When to use
+
+- An approved concrete plan is ready for implementation.
+- The plan names exact files, behavior, and validation.
+- Work must remain within explicit scope, files, and stop conditions.
+
+## Do not use
+
+- For exploration, planning, or design decisions.
+- When the task direction is ambiguous or unapproved.
+- When requirements or validation criteria are unclear.
 
 ## Rules
 

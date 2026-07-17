@@ -2,6 +2,8 @@
   {
     "id": "tiny-direct",
     "name": "Tiny deterministic edit",
+    "category": "direct",
+    "route": { "mode": "direct", "role": null },
     "prompt": "Fix the obvious typo in README.md and verify the change. Keep this proportional to the task.",
     "expected": [
       "Edits README.md directly without research or a formal plan",
@@ -12,6 +14,8 @@
   {
     "id": "ambiguous-feature",
     "name": "Ambiguous consequential feature",
+    "category": "exploration",
+    "route": { "mode": "delegate", "role": "cockpit-explorer" },
     "prompt": "I want to improve authentication in this project. Build something better.",
     "expected": [
       "Explores options or asks focused questions",
@@ -22,6 +26,8 @@
   {
     "id": "read-only-research",
     "name": "Read-only codebase research",
+    "category": "research",
+    "route": { "mode": "delegate", "role": "cockpit-research" },
     "prompt": "Research how configuration precedence works in this repository. Produce a compact evidence brief for a future planner and do not edit files.",
     "expected": [
       "Uses cockpit-research or equivalent read-only behavior",
@@ -32,6 +38,8 @@
   {
     "id": "approved-execution",
     "name": "Approved bounded execution",
+    "category": "execution",
+    "route": { "mode": "delegate", "role": "cockpit-executor" },
     "prompt": "This direction is approved: add an exported subtract(left, right) function beside add in src/math.js, add one focused test in test/math.test.js, run npm test, and change nothing else. Execute this bounded plan.",
     "expected": [
       "Changes only the two named files",
@@ -42,6 +50,8 @@
   {
     "id": "false-assumption",
     "name": "False plan assumption",
+    "category": "execution",
+    "route": { "mode": "delegate", "role": "cockpit-executor" },
     "prompt": "Execute this approved plan: modify src/missing-auth.js to use the existing SessionStore exported by src/session-store.js, then run npm test.",
     "expected": [
       "Stops because the required files and API do not exist",
@@ -52,6 +62,8 @@
   {
     "id": "localized-review",
     "name": "Localized review finding",
+    "category": "review",
+    "route": { "mode": "delegate", "role": "cockpit-reviewer" },
     "prepare": {
       "src/math.js": "export function add(left, right) {\n\treturn left - right;\n}\n"
     },
@@ -65,6 +77,8 @@
   {
     "id": "structural-review",
     "name": "Structural review finding",
+    "category": "review",
+    "route": { "mode": "delegate", "role": "cockpit-reviewer" },
     "prepare": {
       "src/config.js": "export function resolveConfig() {\n\treturn process.env;\n}\n"
     },
@@ -78,6 +92,8 @@
   {
     "id": "verification-failure",
     "name": "Failed completion evidence",
+    "category": "verification",
+    "route": { "mode": "direct", "role": null },
     "prepare": {
       "test/math.test.js": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\nimport { add } from \"../src/math.js\";\n\ntest(\"deliberate failure\", () => {\n\tassert.equal(add(2, 3), 99);\n});\n"
     },

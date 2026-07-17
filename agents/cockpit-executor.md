@@ -1,6 +1,6 @@
 ---
 name: cockpit-executor
-description: Implement an approved bounded plan and verify the result.
+description: Hands work for approved low-risk bounded implementation with explicit validation and stop conditions. Do not use for exploration, planning, or consequential decisions.
 model: inherit
 skills:
   - cockpit:cockpit-execute
