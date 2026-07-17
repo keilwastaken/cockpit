@@ -88,6 +88,7 @@ for (const scenario of selected) {
 		await writeFile(path.join(configDirectory, "opencode.json"), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 		const environment = {
 			...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("OPENCODE_"))),
+			PWD: workspace,
 			XDG_CONFIG_HOME: path.join(configDirectory, "xdg-config"),
 			OPENCODE_CONFIG_DIR: configDirectory,
 			OPENCODE_DISABLE_CLAUDE_CODE: "1",

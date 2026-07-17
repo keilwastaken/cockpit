@@ -184,6 +184,7 @@ test("scenario metadata defines routing expectations", async () => {
 test("behavioral eval uses a standalone native OpenCode configuration", async () => {
 	const runner = await readFile(path.join(root, "scripts/run-behavioral-evals.mjs"), "utf8");
 	assert.match(runner, /OPENCODE_CONFIG_DIR/);
+	assert.match(runner, /PWD: workspace/);
 	assert.match(runner, /OPENCODE_DISABLE_CLAUDE_CODE/);
 	assert.match(runner, /XDG_CONFIG_HOME/);
 	assert.match(runner, /\["debug", "config"\]/);
