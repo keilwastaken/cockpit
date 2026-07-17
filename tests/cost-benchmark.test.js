@@ -272,7 +272,7 @@ test("blind review and summary CLIs accept only a complete matched matrix", asyn
 				resolvedConfigHash: resolvedConfigs[job.arm].resolvedHash,
 				durationMs: 100,
 				telemetryValid: true,
-				telemetry: { reasoningModelTokens: 100, totalTokens: 150, peakParentContext: 80, delegationCount: 1, cost: 0.01 },
+				telemetry: { reasoningModelTokens: 100, handsModelTokens: 50, totalTokens: 150, peakParentContext: 80, delegationCount: 1, cost: 0.01 },
 				critical: { pass: true, outcomes: [] },
 				artifacts: { changes: [], prepared: [] },
 				commandResults: [],
@@ -299,7 +299,12 @@ test("blind review and summary CLIs accept only a complete matched matrix", asyn
 		const output = path.join(privateDirectory, "scorecard.md");
 		const summarized = spawnSync(process.execPath, ["scripts/summarize-cost-benchmark.mjs", "--run-id", runID, "--scores", scores, "--mapping", mapping, "--output", output], { cwd: root, encoding: "utf8" });
 		assert.equal(summarized.status, 0, summarized.stderr);
-		assert.match(await readFile(output, "utf8"), /Role-Split Delta/);
+		const scorecard = await readFile(output, "utf8");
+		assert.match(scorecard, /Role-Split Delta/);
+		assert.match(scorecard, /Hands Processed/);
+		assert.match(scorecard, /Hands Used/);
+		assert.match(scorecard, /Matrix Token Totals/);
+		assert.match(scorecard, /Reasoning Share/);
 	} finally {
 		await rm(runDirectory, { recursive: true, force: true });
 		await rm(privateDirectory, { recursive: true, force: true });

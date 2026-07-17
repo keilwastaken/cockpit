@@ -60,11 +60,19 @@ function metrics(selected) {
 		critical: selected.filter((result) => result.critical.pass).length / selected.length * 100,
 		manual: median(selected.map((result) => result.manualScore)),
 		reasoning: median(selected.map((result) => result.telemetry.reasoningModelTokens)),
+		hands: median(selected.map((result) => result.telemetry.handsModelTokens)),
 		total: median(selected.map((result) => result.telemetry.totalTokens)),
 		peak: median(selected.map((result) => result.telemetry.peakParentContext)),
 		delegations: median(selected.map((result) => result.telemetry.delegationCount)),
 		time: median(selected.map((result) => result.durationMs)) / 1000,
 		cost: median(selected.map((result) => result.telemetry.cost)),
+	};
+}
+function tokenTotals(selected) {
+	return {
+		reasoning: selected.reduce((sum, result) => sum + result.telemetry.reasoningModelTokens, 0),
+		hands: selected.reduce((sum, result) => sum + result.telemetry.handsModelTokens, 0),
+		total: selected.reduce((sum, result) => sum + result.telemetry.totalTokens, 0),
 	};
 }
 function delta(candidate, control) {
@@ -88,24 +96,30 @@ const lines = [
 	"",
 	"## Overall",
 	"",
-	"| Arm | Critical Pass | Blind Quality | Reasoning Processed | Total Processed | Peak Parent | Delegations | Time (s) | Observed Cost |",
-	"|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+	"| Arm | Critical Pass | Blind Quality | Reasoning Processed | Hands Processed | Total Processed | Peak Parent | Delegations | Time (s) | Observed Cost |",
+	"|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
 ];
 for (const arm of arms) {
 	const value = metrics(results.filter((result) => result.arm === arm));
-	lines.push(`| ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.delegations.toFixed(1)} | ${value.time.toFixed(1)} | $${value.cost.toFixed(4)} |`);
+	lines.push(`| ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.delegations.toFixed(1)} | ${value.time.toFixed(1)} | $${value.cost.toFixed(4)} |`);
 }
-lines.push("", "## Scenario Results", "", "| Scenario | Arm | Critical Pass | Blind Quality | Reasoning | Total | Peak Parent | Time (s) |", "|---|---|---:|---:|---:|---:|---:|---:|");
+lines.push("", "## Matrix Token Totals", "", "| Arm | Reasoning Tokens | Hands Tokens | Total Tokens | Reasoning Share | Hands Share |", "|---|---:|---:|---:|---:|---:|");
+for (const arm of arms) {
+	const value = tokenTotals(results.filter((result) => result.arm === arm));
+	lines.push(`| ${arm} | ${value.reasoning} | ${value.hands} | ${value.total} | ${(value.reasoning / value.total * 100).toFixed(1)}% | ${(value.hands / value.total * 100).toFixed(1)}% |`);
+}
+lines.push("", "Estimated model cost can be calculated as `(reasoning tokens × reasoning rate) + (hands tokens × hands rate)`. Provider-reported cost remains observational.");
+lines.push("", "## Scenario Results", "", "| Scenario | Arm | Critical Pass | Blind Quality | Reasoning | Hands | Total | Peak Parent | Time (s) |", "|---|---|---:|---:|---:|---:|---:|---:|---:|");
 for (const scenario of scenarioIDs) for (const arm of arms) {
 	const value = metrics(results.filter((result) => result.scenario === scenario && result.arm === arm));
-	lines.push(`| ${scenario} | ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.time.toFixed(1)} |`);
+	lines.push(`| ${scenario} | ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.time.toFixed(1)} |`);
 }
-lines.push("", "## Role-Split Delta", "", "| Scenario | Supported | Quality Delta | Reasoning | Total | Peak Parent | Time |", "|---|---|---:|---:|---:|---:|---:|");
+lines.push("", "## Role-Split Delta", "", "| Scenario | Supported | Quality Delta | Reasoning | Hands Used | Total | Peak Parent | Time |", "|---|---|---:|---:|---:|---:|---:|---:|");
 for (const scenario of scenarioIDs) {
 	const control = metrics(results.filter((result) => result.scenario === scenario && result.arm === "control"));
 	const candidate = metrics(results.filter((result) => result.scenario === scenario && result.arm === "role-split"));
 	const supported = control.critical === 100 && candidate.critical === 100 && candidate.manual >= control.manual;
-	lines.push(`| ${scenario} | ${supported ? "yes" : "no"} | ${(candidate.manual - control.manual).toFixed(1)} | ${delta(candidate.reasoning, control.reasoning)} | ${delta(candidate.total, control.total)} | ${delta(candidate.peak, control.peak)} | ${delta(candidate.time, control.time)} |`);
+	lines.push(`| ${scenario} | ${supported ? "yes" : "no"} | ${(candidate.manual - control.manual).toFixed(1)} | ${delta(candidate.reasoning, control.reasoning)} | ${Math.round(candidate.hands)} | ${delta(candidate.total, control.total)} | ${delta(candidate.peak, control.peak)} | ${delta(candidate.time, control.time)} |`);
 }
 lines.push("", "Provider-reported cost is observational, not a billing guarantee. Results describe this bounded matrix only and are not a general causal estimate.", "");
 const markdown = lines.join("\n");
