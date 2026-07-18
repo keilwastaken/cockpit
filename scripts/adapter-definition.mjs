@@ -53,7 +53,8 @@ $ARGUMENTS`;
 export const opencodeRunPrompt = `You are orchestrating an approved execution contract as the strong parent agent. Use OpenCode's native Task tool to dispatch work to the cockpit-worker subagent.
 
 Rules:
-- Before dispatch, confirm cockpit-worker resolves to an explicit model through agent.cockpit-worker.model or small_model. If neither is configured, stop and direct the user to /cockpit-setup; do not let the worker inherit build's strong model.
+- Dispatch only when cockpit-worker is available through the native Task tool. If it is unavailable, stop and direct the user to /cockpit-setup. Do not inspect project or global config files to infer worker availability.
+- Before dispatching, validate the contract and its stop conditions yourself with native read, glob, or grep tools, not Bash. Confirm that every Required Change fits within Allowed Files and that explicitly required paths and APIs exist. If the contract is inconsistent or a stop condition is already true, stop without dispatching or editing.
 - For overlapping or ordered changes, use one worker or sequential tasks.
 - For genuinely disjoint independent packets, dispatch parallel tasks.
 - Await all task returns before proceeding.
@@ -101,7 +102,7 @@ export const opencodeDoctorPrompt = `Diagnose the Cockpit OpenCode installation 
 2. Inspect the resolved plugin source, Cockpit skills path, primary model, small_model, cockpit-worker, optional built-in explore override, and Cockpit commands.
 3. Verify all packaged Cockpit skills are discovered.
 4. Verify cockpit-worker is an enabled subagent, has an explicit model, denies task delegation, has a bounded step count, and build can invoke it via native Task calls. A missing model or disabled worker is FAIL. Verify built-in general was not overridden by Cockpit.
-5. Verify cockpit-contract and cockpit-run both use build with subtask false. Inspect their templates: cockpit-contract must require all five contract sections without editing; cockpit-run must require an explicit worker model, native Task dispatch, all-task join, actual-state inspection, and fresh parent validation. Any canonical command mismatch in agent, subtask, or required prompt behavior must be marked FAIL, not WARN.
+5. Verify cockpit-contract and cockpit-run both use build with subtask false. Inspect their templates: cockpit-contract must require all five contract sections without editing; cockpit-run must use native Task availability without config-file probing, native Task dispatch, all-task join, actual-state inspection, and fresh parent validation. Any canonical command mismatch in agent, subtask, or required prompt behavior must be marked FAIL, not WARN.
 6. Confirm the plugin has no chat-message transform and ordinary user messages receive no Cockpit bootstrap.
 7. Warn if deprecated cockpit-explorer, cockpit-research, cockpit-executor, cockpit-strategist, cockpit-planner, or cockpit-reviewer entries exist.
 8. Report a compact table with checks marked PASS, WARN, or FAIL, followed by exact remediation commands or config locations.

@@ -280,7 +280,7 @@ test("OpenCode worker defaults to small_model without overriding an explicit mod
   assert.equal(explicit.agent["cockpit-worker"].disable, undefined);
 });
 
-test("run prompt refuses worker dispatch without an explicit hands model", async () => {
+test("run prompt relies on native worker availability without probing config files", async () => {
   const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
   const hooks = await CockpitPlugin();
   const config = {};
@@ -289,8 +289,9 @@ test("run prompt refuses worker dispatch without an explicit hands model", async
   assert.equal(config.agent["cockpit-worker"].disable, true);
   assert.equal(config.agent["cockpit-worker"].permission.edit, "deny");
   assert.equal(config.agent["cockpit-worker"].permission.bash, "deny");
-  assert.match(config.command["cockpit-run"].template, /If neither is configured, stop/i);
-  assert.match(config.command["cockpit-run"].template, /do not let the worker inherit build's strong model/i);
+  assert.match(config.command["cockpit-run"].template, /available through the native Task tool/i);
+  assert.match(config.command["cockpit-run"].template, /If it is unavailable, stop/i);
+  assert.match(config.command["cockpit-run"].template, /Do not inspect project or global config files/i);
 });
 
 test("run prompt requires all-task join, actual-state inspection, fresh checks, and untrusted reports", async () => {

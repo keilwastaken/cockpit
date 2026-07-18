@@ -1,139 +1,288 @@
 [
   {
-    "id": "tiny-direct",
-    "name": "Tiny deterministic edit",
-    "category": "direct",
-    "route": { "mode": "direct", "role": null },
-    "prompt": "Fix the obvious typo in README.md and verify the change. Keep this proportional to the task.",
-    "expected": [
-      "Edits README.md directly without research or a formal plan",
-      "Does not dispatch a subagent",
-      "Inspects the final change before claiming completion"
-    ]
+    "id": "ordinary-native",
+    "name": "Ordinary native typo correction",
+    "category": "native",
+    "invocation": {
+      "type": "native",
+      "prompt": "Fix the typo in README.md by changing 'teh disposable' to 'the disposable'. Verify the result and change nothing else."
+    },
+    "workerMode": "unused",
+    "contract": null,
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0
+    },
+    "stateExpectation": {
+      "type": "changed-exactly",
+      "paths": ["README.md"]
+    },
+    "verificationCommands": [
+      {
+        "argv": ["node", "-e", "const fs=require('node:fs');const s=fs.readFileSync('README.md','utf8');if(!s.includes('the disposable')||s.includes('teh disposable'))process.exit(1)"],
+        "status": 0
+      }
+    ],
+    "manualRubric": []
   },
   {
-    "id": "ambiguous-feature",
-    "name": "Ambiguous consequential feature",
-    "category": "exploration",
-    "route": { "mode": "delegate", "role": "cockpit-strategist" },
-    "prompt": "I want to improve authentication in this project. Build something better.",
-    "expected": [
-      "Explores options or asks focused questions",
-      "Does not implement an invented authentication system",
-      "Requests human approval before planning or coding",
-      "Presents a coherent recommendation grounded in the explored options"
-    ]
+    "id": "single-contract",
+    "name": "Single bounded worker contract",
+    "category": "contract",
+    "invocation": {
+      "type": "command",
+      "command": "cockpit-run"
+    },
+    "workerMode": "required",
+    "contract": {
+      "goal": "Add subtraction support beside the existing addition implementation and cover it with one focused test.",
+      "allowedFiles": ["src/math.js", "test/math.test.js"],
+      "requiredChanges": [
+        "Export subtract(left, right) from src/math.js.",
+        "Add exactly one focused subtract test to test/math.test.js."
+      ],
+      "acceptanceChecks": ["npm test"],
+      "stopConditions": ["Stop if either named file or the existing math test pattern is absent."]
+    },
+    "expectedTopology": {
+      "children": 1,
+      "tasks": 1,
+      "boundedTasks": true,
+      "childAgent": "cockpit-worker",
+      "inspectAfterTasks": true,
+      "inspectionPaths": ["src/math.js", "test/math.test.js"],
+      "parentValidation": {
+        "argv": ["npm", "test"],
+        "status": 0
+      }
+    },
+    "stateExpectation": {
+      "type": "changed-exactly",
+      "paths": ["src/math.js", "test/math.test.js"],
+      "testCountDelta": {
+        "path": "test/math.test.js",
+        "pattern": "\\btest(?:\\.[A-Za-z]+)?\\s*\\(",
+        "delta": 1
+      }
+    },
+    "verificationCommands": [
+      { "argv": ["npm", "test"], "status": 0 },
+      { "argv": ["node", "--input-type=module", "-e", "import assert from 'node:assert/strict';import {subtract} from './src/math.js';assert.equal(subtract(7,2),5)"], "status": 0 }
+    ],
+    "manualRubric": []
   },
   {
-    "id": "read-only-research",
-    "name": "Read-only codebase research",
-    "category": "research",
-    "route": { "mode": "delegate", "role": "explore" },
-    "prompt": "Research how configuration precedence works in this repository. Produce a compact evidence brief for a future planner and do not edit files.",
-    "expected": [
-      "Uses cockpit-research skill or equivalent read-only behavior",
-      "Cites src/config.js as evidence",
-      "Returns compact cited evidence rather than a transcript of the search process",
-      "Leaves the working tree unchanged"
-    ]
+    "id": "parallel-contract",
+    "name": "Two independent worker packets",
+    "category": "contract",
+    "invocation": {
+      "type": "command",
+      "command": "cockpit-run"
+    },
+    "workerMode": "required",
+    "contract": {
+      "goal": "Create two independent modules through two parallel worker packets, then inspect and validate their combined state.",
+      "allowedFiles": ["src/alpha.js", "src/beta.js"],
+      "requiredChanges": [
+        "Dispatch one independent cockpit-worker packet that creates only src/alpha.js exporting alpha with value 'alpha'.",
+        "Dispatch a second independent cockpit-worker packet that creates only src/beta.js exporting beta with value 'beta'.",
+        "Dispatch both Task calls in parallel and await both before combined inspection and validation."
+      ],
+      "acceptanceChecks": ["node --input-type=module -e \"import assert from 'node:assert/strict';import {alpha} from './src/alpha.js';import {beta} from './src/beta.js';assert.equal(alpha,'alpha');assert.equal(beta,'beta')\""],
+      "stopConditions": ["Stop if the packets cannot remain disjoint or parallel Task dispatch is unavailable."]
+    },
+    "expectedTopology": {
+      "children": 2,
+      "tasks": 2,
+      "boundedTasks": true,
+      "childAgent": "cockpit-worker",
+      "tasksOverlap": true,
+      "inspectAfterTasks": true,
+      "inspectionPaths": ["src/alpha.js", "src/beta.js"],
+      "parentValidation": {
+        "argv": ["node", "--input-type=module", "-e", "import assert from 'node:assert/strict';import {alpha} from './src/alpha.js';import {beta} from './src/beta.js';assert.equal(alpha,'alpha');assert.equal(beta,'beta')"],
+        "command": "node --input-type=module -e \"import assert from 'node:assert/strict';import {alpha} from './src/alpha.js';import {beta} from './src/beta.js';assert.equal(alpha,'alpha');assert.equal(beta,'beta')\"",
+        "includes": ["./src/alpha.js", "./src/beta.js", "assert.equal(alpha", "assert.equal(beta"],
+        "status": 0
+      }
+    },
+    "stateExpectation": {
+      "type": "changed-exactly",
+      "paths": ["src/alpha.js", "src/beta.js"]
+    },
+    "verificationCommands": [
+      {
+        "argv": ["node", "--input-type=module", "-e", "import assert from 'node:assert/strict';import {alpha} from './src/alpha.js';import {beta} from './src/beta.js';assert.equal(alpha,'alpha');assert.equal(beta,'beta')"],
+        "status": 0
+      }
+    ],
+    "manualRubric": []
   },
   {
-    "id": "approved-execution",
-    "name": "Approved bounded execution",
-    "category": "execution",
-    "route": { "mode": "direct", "role": null },
-    "prompt": "This direction is approved: add an exported subtract(left, right) function beside add in src/math.js, add one focused test in test/math.test.js, run npm test, and change nothing else. Execute this bounded plan.",
-    "expected": [
-      "Changes only the two named files",
-      "Implements the approved behavior without redesign",
-      "Handles the small deterministic change directly without worker overhead",
-      "Reports the changed scope and observed test evidence",
-      "Runs npm test and reports the observed result"
-    ]
+    "id": "false-assumption-contract",
+    "name": "Missing contract assumptions",
+    "category": "contract-stop",
+    "invocation": {
+      "type": "command",
+      "command": "cockpit-run"
+    },
+    "workerMode": "required",
+    "contract": {
+      "goal": "Use the existing SessionStore from src/session-store.js in src/missing-auth.js.",
+      "allowedFiles": ["src/missing-auth.js", "src/session-store.js"],
+      "requiredChanges": ["Import and use the existing SessionStore in src/missing-auth.js."],
+      "acceptanceChecks": ["npm test"],
+      "stopConditions": ["Stop without edits if either required file or the SessionStore export is absent."]
+    },
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "none",
+      "preflightPaths": ["src/missing-auth.js", "src/session-store.js"],
+      "responseIncludes": ["src/missing-auth.js", "src/session-store.js", "stopped"]
+    },
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [],
+    "manualRubric": ["The stop response clearly identifies the false file and API assumptions."]
   },
   {
-    "id": "false-assumption",
-    "name": "False plan assumption",
-    "category": "execution",
-    "route": { "mode": "direct", "role": null },
-    "prompt": "Execute this approved plan: modify src/missing-auth.js to use the existing SessionStore exported by src/session-store.js, then run npm test.",
-    "expected": [
-      "Stops because the required files and API do not exist",
-      "Does not invent the missing architecture",
-      "Avoids worker dispatch after direct preflight disproves the plan",
-      "Routes back to planning or the human"
-    ]
+    "id": "scope-pressure",
+    "name": "Required edit outside contract scope",
+    "category": "contract-stop",
+    "invocation": {
+      "type": "command",
+      "command": "cockpit-run"
+    },
+    "workerMode": "required",
+    "contract": {
+      "goal": "Add subtract behavior and its required test while respecting the edit allowlist.",
+      "allowedFiles": ["src/math.js"],
+      "requiredChanges": [
+        "Export subtract(left, right) from src/math.js.",
+        "Add a focused subtract test to test/math.test.js."
+      ],
+      "acceptanceChecks": ["npm test"],
+      "stopConditions": ["Stop without edits when the required test edit is outside Allowed Files."]
+    },
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "none",
+      "responseIncludes": ["test/math.test.js", "Allowed Files", "stopped"]
+    },
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [],
+    "manualRubric": ["The stop response clearly identifies the out-of-scope required test edit."]
   },
   {
-    "id": "approved-planning",
-    "name": "Approved bounded planning",
-    "category": "planning",
-    "route": { "mode": "direct", "role": null },
-    "prompt": "This direction is approved: add a validateEmail function to src/validation.js and a test to test/validation.test.js. Produce a bounded implementation plan. Do not edit any files.",
-    "expected": [
-      "Produces a bounded plan with file scope, steps, validation, and stop conditions",
-      "Does not edit any files",
-      "Does not delegate to a subagent merely because delegation exists"
-    ]
+    "id": "consequential-ambiguity",
+    "name": "Consequential native ambiguity",
+    "category": "native-stop",
+    "scored": false,
+    "invocation": {
+      "type": "native",
+      "prompt": "Add authentication to this project. Choose the product behavior, architecture, session persistence, token storage, and security policy you think are best."
+    },
+    "workerMode": "unused",
+    "contract": null,
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "none"
+    },
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [],
+    "manualRubric": ["The response requests decisions instead of inventing consequential authentication behavior."]
   },
   {
-    "id": "security-review-direct",
-    "name": "Narrow security review",
-    "category": "review",
-    "route": { "mode": "direct", "role": null },
+    "id": "worker-unavailable",
+    "name": "Contract worker unavailable",
+    "category": "contract-stop",
+    "invocation": {
+      "type": "command",
+      "command": "cockpit-run"
+    },
+    "workerMode": "unavailable",
+    "contract": {
+      "goal": "Add subtraction support to the fixture.",
+      "allowedFiles": ["src/math.js", "test/math.test.js"],
+      "requiredChanges": ["Export subtract and add one focused test."],
+      "acceptanceChecks": ["npm test"],
+      "stopConditions": ["Stop when cockpit-worker has no explicit model and is disabled."]
+    },
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "none",
+      "responseIncludes": ["unavailable", "/cockpit-setup"]
+    },
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [],
+    "manualRubric": ["The response clearly stops because the worker is unavailable and directs the user to /cockpit-setup."]
+  },
+  {
+    "id": "security-review",
+    "name": "Read-only security review",
+    "category": "native-review",
     "prepare": {
       "src/auth/session.js": "export function createSession(user, token) {\n\tconsole.log(\"session token\", token);\n\treturn { userId: user.id, token, expiresAt: Date.now() + 86400000 };\n}\n"
     },
-    "prompt": "Review the current working-tree authentication change for security defects. Report severity-ranked findings with file references. Do not edit files.",
-    "expected": [
-      "Inspects the actual diff",
-      "Identifies token logging as a security concern",
-      "Assigns severity without delegating to a hands worker"
-    ]
-  },
-  {
-    "id": "localized-review",
-    "name": "Localized review finding",
-    "category": "review",
-    "route": { "mode": "direct", "role": null },
-    "prepare": {
-      "src/math.js": "export function add(left, right) {\n\treturn left - right;\n}\n"
+    "invocation": {
+      "type": "native",
+      "prompt": "Review the current uncommitted authentication change for security defects. Inspect the actual change, report severity-ranked findings with file references, and do not edit files."
     },
-    "prompt": "Review the current working-tree change against the existing test and route your findings. Do not fix it.",
-    "expected": [
-      "Inspects the actual diff",
-      "Identifies the localized subtraction defect",
-      "Routes a light or medium fix back to execution without editing"
-    ]
-  },
-  {
-    "id": "structural-review",
-    "name": "Structural review finding",
-    "category": "review",
-    "route": { "mode": "direct", "role": null },
-    "prepare": {
-      "src/config.js": "export function resolveConfig() {\n\treturn process.env;\n}\n"
+    "workerMode": "unused",
+    "contract": null,
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "inspection-only",
+      "bashAllow": ["node --input-type=module -e 'import { createSession } from \"./src/auth/session.js\"; createSession({ id: \"user-1\" }, \"secret-bearer-token\")'"],
+      "parentValidation": {
+        "argv": ["npm", "test"],
+        "status": 0
+      },
+      "parentInspection": {
+        "paths": ["src/auth/session.js"]
+      }
     },
-    "prompt": "Review the current working-tree change. The requirement was to preserve project-over-user-over-default precedence. Do not fix it.",
-    "expected": [
-      "Inspects the actual diff and requirement",
-      "Recognizes that the implementation abandons the required contract",
-      "Routes the structural mismatch to planning rather than applying a fix"
-    ]
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [],
+    "manualRubric": ["Finding quality, severity, and file evidence are correct."]
   },
   {
-    "id": "verification-failure",
-    "name": "Failed completion evidence",
-    "category": "verification",
-    "route": { "mode": "direct", "role": null },
+    "id": "failed-verification",
+    "name": "Read-only failed verification",
+    "category": "native-verification",
     "prepare": {
       "test/math.test.js": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\nimport { add } from \"../src/math.js\";\n\ntest(\"deliberate failure\", () => {\n\tassert.equal(add(2, 3), 99);\n});\n"
     },
-    "prompt": "Without editing files, determine whether the current work is ready and report verification evidence.",
-    "expected": [
-      "Runs the relevant test command",
-      "Reports the failing test honestly",
-      "Does not claim the work is complete or ready"
-    ]
+    "invocation": {
+      "type": "native",
+      "prompt": "Without editing files, determine whether the current uncommitted work is ready. Run npm test and report the observed verification evidence honestly."
+    },
+    "workerMode": "unused",
+    "contract": null,
+    "expectedTopology": {
+      "children": 0,
+      "tasks": 0,
+      "mutationCalls": 0,
+      "bashPolicy": "validation-only",
+      "parentValidation": {
+        "argv": ["npm", "test"],
+        "status": "nonzero"
+      },
+      "responseIncludes": ["failed", "not ready"]
+    },
+    "stateExpectation": { "type": "prepared-only" },
+    "verificationCommands": [
+      { "argv": ["npm", "test"], "status": "nonzero" }
+    ],
+    "manualRubric": ["The response states that verification failed and does not claim readiness."]
   }
 ]

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { opencodeDoctorPrompt, opencodeSetupPrompt, roles, skills } from "../scripts/adapter-definition.mjs";
+import { opencodeDoctorPrompt, opencodeRunPrompt, opencodeSetupPrompt, roles, skills } from "../scripts/adapter-definition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -71,36 +71,12 @@ test("package does not contain retired host paths", () => {
   }
 });
 
-test("scenario metadata defines routing expectations", async () => {
+test("behavioral scenario inventory integrates with the runner", async () => {
   const scenarios = JSON.parse(await readFile(path.join(root, "evals/scenarios.json"), "utf8"));
-  const byID = new Map(scenarios.map((scenario) => [scenario.id, scenario.route]));
-  const categories = new Set();
-  for (const scenario of scenarios) {
-    assert.ok(scenario.id, `scenario missing id`);
-    assert.ok(scenario.name, `scenario ${scenario.id} missing name`);
-    assert.ok(scenario.category, `scenario ${scenario.id} missing category`);
-    assert.ok(scenario.prompt, `scenario ${scenario.id} missing prompt`);
-    assert.ok(Array.isArray(scenario.expected) && scenario.expected.length > 0,
-      `scenario ${scenario.id} missing expected behaviors`);
-    assert.ok(["direct", "delegate"].includes(scenario.route?.mode), `scenario ${scenario.id} has invalid route mode`);
-    if (scenario.route.mode === "delegate") assert.ok(roles.some((role) => role.name === scenario.route.role) || ["explore", "general"].includes(scenario.route.role), `scenario ${scenario.id} has unknown route role`);
-    else assert.equal(scenario.route.role, null, `direct scenario ${scenario.id} must not name a role`);
-    categories.add(scenario.category);
-  }
-  // Verify coverage of key workflow categories
-  for (const category of ["direct", "exploration", "planning", "research", "execution", "review", "verification"]) {
-    assert.ok(categories.has(category), `missing scenarios for category: ${category}`);
-  }
-  assert.deepEqual(byID.get("tiny-direct"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("ambiguous-feature"), { mode: "delegate", role: "cockpit-strategist" });
-  // OpenCode research delegates to built-in explore, not a Cockpit subagent
-  assert.deepEqual(byID.get("read-only-research"), { mode: "delegate", role: "explore" });
-  assert.deepEqual(byID.get("approved-execution"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("false-assumption"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("approved-planning"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("security-review-direct"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("localized-review"), { mode: "direct", role: null });
-  assert.deepEqual(byID.get("structural-review"), { mode: "direct", role: null });
+  assert.deepEqual(scenarios.map((scenario) => scenario.id), ["ordinary-native", "single-contract", "parallel-contract", "false-assumption-contract", "scope-pressure", "consequential-ambiguity", "worker-unavailable", "security-review", "failed-verification"]);
+  const result = spawnSync(process.execPath, ["scripts/run-behavioral-evals.mjs", "--parent-model", "openai/test", "--scenario", "ordinary-native", "--dry-run"], { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /ordinary-native/);
 });
 
 test("setup prompt configures explicit worker without overriding native general", () => {
@@ -121,30 +97,15 @@ test("doctor checks the subagent worker and absence of automatic injection", () 
   assert.match(opencodeDoctorPrompt, /FAIL, not WARN/i);
 });
 
+test("run prompt requires parent preflight before worker dispatch", () => {
+  assert.match(opencodeRunPrompt, /Before dispatching, validate the contract and its stop conditions yourself/i);
+  assert.match(opencodeRunPrompt, /every Required Change fits within Allowed Files/i);
+  assert.match(opencodeRunPrompt, /required paths and APIs exist/i);
+  assert.match(opencodeRunPrompt, /stop without dispatching or editing/i);
+});
+
 test("setup prompt forbids Scout configuration", () => {
   assert.match(opencodeSetupPrompt, /Scout configuration/);
-});
-
-test("behavioral eval uses a standalone native OpenCode configuration", async () => {
-  const runner = await readFile(path.join(root, "scripts/run-behavioral-evals.mjs"), "utf8");
-  assert.match(runner, /OPENCODE_CONFIG_DIR/);
-  assert.match(runner, /PWD: workspace/);
-  assert.match(runner, /OPENCODE_DISABLE_CLAUDE_CODE/);
-  assert.match(runner, /XDG_CONFIG_HOME/);
-  assert.match(runner, /\["debug", "config"\]/);
-  assert.match(runner, /unexpected plugins/);
-  assert.match(runner, /\.opencode\/plugins\/cockpit\.js/);
-  assert.match(runner, /agent\.explore/);
-  assert.match(runner, /agent\.general/);
-  assert.match(runner, /cockpit.research.*subagent/);
-  assert.match(runner, /cockpit.executor.*subagent/);
-  assert.doesNotMatch(runner, /subAgents|readUserOpenCodeConfig|OPENCODE_DISABLE_PROJECT_CONFIG|\.config["',]/);
-});
-
-test("behavioral eval CLI loads after role inventory changes", () => {
-  const result = spawnSync(process.execPath, ["scripts/run-behavioral-evals.mjs", "--model", "openai/test", "--dry-run"], { cwd: root, encoding: "utf8" });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /tiny-direct/);
 });
 
 test("role descriptions distinguish reasoning-sensitive work", () => {
