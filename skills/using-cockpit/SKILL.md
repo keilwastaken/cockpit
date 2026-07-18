@@ -5,71 +5,34 @@ description: Use at the start of coding, debugging, planning, or review work to 
 
 # Using Cockpit
 
-Cockpit is a skills-first methodology. Check for a relevant Cockpit skill before acting; do not invoke skills merely to add ceremony.
+Cockpit is a skills-first methodology. The reading agent is the oracle: it selects the shortest safe workflow, retains consequential decisions, and certifies completion. Use `cockpit-work-mode` when mode selection is not immediately obvious.
 
-## Core rule
+## Rules
 
-Use the smallest workflow that preserves correctness and keeps noisy work from consuming the primary conversation.
+1. **Tiny deterministic work** — handle directly. Validate and report. Do not delegate merely because delegation exists.
+2. **Broad/noisy research** — delegate to a hands worker when isolation likely saves more context than the handoff costs. Keep narrow lookups direct.
+3. **Approved bounded execution** — delegate to an executor only when the plan is explicit, low-risk, and independently executable.
+4. **Reasoning-sensitive work** — a strategist, planner, or reviewer may provide independent analysis. The oracle integrates the result and retains approval, severity, escalation, and completion judgment.
+5. **Worker unavailable** — perform the same work sequentially. Never spin up a custom runtime, queue, or dispatch mechanism.
 
-Before acting, determine:
+## Handoff discipline
 
-1. Is the request clear enough to implement?
-2. Are important facts missing?
-3. Is there an unapproved product, architecture, migration, security, persistence, or deployment decision?
-4. Is the work tiny and deterministic, or does it need a bounded plan?
-5. What evidence will prove completion?
-
-Use `cockpit-work-mode` when the answer is not immediately obvious.
-
-### Routing policy
-
-- **Tiny deterministic work:** handle directly without delegation. Validate and report.
-- **Broad/noisy read-only research:** delegate to a host-native research worker (from `cockpit-research` skill) when available. Fall back to sequential same-skill work in the current agent.
-- **Approved low-risk bounded implementation:** delegate to a host-native execution worker (from `cockpit-execute` skill) when available. Fall back to sequential same-skill work in the current agent.
-- **Reasoning-sensitive work** (exploration, planning, review): never transfer consequential judgment to hands-only workers. Use reasoning-capable agents.
-- **Worker unavailable:** perform the same work sequentially in the current agent. Never spin up a custom runtime, queue, or dispatch mechanism.
-
-### Orchestration-free
-
-Cockpit has no route engine, dispatch function, queue, retry loop, state machine, or automatic invocation mechanism. All routing decisions are explicit, inline, and made by the reading agent. Pi runs all workflows sequentially in the current agent. OpenCode and Claude use native agent dispatch only when explicitly invoked.
-
-## Skill sequence
-
-- Unclear direction: `cockpit-explore`, then wait for human approval.
-- Missing codebase or external facts: `cockpit-research`.
-- Approved nontrivial work: `cockpit-plan`.
-- Concrete bounded plan: `cockpit-execute`.
-- Independent work streams: `cockpit-parallel`.
-- Nontrivial completed change: `cockpit-review`.
-- Review feedback: `cockpit-review-response`.
-- Any completion claim: `cockpit-verify`.
-- Deferred idea or backlog work: `cockpit-capture`.
-
-Skills compose, but not every task needs the full sequence.
-
-## Context discipline
-
-- Keep raw search results, long logs, broad diffs, and failed attempts out of handoffs.
-- Pass compact findings with file, line, command, or URL evidence.
-- Prefer a fresh worker for noisy independent work when the harness supports it.
-- Before dispatching, emit one concise line such as `Cockpit: research → explore (hands)` or `Cockpit: strategy → strategist` so model use is visible. Do not announce routing for direct work.
-- If workers are unavailable, follow the same boundaries sequentially in the current agent.
-- Never hide decisions or uncertainty merely to keep the handoff short.
-- Never build a custom dispatch, queue, retry loop, or state machine to implement Cockpit routing.
+- Send only the goal, scope, required evidence or edits, validation, and stop conditions.
+- Do not repeat the full user prompt, bootstrap, methodology, or known context.
+- Workers return compact cited evidence — not a transcript of their process.
+- The oracle does not automatically repeat delegated broad work. It checks only gaps, contradictions, high-risk claims, and final certification.
+- Before dispatching, emit one concise line such as `Cockpit: research → worker` so model use is visible. Do not announce routing for direct work.
+- Omit irrelevant sections rather than emitting empty boilerplate.
 
 ## Non-negotiable boundaries
 
-- Exploration recommends; the human approves.
-- Research gathers evidence; it does not implement.
+- Exploration recommends; the human approves. Stop for human input when the path involves an unapproved product, architecture, migration, security, persistence, or deployment decision.
+- Research gathers evidence; it does not choose direction or implement.
 - Planning specifies; it does not edit.
-- Execution follows the approved scope; it does not silently redesign.
-- Review inspects the actual work product; it does not trust summaries.
+- Execution follows approved scope; it does not redesign.
+- Review inspects actual work; it does not trust summaries.
 - Verification uses fresh evidence; it does not infer success.
 
+Cockpit is orchestration-free: no route engine, dispatch function, queue, retry loop, state machine, or automatic invocation mechanism. All routing decisions are explicit, inline, and made by the oracle.
+
 User instructions override the default workflow. They do not justify false claims, destructive action, or silently making consequential decisions.
-
-## Harness distinctions
-
-- **Pi:** No subagent or dispatch mechanism. All Cockpit work runs sequentially in the current agent using Pi's native skill and extension system. Model selection is per-session.
-- **OpenCode:** Native subagents and the task tool provide dispatch. The built-in `explore` agent (configured with hands model) handles broad/noisy research, using the `cockpit-research` skill when an evidence brief is needed. Reasoning-sensitive roles (strategist, planner, reviewer) use the configured reasoning model. The executor uses the hands model. No custom routing engine. There is no `cockpit-research` subagent; research routes through `explore` instead.
-- **Claude Code:** Native Agent tool provides dispatch. Agents inherit the current model. SessionStart hook loads `using-cockpit`. No custom routing or orchestration.

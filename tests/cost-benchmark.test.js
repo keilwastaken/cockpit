@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -74,16 +75,19 @@ test("armConfig sets small_model and explore model per arm semantics", () => {
 	assert.equal(control.model, reasoning);
 	assert.equal(control.small_model, reasoning);
 	assert.equal(control.agent.explore.model, reasoning);
+	assert.equal(control.agent.general.model, reasoning);
 	assert.equal(control.plugin, undefined);
 
 	const isolation = armConfig("isolation", cockpitRoot, reasoning, hands, opencodeRoles);
 	assert.equal(isolation.small_model, reasoning);
 	assert.equal(isolation.agent.explore.model, reasoning);
+	assert.equal(isolation.agent.general.model, reasoning);
 	assert.ok(isolation.plugin);
 
 	const roleSplit = armConfig("role-split", cockpitRoot, reasoning, hands, opencodeRoles);
 	assert.equal(roleSplit.small_model, hands);
 	assert.equal(roleSplit.agent.explore.model, hands);
+	assert.equal(roleSplit.agent.general.model, hands);
 	assert.ok(roleSplit.plugin);
 });
 
@@ -138,10 +142,10 @@ test("telemetry invalidates provenance, malformed counters, unknown models, and 
 	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0)], [], "parent", "/workspace", 2_000).valid, false);
 	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0)], [{ session_id: "parent", data: "{" }], "parent", "/workspace", 2_000).valid, false);
 	assert.equal(collectSessionTree([session("parent", null, "opencode", "hands", 1, 1, 0, 0, 0)], [message("parent", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner").valid, false);
-	// Agent model mismatches are invalid: cockpit-executor must use hands model
-	const wrongExecutor = session("child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
-	wrongExecutor.agent = "cockpit-executor";
-	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0), wrongExecutor], [message("parent", 1, 0, 0), message("child", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner", { "cockpit-executor": "opencode/hands" }).valid, false);
+	// Agent model mismatches are invalid: general must use hands model
+	const wrongGeneral = session("child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
+	wrongGeneral.agent = "general";
+	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0), wrongGeneral], [message("parent", 1, 0, 0), message("child", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner", { "general": "opencode/hands" }).valid, false);
 	// Agent model mismatches are invalid: built-in explore must use hands model in role-split
 	const wrongExplore = session("explore-child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
 	wrongExplore.agent = "explore";
@@ -214,6 +218,219 @@ test("critical gates enforce runner, worktree, output, scope, and verification",
 	assert.equal(changed.pass, false);
 	assert.equal(changed.outcomes.find((gate) => gate.id === "scope").pass, false);
 	assert.equal(changed.outcomes.find((gate) => gate.id === "verification").pass, false);
+});
+
+test("delegation gate: exempt control with any delegation count and without telemetry", () => {
+	const gate = { id: "d", type: "delegation", arms: { control: { min: 0, max: 0 }, isolation: { min: 1 } } };
+	// Control passes with explicit telemetry
+	let result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "control",
+		telemetry: { delegationCount: 5 }, sessions: [{ isParent: true }, { isParent: false }, { isParent: false }],
+	});
+	assert.equal(result.pass, true, "control must pass even with nonzero delegation");
+	// Control passes with absent telemetry
+	result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "control",
+	});
+	assert.equal(result.pass, true, "control must pass without any telemetry");
+	// Control passes with null telemetry
+	result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "control",
+		telemetry: null, sessions: null,
+	});
+	assert.equal(result.pass, true, "control must pass with null telemetry");
+});
+
+test("delegation gate: required minimum delegation passes when count meets threshold", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { min: 1 } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 2 }, sessions: [{ isParent: true }, { isParent: false }, { isParent: false }],
+	});
+	assert.equal(result.pass, true);
+});
+
+test("delegation gate: prohibited delegation fails when count exceeds max", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { max: 0 } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 1 }, sessions: [{ isParent: true }, { isParent: false, agent: "explore" }],
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /1 > max 0/);
+});
+
+test("delegation gate: wrong worker role fails", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { min: 1, max: 1, agents: ["general"] } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 1 }, sessions: [{ isParent: true }, { isParent: false, agent: "explore" }],
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /expected agents \[general\], found \[explore\]/);
+});
+
+test("delegation gate: missing telemetry fails", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { min: 1 } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /telemetry missing/);
+});
+
+test("delegation gate: valid role-split with expected agent passes", () => {
+	const gate = { id: "d", type: "delegation", arms: { "role-split": { min: 1, agents: ["general"] } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "role-split",
+		telemetry: { delegationCount: 1 }, sessions: [{ isParent: true }, { isParent: false, agent: "general" }],
+	});
+	assert.equal(result.pass, true);
+});
+
+test("delegation gate: child session count mismatch fails", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { min: 1 } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 2 }, sessions: [{ isParent: true }],
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /child session count \d+ != delegation count 2/);
+});
+
+test("delegation gate: wrong child model fails", () => {
+	const gate = { id: "d", type: "delegation", arms: { "role-split": { min: 1, max: 1, agents: ["general"], agentModels: { "general": "hands" } } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "role-split",
+		telemetry: { delegationCount: 1 },
+		sessions: [{ isParent: true, model: "reasoner-v1" }, { isParent: false, agent: "general", model: "wrong-model" }],
+		models: { reasoning: "reasoner-v1", hands: "hands-v1" },
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /wrong model for general/);
+});
+
+test("delegation gate: valid model check passes", () => {
+	const gate = { id: "d", type: "delegation", arms: { "role-split": { min: 1, max: 1, agents: ["general"], agentModels: { "general": "hands" } } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "role-split",
+		telemetry: { delegationCount: 1 },
+		sessions: [{ isParent: true, model: "reasoner-v1" }, { isParent: false, agent: "general", model: "hands-v1" }],
+		models: { reasoning: "reasoner-v1", hands: "hands-v1" },
+	});
+	assert.equal(result.pass, true);
+});
+
+test("delegation gate: rejects extra child when max is 1", () => {
+	const gate = { id: "d", type: "delegation", arms: { isolation: { min: 1, max: 1, agents: ["explore"] } } };
+	const result = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 2 }, sessions: [{ isParent: true }, { isParent: false, agent: "explore" }, { isParent: false, agent: "explore" }],
+	});
+	assert.equal(result.pass, false);
+	assert.match(result.outcomes[0].detail, /2 > max 1/);
+});
+
+test("actual config-research delegation requires exactly one explore child in Cockpit arms", async () => {
+	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
+	const configResearch = scenarios.find((s) => s.id === "config-research");
+	assert.ok(configResearch, "config-research scenario must exist");
+	const gate = configResearch.criticalGates.find((g) => g.type === "delegation");
+	assert.ok(gate, "delegation gate must exist");
+	// Control exempt: min:0 max:0
+	assert.deepEqual(gate.arms.control, { min: 0, max: 0 }, "control must be exempt");
+	// Both Cockpit arms require exactly one delegation
+	assert.equal(gate.arms.isolation.min, 1, "isolation must have min 1");
+	assert.equal(gate.arms.isolation.max, 1, "isolation must have max 1");
+	assert.deepEqual(gate.arms.isolation.agents, ["explore"], "isolation agents must be [explore]");
+	assert.equal(gate.arms["role-split"].min, 1, "role-split must have min 1");
+	assert.equal(gate.arms["role-split"].max, 1, "role-split must have max 1");
+	assert.deepEqual(gate.arms["role-split"].agents, ["explore"], "role-split agents must be [explore]");
+	// Verify gate rejects extra child
+	const passResult = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 1 }, sessions: [{ isParent: true }, { isParent: false, agent: "explore" }],
+	});
+	assert.equal(passResult.pass, true, "exactly one explore delegation must pass");
+	const failResult = evaluateCriticalGates({ criticalGates: [gate] }, {
+		process: { status: 0, signal: null, error: null }, output: "", initialStatus: "", finalStatus: "",
+		initialSnapshot: {}, finalSnapshot: {}, commandResults: [], arm: "isolation",
+		telemetry: { delegationCount: 2 }, sessions: [{ isParent: true }, { isParent: false, agent: "explore" }, { isParent: false, agent: "explore" }],
+	});
+	assert.equal(failResult.pass, false, "two explore delegations must fail");
+	assert.match(failResult.outcomes[0].detail, /2 > max 1/);
+});
+
+test("config-research manualRubric includes handoff-concision", async () => {
+	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
+	const configResearch = scenarios.find((s) => s.id === "config-research");
+	assert.ok(configResearch, "config-research scenario must exist");
+	assert.ok(configResearch.manualRubric.includes("handoff-concision"), "manualRubric must include handoff-concision");
+});
+
+test("collectSessionTree anchors to parent session from SQLite database and excludes unrelated sessions", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "cockpit-session-db-test-"));
+	try {
+		const dbPath = path.join(directory, "opencode.db");
+		const database = new DatabaseSync(dbPath, { readWrite: true });
+		database.exec("CREATE TABLE session (id TEXT PRIMARY KEY, parent_id TEXT, directory TEXT, agent TEXT, model TEXT, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, time_created INTEGER)");
+		database.exec("CREATE TABLE message (session_id TEXT, data TEXT)");
+
+		const now = Date.now();
+		// Parent session matching workspace and time
+		database.prepare("INSERT INTO session (id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("parent", null, "/workspace", null, JSON.stringify({ providerID: "openai", modelID: "reasoner" }), 0.5, 100, 20, 5, 10, 2, now);
+		// Child session
+		database.prepare("INSERT INTO session (id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("child", "parent", "/workspace", "explore", JSON.stringify({ providerID: "opencode", modelID: "hands" }), 0.1, 30, 10, 0, 5, 1, now + 100);
+		// Grandchild session
+		database.prepare("INSERT INTO session (id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("grandchild", "child", "/workspace", "explore", JSON.stringify({ providerID: "opencode", modelID: "hands" }), 0.05, 15, 5, 0, 2, 0, now + 200);
+		// Unrelated session in different workspace
+		database.prepare("INSERT INTO session (id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("unrelated", null, "/other-project", null, JSON.stringify({ providerID: "openai", modelID: "reasoner" }), 999, 999, 999, 0, 0, 0, now + 300);
+		// Another unrelated session with stale time
+		database.prepare("INSERT INTO session (id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run("stale", null, "/workspace", null, JSON.stringify({ providerID: "openai", modelID: "other" }), 0, 0, 0, 0, 0, 0, 500);
+
+		// Add messages with token data for collectSessionTree validation
+		database.prepare("INSERT INTO message (session_id, data) VALUES (?, ?)").run("parent", JSON.stringify({ role: "user", text: "Research the codebase for configuration handling.", tokens: { input: 100, cache: { read: 5, write: 1 } } }));
+		database.prepare("INSERT INTO message (session_id, data) VALUES (?, ?)").run("parent", JSON.stringify({ role: "assistant", text: "I found the configuration system in src/config/ with three files.", tokens: { input: 50, cache: { read: 10, write: 2 } } }));
+		database.prepare("INSERT INTO message (session_id, data) VALUES (?, ?)").run("child", JSON.stringify({ role: "user", text: "Find how config validation works.", tokens: { input: 30, cache: { read: 2, write: 0 } } }));
+		database.prepare("INSERT INTO message (session_id, data) VALUES (?, ?)").run("child", JSON.stringify({ role: "assistant", text: "Config validation uses a schema defined in src/config/validate.js.", tokens: { input: 20, cache: { read: 5, write: 1 } } }));
+		database.close();
+
+		// Query the database using the same pattern as run-behavioral-evals.mjs
+		const queryDb = new DatabaseSync(dbPath, { readOnly: true });
+		const rows = queryDb.prepare("SELECT id, parent_id, directory, agent, model, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created FROM session ORDER BY time_created ASC").all();
+		const messageRows = queryDb.prepare("SELECT session_id, data FROM message ORDER BY session_id").all();
+		queryDb.close();
+
+		// Collect tree anchored at parent
+		const collected = collectSessionTree(rows, messageRows, "parent", "/workspace", now, [], null, {});
+		assert.equal(collected.valid, true, "tree collection must be valid");
+		const ids = collected.sessions.map((s) => s.id);
+		assert.deepEqual(ids, ["parent", "child", "grandchild"], "must select parent, child, and grandchild only");
+		assert.ok(collected.sessions.find((s) => s.isParent).id === "parent", "parent session must be marked isParent");
+
+		// Collect tree anchored at unrelated should fail
+		const unrelatedCollected = collectSessionTree(rows, [], "unrelated", "/workspace", now);
+		assert.equal(unrelatedCollected.valid, false, "unrelated session must fail provenance check");
+
+		// Collect tree anchored at stale should fail
+		const staleCollected = collectSessionTree(rows, [], "stale", "/workspace", now);
+		assert.equal(staleCollected.valid, false, "stale session must fail provenance check");
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
 });
 
 test("manifest and result validation reject tampering and config mismatches", () => {

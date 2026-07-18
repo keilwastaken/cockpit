@@ -18,7 +18,7 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 │   └── README.opencode.md       # OpenCode installation and usage
 ├── evals/
 │   ├── fixture/                 # Disposable evaluation repository
-│   ├── scenarios.json           # Eight behavioral scenarios and rubrics
+│   ├── scenarios.json           # Behavioral scenarios and rubrics
 │   └── README.md
 ├── extensions/cockpit.js        # Generated Pi extension
 ├── hooks/                       # Generated Claude SessionStart hook
@@ -29,7 +29,7 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 ├── skills/
 │   ├── using-cockpit/           # Workflow entry and composition rules
 │   ├── cockpit-work-mode/       # Smallest-safe-workflow decision
-│   ├── cockpit-explore/         # Read-only direction exploration
+│   ├── cockpit-strategy/        # Read-only direction strategy
 │   ├── cockpit-research/        # Read-only evidence gathering
 │   ├── cockpit-plan/            # Approved direction to executable plan
 │   ├── cockpit-execute/         # Scope-controlled implementation
@@ -49,7 +49,7 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 
 ### Skills
 
-`skills/using-cockpit/SKILL.md` is the methodology entrypoint. It selects and composes namespaced workflow skills and requests a single concise routing line only when work is delegated.
+`skills/using-cockpit/SKILL.md` is the methodology entrypoint. It declares the reading agent as the oracle and sets rules for direct work, hands workers, reasoning specialists, and compact handoffs.
 
 ### OpenCode
 

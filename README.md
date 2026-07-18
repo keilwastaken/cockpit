@@ -4,26 +4,26 @@
 
 Cockpit is a portable, skills-first methodology for context-efficient and evidence-driven software development with coding agents.
 
-It helps an agent choose the smallest safe workflow, resolve ambiguity before coding, research unknowns, write bounded plans, execute without silent scope expansion, route review feedback, and verify before claiming completion.
+The reading agent is the oracle: it selects the shortest safe workflow, retains consequential decisions, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis without replacing oracle judgment.
 
 ## Core workflow
 
 ```text
-choose mode -> explore if unclear -> human approval -> research if needed
-            -> plan -> execute -> review -> respond -> verify
+request -> oracle decision -> direct / worker / specialist -> oracle integration
+                                                          -> human decision or certified result
 ```
 
 Tiny deterministic changes skip directly to action and verification. Nontrivial work uses compact evidence handoffs instead of carrying raw searches, logs, and failed attempts through the primary conversation.
 
 ## Principles
 
-- Context is a budget.
-- Use the smallest sufficient workflow.
+- The oracle selects the shortest safe workflow.
+- Context is a budget; delegate when isolation saves more than the handoff costs.
 - Recommendation is not human approval.
-- Evidence precedes commitment.
-- Plans are bounded contracts.
+- Evidence precedes commitment; distinguish facts from inference.
+- Plans are bounded contracts with validation and stop conditions.
 - Executors stop rather than silently redesign.
-- Review routes local, structural, and human decisions differently.
+- The oracle retains severity, escalation, and completion judgment.
 - Fresh verification precedes completion claims.
 
 Read [`docs/methodology.md`](docs/methodology.md) and [`docs/handoff-contracts.md`](docs/handoff-contracts.md).
@@ -79,7 +79,7 @@ The generator produces deterministic committed output. A universal installer is 
 
 ## Behavioral evaluations
 
-Cockpit includes eight disposable behavioral scenarios for comparing strong, cheap, and local models:
+Cockpit includes disposable behavioral scenarios for comparing strong, cheap, and local models:
 
 ```bash
 npm run eval

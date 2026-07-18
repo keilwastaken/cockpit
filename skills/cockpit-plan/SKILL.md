@@ -24,7 +24,7 @@ Convert an approved direction and available evidence into a plan another coding 
 - Consequential open decisions have answers.
 - Relevant evidence exists, or assumptions are explicitly identified.
 
-If these are false, return to `cockpit-explore`, `cockpit-research`, or the human.
+If these are false, return to `cockpit-strategy`, `cockpit-research`, or the human.
 
 ## Boundaries
 

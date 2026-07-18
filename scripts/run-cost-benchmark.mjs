@@ -278,8 +278,9 @@ for (const job of jobs) {
 		database.close();
 		const expectedModels = job.arm === "role-split" ? [reasoningModel, handsModel] : [reasoningModel];
 		const agentModels = Object.fromEntries([
-			...opencodeRoles.map((role) => [role.name, job.arm === "role-split" && role.name === "cockpit-executor" ? handsModel : reasoningModel]),
+			...opencodeRoles.map((role) => [role.name, reasoningModel]),
 			["explore", job.arm === "role-split" ? handsModel : reasoningModel],
+			["general", job.arm === "role-split" ? handsModel : reasoningModel],
 		]);
 		const collected = collectSessionTree(rows, messageRows, parentSessionID, workspace, startedAt, expectedModels, reasoningModel, agentModels);
 		const telemetry = collected.valid ? aggregateTelemetry(collected.sessions, reasoningModel, handsModel) : null;
@@ -290,7 +291,7 @@ for (const job of jobs) {
 			return { command, status: result.status, signal: result.signal, error: result.error?.message ?? null, stdout: result.stdout, stderr: result.stderr };
 		});
 		const output = outputText(events);
-		const critical = evaluateCriticalGates(job.scenario, { process: processResult, output, initialStatus, finalStatus, initialSnapshot, finalSnapshot, commandResults });
+		const critical = evaluateCriticalGates(job.scenario, { process: processResult, output, initialStatus, finalStatus, initialSnapshot, finalSnapshot, commandResults, arm: job.arm, telemetry: collected.valid ? telemetry : null, sessions: collected.valid ? collected.sessions : null, models: { reasoning: reasoningModel, hands: handsModel } });
 		const changedFiles = changedSnapshotFiles(initialSnapshot, finalSnapshot)
 			.map((file) => ({ path: file, before: initialSnapshot[file] ?? null, after: finalSnapshot[file] ?? null }));
 		const result = {

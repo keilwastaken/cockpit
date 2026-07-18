@@ -5,16 +5,16 @@ description: Use when deciding whether a task should be handled directly, resear
 
 # Choosing a Work Mode
 
-Select the shortest safe path. Routing is a reasoned decision, not a file-count formula.
+Select the shortest safe path when the bootstrap does not make it obvious.
 
 ## When to use
 
 - The task's work mode is not self-evident and needs reasoned selection.
-- Multiple modes (direct, explore, research, plan, execute, parallel) are plausible and the shortest safe path must be determined.
+- Multiple modes are plausible and the shortest safe path must be determined.
 
 ## Do not use
 
-- When the mode is obvious from the task description (handle directly).
+- When the mode is obvious from the task description.
 - As ceremony when the direction, facts, and scope are already clear.
 
 ## Assess the task
@@ -28,58 +28,37 @@ Consider:
 - **Noise:** Will search output, logs, diffs, or failed attempts clutter the main context?
 - **Independence:** Can work streams proceed without shared files or decisions?
 
-## Select a mode
+## Context-savings test
 
-### Direct maneuver
+Delegate to a hands worker only when expected isolation savings exceed the request, handoff, and reintegration overhead. Narrow lookups stay direct. Consequential severity judgment and narrow security review remain with the oracle by default.
 
-Choose direct work when all are true:
+## Mode selection
 
-- the outcome is explicit and low-risk;
-- the relevant location is known or requires one narrow inspection;
-- the change is small and deterministic;
-- validation is obvious.
+### Direct maneuver — all must be true
+- Outcome explicit and low-risk; location known or one narrow inspection; change small and deterministic; validation obvious.
 
-Do not use direct maneuver for ambiguous design, multi-file refactors, or tasks needing research.
+### Bounded execution — direction approved
+- Needs targeted discovery, multiple edits, or context isolation. Plan first when scope is unclear. Delegate to executor when low-risk and independently executable.
 
-Act directly, validate, and report. Do not delegate merely because delegation exists.
+### Explore options — direction unresolved
+- Behavior, tradeoffs, architecture, or migration strategy is ambiguous. Stop for human approval before implementation.
 
-### Bounded execution
+### Research — facts unknown
+- Read-only evidence gathering. Delegate when broad or noisy; keep narrow lookups direct.
 
-Choose bounded execution when direction is approved and the task needs targeted discovery, several edits, tests, or context isolation. Write a compact plan first when sequencing or scope is not already explicit.
+### Parallel work — genuinely independent
+- Explicit ownership, no shared mutable files, no unresolved shared decisions.
 
-When the plan is low-risk, independently executable, and a host-native worker is available, normally dispatch it to the native cockpit-executor agent. Otherwise execute it sequentially under the same boundaries.
+### Human decision — consequential ambiguity
+- Choices are risky, irreversible, or preference-dependent. Present options and a recommendation.
 
-Do not use bounded execution for exploration, open-ended research, or when the direction is not yet approved.
+## Delegation boundaries
 
-### Explore options
-
-Use `cockpit-explore` when the request contains unresolved behavior, tradeoffs, architecture, migration strategy, or "make this better" ambiguity. Stop for human approval before implementation.
-
-Do not use explore for implementation, factual research, or when the direction is already approved.
-
-### Research
-
-Use `cockpit-research` when important facts are unknown or claims need evidence. Research can precede exploration or planning.
-
-When research is broad or noisy and a host-native worker is available, normally dispatch it to `cockpit-research`. Keep narrow lookups direct when the handoff would cost more than the isolation saves.
-
-Do not use research for design decisions, implementation, or when the facts are already known.
-
-### Parallel work
-
-Use `cockpit-parallel` only when tasks have explicit independent ownership, no shared mutable files, and no unresolved shared decision.
-
-Do not use parallel for tasks with ordering dependencies, shared files, or interdependent decisions.
-
-### Human decision
-
-Return directly to the human when choices are consequential, risky, irreversible, or preference-dependent. Present options and a recommendation rather than guessing.
-
-Do not proceed with planning or implementation when the decision is outside the approved scope.
+- **Hands workers** (research, executor): evidence gathering and approved bounded execution. They do not choose direction, redesign, or assign severity.
+- **Reasoning specialists** (strategist, planner, reviewer): independent analysis only. The oracle integrates their output and retains approval, severity, and final-claim judgment.
+- **Mechanical evidence collection** for review or verification may be delegated when noisy. The oracle decides whether the collected evidence proves the claim.
 
 ## Output
-
-State the decision compactly when useful:
 
 ```markdown
 ## Work Mode
@@ -89,4 +68,4 @@ State the decision compactly when useful:
 - Stop condition:
 ```
 
-Do not emit routing commentary when the mode is obvious and doing so would add noise.
+Do not emit routing commentary when the mode is obvious.

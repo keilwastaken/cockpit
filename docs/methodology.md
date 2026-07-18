@@ -1,6 +1,6 @@
 # Cockpit Methodology
 
-Cockpit is a portable workflow for keeping coding-agent work deliberate, bounded, and evidence-driven. The methodology lives in Markdown skills; harness plugins only make those skills discoverable.
+Cockpit is an oracle-and-worker methodology for keeping coding-agent work deliberate, bounded, and evidence-driven. The reading agent (the oracle) selects the shortest safe workflow, retains consequential judgment, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis but do not replace oracle decisions. The methodology lives in Markdown skills; harness plugins only make those skills discoverable.
 
 ## Principles
 
@@ -18,37 +18,16 @@ Cockpit is a portable workflow for keeping coding-agent work deliberate, bounded
 ## Workflow
 
 ```text
-intake
-  |
-  v
-choose work mode ----> direct maneuver ----> verify
-  |                       |
-  |                       + (tiny deterministic only)
-  |
-  +--> unclear direction --> explore options --> human approval
-  |                           (reasoning agent)
-  +--> missing facts ------> research <--------+
-  |                    (hands agent / explore)
-  +--> approved nontrivial work --> plan --> execute --> review
-  |                               (reasoning)  (hands)  (reasoning)
-  |                                           ^       |
-  |                                           |       +-- local issue
-  |                                             |
-  |                               replan <------+-- structural issue
-  |                                             |
-  |                                      human decision
-  |
-  +--> broad/noisy research --------> research (hands agent / explore)
-  +--> low-risk bounded exec -------> execute (hands agent)
+request -> oracle decision
+               | direct work
+               | bounded evidence worker
+               | approved execution worker
+               | optional reasoning specialist
+               v
+         oracle integration -> human decision or certified result
 ```
 
-Not every task traverses every stage. The work-mode decision selects the shortest safe path.
-
-### Host-specific behavior
-
-- **Pi:** All Cockpit work runs sequentially in the current agent. No dispatch, no subagents, no model routing. Setup selects a single per-session model.
-- **OpenCode:** Native subagents and the task tool provide dispatch. The built-in \`explore\` agent (configured with the hands model) handles broad/noisy research, using the \`cockpit-research\` skill when an evidence brief is needed. Reasoning-sensitive roles (strategist/planner/reviewer) use the reasoning model. The executor uses the hands model. There is no \`cockpit-research\` subagent in OpenCode; factual research routes through the built-in \`explore\` agent instead. Orchestration-free: no custom route engine, dispatch function, queue, retry loop, or automatic invocation.
-- **Claude Code:** Native Agent tool provides dispatch. Agents inherit the current model. SessionStart hook loads `using-cockpit`. No custom routing or orchestration.
+Not every task traverses every stage. The oracle selects the shortest safe path.
 
 ### Worker fallback
 

@@ -2,6 +2,36 @@
 
 Handoffs carry decisions and evidence between workflow stages without carrying the entire working context. Include only relevant sections and keep each section concise.
 
+## Worker Request
+
+```markdown
+# Worker Request
+## Goal
+## Scope
+## Required Evidence Or Edits
+## Validation
+## Stop Conditions
+```
+
+Send only applicable fields. Do not copy the full user prompt, bootstrap, plan, or raw logs into a handoff. Distinguish observed evidence from inference.
+
+## Worker Evidence Packet
+
+```markdown
+# Worker Evidence Packet
+## Status
+## Findings
+- finding — file, line, command, or URL evidence
+## Commands And Outcomes
+## Scope Deviations
+## Gaps And Uncertainty
+## Stop Reason
+```
+
+A worker packet is not approval, a final review verdict, or completion certification. The oracle may trust low-risk mechanical evidence when provenance is adequate, but must target-check consequential, contradictory, or incomplete claims.
+
+Omit irrelevant sections rather than emitting empty boilerplate. Research Brief, Execution Result, and Review Result remain valid specialized forms.
+
 ## Research Brief
 
 ```markdown

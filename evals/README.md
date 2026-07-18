@@ -7,10 +7,11 @@ Scenarios are categorized to cover each workflow mode:
 | Category | Scenario IDs | What is tested |
 |---|---|---|
 | direct | `tiny-direct` | Tiny deterministic work handled without delegation |
-| exploration | `ambiguous-feature` | Ambiguous direction exploration; reasoning agent delegation |
-| research | `read-only-research` | Read-only evidence gathering; noisy search delegation |
+| exploration | `ambiguous-feature` | Ambiguous direction exploration; strategist delegation, oracle retains boundary |
+| planning | `approved-planning` | Oracle produces a bounded plan without mandatory delegation |
+| research | `read-only-research` | Read-only evidence gathering; noisy search delegation to explore |
 | execution | `approved-execution`, `false-assumption` | Hands-worker execution and invalid-plan stop conditions |
-| review | `localized-review`, `structural-review` | Localized vs structural defects; reasoning agent delegation |
+| review | `localized-review`, `structural-review`, `security-review-direct` | Localized, structural, and security review paths; narrow security kept direct by default |
 | verification | `verification-failure` | Fresh evidence before completion claims |
 
 ## Config isolation

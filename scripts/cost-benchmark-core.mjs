@@ -79,12 +79,14 @@ export function armConfig(arm, cockpitRoot, reasoningModel, handsModel, roles) {
 	if (arm === "control") {
 		config.agent = Object.fromEntries(roles.map((role) => [role.name, { disable: true }]));
 		config.agent.explore = { model: reasoningModel };
+		config.agent.general = { model: reasoningModel };
 		return config;
 	}
 	config.plugin = [pathToFileURL(`${cockpitRoot}/.opencode/plugins/cockpit.js`).href];
 	config.agent = agentConfig(reasoningModel, arm === "isolation" ? reasoningModel : handsModel, roles);
-	// Override built-in explore with appropriate model for OpenCode
+	// Override built-in explore and general with appropriate models for OpenCode
 	config.agent.explore = { model: arm === "role-split" ? handsModel : reasoningModel };
+	config.agent.general = { model: arm === "role-split" ? handsModel : reasoningModel };
 	return config;
 }
 
@@ -292,6 +294,7 @@ export function collectSessionTree(rows, messageRows, parentSessionID, workspace
 			parentID: row.parent_id,
 			isParent: row.id === parentSessionID,
 			model,
+			agent: row.agent ?? null,
 			cost: row.cost,
 			tokens: { input: row.tokens_input, output: row.tokens_output, reasoning: row.tokens_reasoning, cache: { read: row.tokens_cache_read, write: row.tokens_cache_write } },
 			peakContext,
@@ -333,6 +336,39 @@ export function evaluateCriticalGates(scenario, context) {
 		if (gate.type === "output-all") { const missing = gate.patterns.filter((pattern) => !context.output.toLowerCase().includes(pattern.toLowerCase())); pass = missing.length === 0; detail = missing.length ? `missing: ${missing.join(", ")}` : "present"; }
 		if (gate.type === "changed-only") { pass = snapshotChanges.every((entry) => gate.paths.includes(entry)) && gate.required.every((entry) => snapshotChanges.includes(entry)); detail = snapshotChanges.join(", "); }
 		if (gate.type === "commands-pass") { pass = context.commandResults.length === gate.count && context.commandResults.every((result) => result.status === 0 && !result.signal && !result.error); detail = context.commandResults.map((result) => `${result.command[0]}=${result.status}`).join(", "); }
+		if (gate.type === "delegation") {
+			const arm = context.arm;
+			const config = gate.arms?.[arm];
+			if (arm === "control") { pass = true; detail = "control exempt"; }
+			else if (!config) { detail = `no delegation config for arm ${arm}`; pass = false; }
+			else if (!context.telemetry) { detail = "telemetry missing"; pass = false; }
+			else if (typeof context.telemetry.delegationCount !== "number") { detail = "delegation count unavailable"; pass = false; }
+			else {
+				const count = context.telemetry.delegationCount;
+				const childSessions = (context.sessions ?? []).filter((session) => !session.isParent);
+				if (childSessions.length !== count) { detail = `child session count ${childSessions.length} != delegation count ${count}`; pass = false; }
+				else if (config.min != null && count < config.min) { detail = `delegation ${count} < min ${config.min}`; pass = false; }
+				else if (config.max != null && count > config.max) { detail = `delegation ${count} > max ${config.max}`; pass = false; }
+				else if (config.agents && !childSessions.some((session) => config.agents.includes(session.agent))) {
+					const found = [...new Set(childSessions.map((s) => s.agent))].join(", ") || "none";
+					detail = `expected agents [${config.agents.join(", ")}], found [${found}]`; pass = false;
+				} else if (config.agentModels && context.models) {
+					let modelMismatch = null;
+					for (const session of childSessions) {
+						const role = config.agentModels[session.agent];
+						if (role) {
+							const expectedModel = context.models[role];
+							if (expectedModel && session.model !== expectedModel) {
+								modelMismatch = `wrong model for ${session.agent}: expected ${role} (${expectedModel}), got ${session.model}`;
+								break;
+							}
+						}
+					}
+					if (modelMismatch) { detail = modelMismatch; pass = false; }
+					else { pass = true; detail = `delegation count ${count}`; }
+				} else { pass = true; detail = `delegation count ${count}`; }
+			}
+		}
 		outcomes.push({ id: gate.id, pass, detail });
 	}
 	return { pass: outcomes.every((outcome) => outcome.pass), outcomes };

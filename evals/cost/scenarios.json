@@ -6,9 +6,10 @@
     "criticalGates": [
       { "id": "runner", "type": "runner-success" },
       { "id": "read-only", "type": "worktree", "value": "clean" },
-      { "id": "evidence", "type": "output-all", "patterns": ["src/config/index.js", "src/config/validate.js", "project", "user", "defaults"] }
+      { "id": "evidence", "type": "output-all", "patterns": ["src/config/index.js", "src/config/validate.js", "project", "user", "defaults"] },
+      { "id": "delegation-research", "type": "delegation", "arms": { "control": { "min": 0, "max": 0 }, "isolation": { "min": 1, "max": 1, "agents": ["explore"] }, "role-split": { "min": 1, "max": 1, "agents": ["explore"] } } }
     ],
-    "manualRubric": ["correctness", "completeness", "evidence", "instruction-adherence"]
+    "manualRubric": ["correctness", "completeness", "evidence", "handoff-concision", "instruction-adherence"]
   },
   {
     "id": "audit-design",
@@ -33,7 +34,8 @@
       { "id": "runner", "type": "runner-success" },
       { "id": "scope", "type": "changed-only", "paths": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"], "required": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"] },
       { "id": "verification", "type": "commands-pass", "count": 2 },
-      { "id": "reported", "type": "output-all", "patterns": ["maxRetries", "test"] }
+      { "id": "reported", "type": "output-all", "patterns": ["maxRetries", "test"] },
+      { "id": "delegation-executor", "type": "delegation", "arms": { "control": { "min": 0, "max": 0 }, "isolation": { "min": 1, "max": 1, "agents": ["general"] }, "role-split": { "min": 1, "max": 1, "agents": ["general"] } } }
     ],
     "manualRubric": ["correctness", "test-quality", "scope-discipline", "instruction-adherence"]
   },
@@ -47,7 +49,8 @@
     "criticalGates": [
       { "id": "runner", "type": "runner-success" },
       { "id": "read-only", "type": "worktree", "value": "prepared-only" },
-      { "id": "defects", "type": "output-all", "patterns": ["src/auth/session.js", "token", "sessionMinutes", "isSessionActive"] }
+      { "id": "defects", "type": "output-all", "patterns": ["src/auth/session.js", "token", "sessionMinutes", "isSessionActive"] },
+      { "id": "delegation-security", "type": "delegation", "arms": { "control": { "min": 0, "max": 0 }, "isolation": { "max": 0 }, "role-split": { "max": 0 } } }
     ],
     "manualRubric": ["correctness", "severity-calibration", "evidence", "instruction-adherence"]
   }

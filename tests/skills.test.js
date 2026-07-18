@@ -55,6 +55,68 @@ test("using-cockpit contains orchestration-free policy statement", async () => {
 	assert.match(content, /no.*retry/i);
 });
 
+test("using-cockpit identifies the reading agent as the oracle", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /oracle/i);
+	assert.match(content, /reading agent/i);
+	assert.match(content, /selects the shortest safe workflow/i);
+	assert.match(content, /retains consequential decisions/i);
+	assert.match(content, /certifies completion/i);
+});
+
+test("using-cockpit limits hands workers to evidence gathering and approved bounded execution", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /hands worker.*isolation/i);
+	assert.match(content, /executor.*plan.*explicit.*low-risk/i);
+	assert.doesNotMatch(content, /delegate.*every nontrivial/i);
+});
+
+test("using-cockpit requires compact non-repeating handoffs", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /Send only the goal/i);
+	assert.match(content, /Do not repeat.*full user prompt/i);
+	assert.match(content, /compact cited evidence/i);
+});
+
+test("using-cockpit discourages automatic repetition of delegated broad work", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /does not automatically repeat/i);
+	assert.match(content, /checks only gaps/i);
+});
+
+test("using-cockpit retains fresh-evidence verification", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /fresh evidence/i);
+	assert.match(content, /does not infer success/i);
+});
+
+test("using-cockpit references cockpit-work-mode for ambiguous mode selection", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /cockpit-work-mode.*not immediately obvious/i);
+});
+
+test("using-cockpit requires human stop for unapproved product, architecture, or migration decisions", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /human.*approve/i);
+	assert.match(content, /unapproved.*(product|architecture|migration|security|persistence|deployment)/i);
+});
+
+test("using-cockpit says research does not choose direction", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.match(content, /does not choose direction/i);
+});
+
+test("using-cockpit contains no Harness distinctions section", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	assert.doesNotMatch(content, /## Harness distinctions/i);
+});
+
+test("using-cockpit stays at or below the 60-line ceiling", async () => {
+	const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+	const lines = content.trim().split("\n").length;
+	assert.ok(lines <= 60, `using-cockpit is ${lines} lines (max 60)`);
+});
+
 test("OpenCode adapter registers skills, setup, doctor, and bootstrap", async () => {
 	const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
 	const hooks = await CockpitPlugin();

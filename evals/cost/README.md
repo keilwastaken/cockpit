@@ -54,7 +54,9 @@ Metrics include reasoning and hands processed tokens, total processed tokens, pa
 
 ## Quality
 
-Every scenario has mandatory deterministic gates. These cover process success, worktree boundaries, required evidence, changed-file scope, and independent verification commands. Gate outcomes are pass/fail and are never averaged into a quality percentage.
+Every scenario has mandatory deterministic gates. These cover process success, worktree boundaries, required evidence, changed-file scope, independent verification commands, and arm-aware delegation. Gate outcomes are pass/fail and are never averaged into a quality percentage.
+
+The `config-research` manual rubric includes a `handoff-concision` dimension: assess whether the worker returned compact cited evidence rather than a transcript of its search process. Token totals, peak parent context, and final-output concision cannot prove semantic non-duplication; that claim requires future trace-capable evidence.
 
 Subjective quality is scored separately through blind review:
 

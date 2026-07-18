@@ -1,9 +1,9 @@
 ---
-name: cockpit-explore
+name: cockpit-strategy
 description: Use before planning or coding when feature behavior, refactor direction, architecture, migration strategy, or important tradeoffs remain unresolved. Do not use for implementation, research, or when direction is already approved.
 ---
 
-# Exploring Options
+# Developing Strategy
 
 Clarify what should be built before deciding how to build it.
 
@@ -39,7 +39,7 @@ Clarify what should be built before deciding how to build it.
 5. Recommend one option or explain why the choice is preference-dependent.
 6. Ask the human for the exact decision needed.
 
-Do not turn the exploration into a detailed implementation plan. If factual uncertainty prevents comparison, invoke `cockpit-research` first.
+Do not turn the strategy into a detailed implementation plan. If factual uncertainty prevents comparison, invoke `cockpit-research` first.
 
 ## Output
 

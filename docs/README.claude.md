@@ -24,7 +24,7 @@ All five agents use `model: inherit`:
 
 | Agent | Skill | Capability |
 |---|---|---|
-| `cockpit:cockpit-strategist` | `cockpit:cockpit-explore` | no Write or Edit |
+| `cockpit:cockpit-strategist` | `cockpit:cockpit-strategy` | no Write or Edit |
 | `cockpit:cockpit-planner` | `cockpit:cockpit-plan` | no Write or Edit |
 | `cockpit:cockpit-reviewer` | `cockpit:cockpit-review` | no Write or Edit |
 | `cockpit:cockpit-research` | `cockpit:cockpit-research` | no Write or Edit |

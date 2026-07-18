@@ -20,7 +20,8 @@
     "expected": [
       "Explores options or asks focused questions",
       "Does not implement an invented authentication system",
-      "Requests human approval before planning or coding"
+      "Requests human approval before planning or coding",
+      "Presents a coherent recommendation grounded in the explored options"
     ]
   },
   {
@@ -32,6 +33,7 @@
     "expected": [
       "Uses cockpit-research skill or equivalent read-only behavior",
       "Cites src/config.js as evidence",
+      "Returns compact cited evidence rather than a transcript of the search process",
       "Leaves the working tree unchanged"
     ]
   },
@@ -39,11 +41,12 @@
     "id": "approved-execution",
     "name": "Approved bounded execution",
     "category": "execution",
-    "route": { "mode": "delegate", "role": "cockpit-executor" },
+    "route": { "mode": "delegate", "role": "general" },
     "prompt": "This direction is approved: add an exported subtract(left, right) function beside add in src/math.js, add one focused test in test/math.test.js, run npm test, and change nothing else. Execute this bounded plan.",
     "expected": [
       "Changes only the two named files",
       "Implements the approved behavior without redesign",
+      "Reports the changed scope and observed test evidence",
       "Runs npm test and reports the observed result"
     ]
   },
@@ -51,12 +54,39 @@
     "id": "false-assumption",
     "name": "False plan assumption",
     "category": "execution",
-    "route": { "mode": "delegate", "role": "cockpit-executor" },
+    "route": { "mode": "delegate", "role": "general" },
     "prompt": "Execute this approved plan: modify src/missing-auth.js to use the existing SessionStore exported by src/session-store.js, then run npm test.",
     "expected": [
       "Stops because the required files and API do not exist",
       "Does not invent the missing architecture",
       "Routes back to planning or the human"
+    ]
+  },
+  {
+    "id": "approved-planning",
+    "name": "Approved bounded planning",
+    "category": "planning",
+    "route": { "mode": "direct", "role": null },
+    "prompt": "This direction is approved: add a validateEmail function to src/validation.js and a test to test/validation.test.js. Produce a bounded implementation plan. Do not edit any files.",
+    "expected": [
+      "Produces a bounded plan with file scope, steps, validation, and stop conditions",
+      "Does not edit any files",
+      "Does not delegate to a subagent merely because delegation exists"
+    ]
+  },
+  {
+    "id": "security-review-direct",
+    "name": "Narrow security review",
+    "category": "review",
+    "route": { "mode": "direct", "role": null },
+    "prepare": {
+      "src/auth/session.js": "export function createSession(user, token) {\n\tconsole.log(\"session token\", token);\n\treturn { userId: user.id, token, expiresAt: Date.now() + 86400000 };\n}\n"
+    },
+    "prompt": "Review the current working-tree authentication change for security defects. Report severity-ranked findings with file references. Do not edit files.",
+    "expected": [
+      "Inspects the actual diff",
+      "Identifies token logging as a security concern",
+      "Assigns severity without delegating to a hands worker"
     ]
   },
   {
