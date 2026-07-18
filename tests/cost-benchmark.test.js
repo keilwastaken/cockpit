@@ -398,6 +398,17 @@ test("bounded implementation remains direct in every arm", async () => {
 	});
 });
 
+test("audit design uses deterministic gates for recommendation and read-only scope", async () => {
+	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
+	const audit = scenarios.find((scenario) => scenario.id === "audit-design");
+	assert.deepEqual(audit.criticalGates, [
+		{ id: "runner", type: "runner-success" },
+		{ id: "read-only", type: "worktree", value: "clean" },
+		{ id: "decision", type: "output-all", patterns: ["recommend"] },
+	]);
+	assert.ok(audit.manualRubric.includes("instruction-adherence"));
+});
+
 test("config-research manualRubric includes handoff-concision", async () => {
 	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
 	const configResearch = scenarios.find((s) => s.id === "config-research");

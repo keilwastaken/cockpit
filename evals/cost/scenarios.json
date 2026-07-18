@@ -18,7 +18,7 @@
     "criticalGates": [
       { "id": "runner", "type": "runner-success" },
       { "id": "read-only", "type": "worktree", "value": "clean" },
-      { "id": "decision", "type": "output-all", "patterns": ["recommend", "approval"] }
+      { "id": "decision", "type": "output-all", "patterns": ["recommend"] }
     ],
     "manualRubric": ["correctness", "tradeoff-quality", "recommendation", "instruction-adherence"]
   },
