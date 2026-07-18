@@ -36,6 +36,7 @@ Produce a compact evidence brief. Research establishes facts and uncertainty; it
 5. Consult external documentation only for current or version-sensitive contracts.
 6. Record evidence locations and contradictions.
 7. Stop when additional searching is unlikely to change the planning decision.
+8. Include Relevant Files, Tests and Commands, and External References sections only when they add information not already present in cited findings.
 
 If key evidence remains unavailable, say `INSUFFICIENT_CONTEXT` and specify what is missing. Do not fill gaps with plausible inventions.
 
@@ -46,12 +47,8 @@ If key evidence remains unavailable, say `INSUFFICIENT_CONTEXT` and specify what
 ## Question
 ## Findings
 - <finding> — <file:line, command, test, or URL evidence>
-## Relevant Files
-## Existing Patterns and Contracts
-## Tests and Commands
-## External References
 ## Gaps and Uncertainty
 ## Planning Implications
 ```
 
-Keep raw logs and long excerpts out of the handoff.
+Sections such as Relevant Files, Tests and Commands, and External References are optional — include them only when they add information not already present in cited findings. Keep raw logs and long excerpts out of the handoff.

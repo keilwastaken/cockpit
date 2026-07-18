@@ -1,6 +1,6 @@
 # Cockpit Skills
 
-Cockpit is a portable, oracle-and-worker methodology for context-efficient and evidence-driven software work. The reading agent is the oracle; hands workers and reasoning specialists provide bounded support. Skill identifiers are namespaced so Cockpit can coexist with other skill packages.
+Cockpit is an OpenCode-native, oracle-and-worker methodology for context-efficient and evidence-driven software work. The reading agent is the oracle; hands workers and reasoning specialists provide bounded support. Skill identifiers are namespaced so Cockpit can coexist with other skill packages.
 
 ## Workflow skills
 

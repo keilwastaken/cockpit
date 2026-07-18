@@ -62,6 +62,8 @@ function metrics(selected) {
 		reasoning: median(selected.map((result) => result.telemetry.reasoningModelTokens)),
 		hands: median(selected.map((result) => result.telemetry.handsModelTokens)),
 		total: median(selected.map((result) => result.telemetry.totalTokens)),
+		cacheRead: median(selected.map((result) => result.telemetry.cacheRead)),
+		cacheWrite: median(selected.map((result) => result.telemetry.cacheWrite)),
 		peak: median(selected.map((result) => result.telemetry.peakParentContext)),
 		delegations: median(selected.map((result) => result.telemetry.delegationCount)),
 		time: median(selected.map((result) => result.durationMs)) / 1000,
@@ -73,6 +75,8 @@ function tokenTotals(selected) {
 		reasoning: selected.reduce((sum, result) => sum + result.telemetry.reasoningModelTokens, 0),
 		hands: selected.reduce((sum, result) => sum + result.telemetry.handsModelTokens, 0),
 		total: selected.reduce((sum, result) => sum + result.telemetry.totalTokens, 0),
+		cacheRead: selected.reduce((sum, result) => sum + result.telemetry.cacheRead, 0),
+		cacheWrite: selected.reduce((sum, result) => sum + result.telemetry.cacheWrite, 0),
 	};
 }
 function delta(candidate, control) {
@@ -96,23 +100,23 @@ const lines = [
 	"",
 	"## Overall",
 	"",
-	"| Arm | Critical Pass | Blind Quality | Reasoning Processed | Hands Processed | Total Processed | Peak Parent | Delegations | Time (s) | Observed Cost |",
-	"|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+	"| Arm | Critical Pass | Blind Quality | Reasoning Processed | Hands Processed | Total Processed | Cache Reads | Cache Writes | Peak Parent | Delegations | Time (s) | Observed Cost |",
+	"|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
 ];
 for (const arm of arms) {
 	const value = metrics(results.filter((result) => result.arm === arm));
-	lines.push(`| ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.delegations.toFixed(1)} | ${value.time.toFixed(1)} | $${value.cost.toFixed(4)} |`);
+	lines.push(`| ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${value.cacheRead.toFixed(1)} | ${value.cacheWrite.toFixed(1)} | ${Math.round(value.peak)} | ${value.delegations.toFixed(1)} | ${value.time.toFixed(1)} | $${value.cost.toFixed(4)} |`);
 }
-lines.push("", "## Matrix Token Totals", "", "| Arm | Reasoning Tokens | Hands Tokens | Total Tokens | Reasoning Share | Hands Share |", "|---|---:|---:|---:|---:|---:|");
+lines.push("", "## Matrix Token Totals", "", "| Arm | Reasoning Tokens | Hands Tokens | Total Tokens | Cache Reads | Cache Writes | Reasoning Share | Hands Share |", "|---|---:|---:|---:|---:|---:|---:|---:|");
 for (const arm of arms) {
 	const value = tokenTotals(results.filter((result) => result.arm === arm));
-	lines.push(`| ${arm} | ${value.reasoning} | ${value.hands} | ${value.total} | ${(value.reasoning / value.total * 100).toFixed(1)}% | ${(value.hands / value.total * 100).toFixed(1)}% |`);
+	lines.push(`| ${arm} | ${value.reasoning} | ${value.hands} | ${value.total} | ${value.cacheRead} | ${value.cacheWrite} | ${(value.reasoning / value.total * 100).toFixed(1)}% | ${(value.hands / value.total * 100).toFixed(1)}% |`);
 }
 lines.push("", "Estimated model cost can be calculated as `(reasoning tokens × reasoning rate) + (hands tokens × hands rate)`. Provider-reported cost remains observational.");
-lines.push("", "## Scenario Results", "", "| Scenario | Arm | Critical Pass | Blind Quality | Reasoning | Hands | Total | Peak Parent | Time (s) |", "|---|---|---:|---:|---:|---:|---:|---:|---:|");
+lines.push("", "## Scenario Results", "", "| Scenario | Arm | Critical Pass | Blind Quality | Reasoning | Hands | Total | Cache Reads | Cache Writes | Peak Parent | Time (s) |", "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
 for (const scenario of scenarioIDs) for (const arm of arms) {
 	const value = metrics(results.filter((result) => result.scenario === scenario && result.arm === arm));
-	lines.push(`| ${scenario} | ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${Math.round(value.peak)} | ${value.time.toFixed(1)} |`);
+	lines.push(`| ${scenario} | ${arm} | ${value.critical.toFixed(0)}% | ${value.manual.toFixed(1)} | ${Math.round(value.reasoning)} | ${Math.round(value.hands)} | ${Math.round(value.total)} | ${value.cacheRead.toFixed(1)} | ${value.cacheWrite.toFixed(1)} | ${Math.round(value.peak)} | ${value.time.toFixed(1)} |`);
 }
 lines.push("", "## Role-Split Delta", "", "| Scenario | Supported | Quality Delta | Reasoning | Hands Used | Total | Peak Parent | Time |", "|---|---|---:|---:|---:|---:|---:|---:|");
 for (const scenario of scenarioIDs) {
@@ -121,7 +125,7 @@ for (const scenario of scenarioIDs) {
 	const supported = control.critical === 100 && candidate.critical === 100 && candidate.manual >= control.manual;
 	lines.push(`| ${scenario} | ${supported ? "yes" : "no"} | ${(candidate.manual - control.manual).toFixed(1)} | ${delta(candidate.reasoning, control.reasoning)} | ${Math.round(candidate.hands)} | ${delta(candidate.total, control.total)} | ${delta(candidate.peak, control.peak)} | ${delta(candidate.time, control.time)} |`);
 }
-lines.push("", "Provider-reported cost is observational, not a billing guarantee. Results describe this bounded matrix only and are not a general causal estimate.", "");
+lines.push("", "### Cache observations", "", "Cache-read and cache-write values are raw provider-normalized counters reported through OpenCode. Provider semantics can differ. A value of zero is ambiguous — it may mean caching was unavailable, unused, or unreported. These observations do not prove that the prompt layout caused cache reuse, and they do not prove semantic non-duplication.", "", "Provider-reported cost is observational, not a billing guarantee. Results describe this bounded matrix only and are not a general causal estimate.", "");
 const markdown = lines.join("\n");
 const outputPath = path.resolve(options.get("--output"));
 await writeFileExclusiveAtomic(outputPath, markdown);

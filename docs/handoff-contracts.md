@@ -1,19 +1,25 @@
 # Cockpit Handoff Contracts
 
-Handoffs carry decisions and evidence between workflow stages without carrying the entire working context. Include only relevant sections and keep each section concise.
+Handoffs carry decisions and evidence between workflow stages without carrying the entire working context. Include only applicable sections and keep each section concise.
 
-## Worker Request
+## Worker Request (Statement of Work)
 
 ```markdown
 # Worker Request
 ## Goal
 ## Scope
-## Required Evidence Or Edits
+## Required Evidence or Edits
 ## Validation
 ## Stop Conditions
 ```
 
-Send only applicable fields. Do not copy the full user prompt, bootstrap, plan, or raw logs into a handoff. Distinguish observed evidence from inference.
+- **Use only applicable sections.** Do not emit empty boilerplate.
+- Do not copy the full user prompt, bootstrap, methodology, plan, or known context.
+- Distinguish observed evidence from inference.
+- When Cockpit controls prompt composition, the SOW is the final variable payload: stable role instructions precede it, and the task-specific content comes last.
+- JSON Schema should be used only when the host actually enforces structured output. No current Cockpit worker-return path does, so no JSON schema is added.
+- **Optional XML:** If a large or untrusted payload must be embedded, wrap only that payload in a descriptive XML tag such as `<untrusted_context>`. XML does **not** sanitize content, prevent prompt injection, authenticate data, or authorize actions — it is not a security boundary.
+- Do not pad prompts to reach cache thresholds.
 
 ## Worker Evidence Packet
 
@@ -39,14 +45,11 @@ Omit irrelevant sections rather than emitting empty boilerplate. Research Brief,
 ## Question
 ## Findings
 - finding — evidence location
-## Relevant Files
-## Tests and Commands
-## External References
 ## Gaps and Uncertainty
 ## Planning Implications
 ```
 
-A finding must distinguish direct evidence from inference. Research does not choose unapproved product direction.
+Optional inline sections: Relevant Files, Tests and Commands, External References. Include them only when they add information not already present in cited findings. A finding must distinguish direct evidence from inference. Research does not choose unapproved product direction.
 
 ## Options Brief
 
@@ -80,7 +83,7 @@ The final field is a proposed prompt, not evidence of approval.
 ## Execution Handoff
 ```
 
-Steps should be ordered, concrete, and independently verifiable where practical.
+Steps should be ordered, concrete, and independently verifiable where practical. Omit irrelevant prose. The Execution Handoff must be compact — a summary with file list, commands, and known risks.
 
 ## Execution Result
 
@@ -89,12 +92,13 @@ Steps should be ordered, concrete, and independently verifiable where practical.
 ## Summary
 ## Files Changed
 ## Validation Run
+- <command>: <outcome>
 ## Deviations
 ## Remaining Risks
 ## Review Tour
 ```
 
-Report command outcomes honestly. A command that was not run is a validation gap, not a pass.
+Omit Deviations and Remaining Risks when none exist rather than emitting empty sections. Report command outcomes honestly. A command that was not run is a validation gap, not a pass.
 
 ## Review Result
 
@@ -106,8 +110,10 @@ Report command outcomes honestly. A command that was not run is a validation gap
 ## Plan Alignment
 ## Validation Assessment
 ## Route
-## Fix or Replan Packet
+## Final Recommendation
 ```
+
+Include a Fix or Replan Packet section only when changes are requested. Omit it for approval verdicts.
 
 Feedback weights:
 

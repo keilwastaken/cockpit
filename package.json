@@ -1,13 +1,11 @@
 {
   "name": "cockpit",
   "version": "0.1.0",
-  "description": "Portable workflow skills for context-efficient, evidence-driven coding agents.",
+  "description": "OpenCode-native workflow skills for context-efficient, evidence-driven coding agents.",
   "type": "module",
   "main": ".opencode/plugins/cockpit.js",
   "keywords": [
-    "pi-package",
     "opencode",
-    "claude-code",
     "skills",
     "coding-agent",
     "workflow"
@@ -15,14 +13,9 @@
   "license": "MIT",
   "files": [
     ".opencode",
-    ".claude-plugin",
-    "agents",
-    "commands",
     "docs",
     "evals",
     "!evals/results",
-    "extensions",
-    "hooks",
     "scripts",
     "skills",
     "icon.png",
@@ -38,13 +31,5 @@
     "benchmark:cost": "node scripts/run-cost-benchmark.mjs",
     "benchmark:summary": "node scripts/summarize-cost-benchmark.mjs",
     "benchmark:prepare-review": "node scripts/prepare-cost-benchmark-review.mjs"
-  },
-  "pi": {
-    "skills": [
-      "./skills"
-    ],
-    "extensions": [
-      "./extensions/cockpit.js"
-    ]
   }
 }

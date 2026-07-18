@@ -1,6 +1,6 @@
 # Cockpit Methodology
 
-Cockpit is an oracle-and-worker methodology for keeping coding-agent work deliberate, bounded, and evidence-driven. The reading agent (the oracle) selects the shortest safe workflow, retains consequential judgment, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis but do not replace oracle decisions. The methodology lives in Markdown skills; harness plugins only make those skills discoverable.
+Cockpit is an oracle-and-worker methodology for keeping coding-agent work deliberate, bounded, and evidence-driven. The reading agent (the oracle) selects the shortest safe workflow, retains consequential judgment, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis but do not replace oracle decisions. The methodology lives in Markdown skills; the OpenCode plugin makes those skills discoverable.
 
 ## Principles
 
@@ -71,19 +71,20 @@ Stop and return to the human when work introduces an unapproved decision involvi
 
 Fix loops must be bounded. Two failed focused correction attempts normally indicate a planning or understanding problem.
 
-## Harness independence
+## Prompt layout for cache efficiency
 
-Canonical skills describe actions, not tool names. A harness adapter may map:
+When Cockpit controls prompt composition, content is ordered as:
 
-- inspect a file,
-- search the codebase,
-- edit a file,
-- run a command,
-- invoke a skill,
-- dispatch an independent worker,
-- maintain a task list.
+```text
+stable host, role, and skill instructions
+stable output contract
+final task-specific SOW or variable payload
+```
 
-Subagents, background jobs, model routing, and progress interfaces are optional capabilities. If unavailable, perform the same workflow sequentially in the current agent.
+- Static instructions contain no timestamps, run IDs, temporary paths, model IDs, user text, or task-specific substitutions.
+- Variable task content stays in the final payload.
+- Prompts are never padded merely to cross a provider cache threshold.
+- Provider features such as `cache_control`, `prompt_cache_key`, TTLs, cache breakpoints, and tool serialization remain host/provider responsibilities. Cache controls do not affect routing correctness.
 
 ## Non-goals
 

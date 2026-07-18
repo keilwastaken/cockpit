@@ -1,4 +1,4 @@
-export const bootstrapMarker = "COCKPIT_BOOTSTRAP_V1";
+export const bootstrapMarker = "COCKPIT_BOOTSTRAP_V2";
 
 export const skills = [
   "cockpit-capture",
@@ -33,26 +33,7 @@ export const roles = [
     description: "Reasoning-sensitive review of completed changes against requirements, risks, and tests. Use after implementation; do not use to fix defects directly.",
     readOnly: true,
   },
-  {
-    name: "cockpit-research",
-    skill: "cockpit-research",
-    description: "Read-only hands work for broad or noisy evidence gathering. Use when facts are unknown; do not use for implementation or consequential decisions.",
-    readOnly: true,
-  },
-  {
-    name: "cockpit-executor",
-    skill: "cockpit-execute",
-    description: "Hands work for approved low-risk bounded implementation with explicit validation and stop conditions. Do not use for exploration, planning, or consequential decisions.",
-    readOnly: false,
-  },
 ];
-
-// OpenCode does not use cockpit-research or cockpit-executor subagents:
-// - Built-in explore (hands model) handles broad/noisy fact-finding using the cockpit-research skill
-//   when an evidence brief is needed.
-// - Built-in general (hands model) handles approved bounded execution using the cockpit-execute skill.
-// The cockpit-strategist subagent handles consequential ambiguous decisions.
-export const opencodeRoles = roles.filter((role) => role.name !== "cockpit-research" && role.name !== "cockpit-executor");
 
 export const actionMappings = {
   opencode: [
@@ -62,16 +43,6 @@ export const actionMappings = {
     "Change files: use apply_patch.",
     "Run commands: use bash.",
     "Fetch current documentation: use webfetch.",
-  ],
-  pi: [
-    "Invoke a skill through Pi's native skill discovery.",
-    "Run workflows sequentially in the current agent; Cockpit does not add a Pi subagent runtime.",
-    "Use Pi's native read, grep, find, edit, write, and bash tools as appropriate.",
-  ],
-  claude: [
-    "Invoke Cockpit skills through Claude Code's native skill support.",
-    "Use the Agent tool only when bounded isolation has value; agents inherit the active model.",
-    "Use Read, Grep, Glob, Edit, Write, Bash, and WebFetch according to the active skill boundary.",
   ],
 };
 

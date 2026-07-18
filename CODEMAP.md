@@ -2,26 +2,22 @@
 
 ## Purpose
 
-Cockpit is a portable, skills-first software-development methodology. Canonical workflow behavior lives in Markdown skills. Harness adapters only register skills, inject the bootstrap, and map generic actions to native tools.
+Cockpit is an OpenCode-native, skills-first software-development methodology. Canonical workflow behavior lives in Markdown skills. The OpenCode adapter registers skills and injects the bootstrap.
 
 ## Structure
 
 ```text
 .
-├── .claude-plugin/plugin.json   # Claude Code plugin manifest
 ├── .opencode/plugins/cockpit.js # Generated OpenCode adapter and commands
-├── agents/                      # Generated Claude Code agents
-├── commands/                    # Generated Claude setup and doctor skills
 ├── docs/
 │   ├── methodology.md           # Principles, workflow, approval, escalation
 │   ├── handoff-contracts.md     # Interfaces between workflow stages
 │   └── README.opencode.md       # OpenCode installation and usage
 ├── evals/
+│   ├── cost/                    # Cost benchmarking scenarios and scorecards
 │   ├── fixture/                 # Disposable evaluation repository
 │   ├── scenarios.json           # Behavioral scenarios and rubrics
 │   └── README.md
-├── extensions/cockpit.js        # Generated Pi extension
-├── hooks/                       # Generated Claude SessionStart hook
 ├── scripts/
 │   ├── adapter-definition.mjs   # Shared adapter semantics
 │   ├── generate-adapters.mjs    # Deterministic adapter generator
@@ -38,8 +34,10 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 │   ├── cockpit-review-response/ # Evidence-based review response
 │   ├── cockpit-verify/          # Fresh completion evidence
 │   └── cockpit-capture/         # Durable task packets
-├── tests/adapters.test.js       # Pi, Claude, generation contracts
-├── tests/skills.test.js         # Metadata, references, OpenCode behavior
+├── tests/
+│   ├── adapters.test.js         # OpenCode, generation, and metadata contracts
+│   ├── skills.test.js           # Metadata, references, OpenCode behavior
+│   └── cost-benchmark.test.js   # Cost benchmark logic
 ├── LICENSE
 ├── README.md
 └── package.json
@@ -63,17 +61,9 @@ Cockpit is a portable, skills-first software-development methodology. Canonical 
 
 It does not implement jobs, model invocation, routing state, or execution loops.
 
-### Pi
-
-`package.json#pi` exposes the canonical skills and `extensions/cockpit.js`. The extension injects the bootstrap and registers native setup and doctor commands. It changes only Pi's active session model after confirmation and adds no subagent runtime.
-
-### Claude Code
-
-`.claude-plugin/plugin.json` makes the repository a native plugin. Claude discovers root `skills/`, `commands/`, and `agents/`; `hooks/hooks.json` injects the bootstrap at `SessionStart` through `additionalContext`.
-
 ### Generation
 
-`scripts/adapter-definition.mjs` owns shared inventory, role mappings, and adapter intent. `scripts/generate-adapters.mjs` renders committed harness artifacts. `npm run check:generated` detects drift.
+`scripts/adapter-definition.mjs` owns shared inventory, role mappings, and adapter intent. `scripts/generate-adapters.mjs` renders the committed OpenCode plugin. `npm run check:generated` detects drift.
 
 ## Handoff flow
 
@@ -90,7 +80,6 @@ Stages omit unnecessary handoffs for small work. Shared contracts are documented
 npm test
 npm run check
 npm pack --dry-run
-npm run eval
 ```
 
 Behavioral model runs require an explicit `--model`; listing scenarios is free.
@@ -101,8 +90,5 @@ Behavioral model runs require an explicit `--model`; listing scenarios is free.
 - Stage behavior: corresponding `skills/*/SKILL.md`
 - Handoff shape: `docs/handoff-contracts.md`
 - OpenCode discovery/setup/doctor only: `.opencode/plugins/cockpit.js`
-- Shared adapter semantics: `scripts/adapter-definition.mjs`
-- Pi integration: `extensions/cockpit.js`
-- Claude integration: `.claude-plugin/`, `agents/`, `commands/`, and `hooks/`
-- Behavioral regressions: `evals/scenarios.json`
+- OpenCode adapter semantics: `scripts/adapter-definition.mjs`
 - Adapter and metadata regressions: `tests/adapters.test.js` and `tests/skills.test.js`

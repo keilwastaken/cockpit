@@ -90,6 +90,14 @@ Run `/cockpit-setup` to override the built-in `explore` and `general` agents and
 
 These are ordinary OpenCode subagent definitions in your config. You can invoke them via the `task` tool or let the workflow skills delegate to them.
 
+## Bootstrap assembly
+
+The plugin performs runtime bootstrap assembly: it reads the body of `skills/using-cockpit/SKILL.md` at bootstrap time and prepends it (with harness-specific action mappings) before the original user task payload. This means:
+
+- **Identical source files produce identical bootstrap bytes.** No prerendering or intermediate cache layer is introduced.
+- The original user task payload remains byte-for-byte unchanged after the prepended bootstrap part.
+- Provider cache configuration is outside the plugin. Cache keys, TTLs, breakpoints, and tool serialization are host/provider responsibilities.
+
 ## Verification
 
 Run `/cockpit-doctor`, or ask OpenCode to list available skills. Confirm that `using-cockpit`, `cockpit-work-mode`, and the other namespaced Cockpit skills appear. Then start a small coding request and confirm the bootstrap is present only once.

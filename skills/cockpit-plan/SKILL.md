@@ -45,7 +45,7 @@ If these are false, return to `cockpit-strategy`, `cockpit-research`, or the hum
 7. Identify risks, assumptions, and conditions that invalidate the plan.
 8. End with a compact execution handoff.
 
-Use code snippets only where an interface or subtle algorithm must be unambiguous. Do not bury decisions in pseudo-code.
+Use code snippets only where an interface or subtle algorithm must be unambiguous. Do not bury decisions in pseudo-code. Omit irrelevant prose — every section serves the executor's understanding, not completeness for its own sake.
 
 ## Output
 
@@ -65,6 +65,8 @@ Use code snippets only where an interface or subtle algorithm must be unambiguou
 ## Stop Conditions
 ## Execution Handoff
 ```
+
+The Execution Handoff must be compact — a summary with file list, commands, and known risks. Do not repeat the plan's body.
 
 If no safe plan can be produced:
 

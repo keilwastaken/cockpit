@@ -58,8 +58,9 @@ APPROVED / CHANGES_REQUESTED / NEEDS_HUMAN_DECISION
 For each finding: severity, file:line, problem, impact, and suggested correction.
 ## Plan Alignment
 ## Validation Assessment
-## Fix or Replan Packet
 ## Final Recommendation
 ```
+
+Include a Fix or Replan Packet section only when changes are requested. Omit it for approval verdicts.
 
 Do not manufacture findings to justify the review. An approval is valid when supported by actual inspection.

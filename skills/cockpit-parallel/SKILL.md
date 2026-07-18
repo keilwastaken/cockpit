@@ -24,7 +24,7 @@ If these conditions are false, sequence the work or split it differently.
 
 1. Identify the independent work packets.
 2. Assign exclusive ownership and shared read-only context.
-3. Give each worker its goal, constraints, acceptance criteria, validation, and required handoff.
+3. Give each worker its goal, scope, required evidence or edits, validation, and stop conditions.
 4. Tell workers not to broaden scope or resolve shared decisions independently.
 5. Dispatch concurrently when the harness supports it; otherwise execute packets sequentially with the same boundaries.
 6. Collect compact results rather than raw transcripts.
@@ -38,12 +38,9 @@ Stop parallel execution when workers discover shared-file edits, incompatible as
 
 ```markdown
 ## Parallel Work Packet
-- Outcome:
-- Owned files/subsystem:
-- Shared read-only context:
-- Must not change:
-- Acceptance criteria:
-- Validation:
-- Stop conditions:
-- Required handoff:
+### Goal
+### Scope
+### Required Evidence or Edits
+### Validation
+### Stop Conditions
 ```

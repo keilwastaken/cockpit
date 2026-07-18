@@ -64,4 +64,4 @@ Use `cockpit-plan` for structural replanning or ask the human for consequential 
 ## Review Tour
 ```
 
-Never claim a command passed unless it was run and its result was observed.
+Omit Deviations and Remaining Risks when none exist rather than emitting empty sections. Never claim a command passed unless it was run and its result was observed.

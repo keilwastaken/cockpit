@@ -2,7 +2,7 @@
 
 # Cockpit
 
-Cockpit is a portable, skills-first methodology for context-efficient and evidence-driven software development with coding agents.
+Cockpit is an OpenCode-native, skills-first methodology for context-efficient and evidence-driven software development with coding agents.
 
 The reading agent is the oracle: it selects the shortest safe workflow, retains consequential decisions, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis without replacing oracle judgment.
 
@@ -32,13 +32,16 @@ Read [`docs/methodology.md`](docs/methodology.md) and [`docs/handoff-contracts.m
 
 Canonical behavior lives in namespaced Markdown skills under [`skills/`](skills/). The entry skill is `using-cockpit`; workflow skills use the `cockpit-*` namespace so Cockpit can coexist with other skill packages.
 
-## Harness adapters
+## Adapter
 
-Cockpit supports OpenCode, Pi, and Claude Code through native, thin adapters generated from [`scripts/adapter-definition.mjs`](scripts/adapter-definition.mjs). The adapters share skill inventory, role mappings, and bootstrap text while respecting each harness's own model and extension semantics.
+The OpenCode adapter registers the skills and bootstrap. It is generated from [`scripts/adapter-definition.mjs`](scripts/adapter-definition.mjs).
 
-### OpenCode
+```bash
+npm run generate         # regenerate the OpenCode plugin
+npm run check:generated  # fail if the generated plugin is stale
+```
 
-The thin OpenCode adapter registers the skills and bootstrap. It adds two commands:
+It adds two commands:
 
 ```text
 /cockpit-setup   # choose reasoning and hands models using scrollable lists
@@ -46,36 +49,6 @@ The thin OpenCode adapter registers the skills and bootstrap. It adds two comman
 ```
 
 See [`docs/README.opencode.md`](docs/README.opencode.md).
-
-### Pi
-
-Pi discovers the skills and extension through `package.json#pi`. The extension adds:
-
-```text
-/cockpit-setup   # choose Pi's active model for this session
-/cockpit-doctor  # diagnose the integration without writing config
-```
-
-Cockpit remains sequential in Pi's current agent. It does not add agents, background jobs, a second model role, or a custom orchestration runtime.
-
-See [`docs/README.pi.md`](docs/README.pi.md).
-
-### Claude Code
-
-The repository is a native Claude Code plugin with automatically discovered skills, `/cockpit:cockpit-setup`, `/cockpit:cockpit-doctor`, a `SessionStart` bootstrap hook, and five scoped agents. Agents inherit the active model; strategist, planner, reviewer, and research deny `Write` and `Edit`.
-
-See [`docs/README.claude.md`](docs/README.claude.md).
-
-### Adapter generation
-
-All adapters are generated from the canonical definition:
-
-```bash
-npm run generate         # regenerate committed adapters
-npm run check:generated  # fail if committed adapters are stale
-```
-
-The generator produces deterministic committed output. A universal installer is intentionally deferred; installation, updates, and removal remain native to each harness.
 
 ## Behavioral evaluations
 
@@ -93,7 +66,7 @@ See [`evals/README.md`](evals/README.md). Model calls run only when `--model` is
 ```bash
 npm test              # Run all tests (including adapter freshness)
 npm run check         # Test + adapter freshness check
-npm run generate      # Regenerate harness adapters
+npm run generate      # Regenerate the OpenCode adapter
 npm run check:generated # Verify adapter freshness only
 npm pack --dry-run    # Verify package contents
 ```

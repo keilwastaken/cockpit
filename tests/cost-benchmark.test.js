@@ -7,7 +7,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { opencodeRoles } from "../scripts/adapter-definition.mjs";
+import { roles as opencodeRoles } from "../scripts/adapter-definition.mjs";
 import {
 	aggregateTelemetry,
 	armConfig,
@@ -16,6 +16,7 @@ import {
 	createManifest,
 	evaluateCriticalGates,
 	generateJobs,
+	median,
 	parseArgs,
 	parseJsonLines,
 	sanitizeEnvironment,
@@ -480,7 +481,7 @@ test("complete matrix validation rejects duplicated tuples", () => {
 	assert.match(validateCompleteMatrix(malformed, scenarios.map((scenario) => scenario.id)), /incomplete|duplicated/);
 });
 
-test("blind review and summary CLIs accept only a complete matched matrix", async () => {
+test("blind review and summary CLIs accept only a complete matched matrix with fractional medians and exact sums", async () => {
 	const runID = `synthetic-${process.pid}-${Date.now()}`;
 	const runDirectory = path.join(root, "evals/results/cost", runID);
 	const privateDirectory = await mkdtemp(path.join(os.tmpdir(), "cockpit-review-test-"));
@@ -503,7 +504,17 @@ test("blind review and summary CLIs accept only a complete matched matrix", asyn
 		});
 		await mkdir(runDirectory, { recursive: true });
 		await writeFile(path.join(runDirectory, "manifest.json"), JSON.stringify(manifest));
+		// Use distinct cache values per job so medians are fractional and totals vary by arm
+		const cacheByJob = {};
 		for (const job of manifest.jobs) {
+			const key = `${job.arm}-${job.scenario}-${job.repetition}`;
+			// Control arm: values 10-19, isolation: 20-29, role-split: 30-39
+			const base = job.arm === "control" ? 10 : job.arm === "isolation" ? 20 : 30;
+			const offset = fullScenarios.findIndex((s) => s.id === job.scenario) * 2 + job.repetition;
+			cacheByJob[job.jobID] = { cacheRead: base + offset + 0.5, cacheWrite: base + offset };
+		}
+		for (const job of manifest.jobs) {
+			const c = cacheByJob[job.jobID];
 			const directory = path.join(runDirectory, job.scenario, job.arm);
 			await mkdir(directory, { recursive: true });
 			await writeFile(path.join(directory, `${job.repetition}.json`), JSON.stringify({
@@ -517,7 +528,7 @@ test("blind review and summary CLIs accept only a complete matched matrix", asyn
 				resolvedConfigHash: resolvedConfigs[job.arm].resolvedHash,
 				durationMs: 100,
 				telemetryValid: true,
-				telemetry: { reasoningModelTokens: 100, handsModelTokens: 50, totalTokens: 150, peakParentContext: 80, delegationCount: 1, cost: 0.01 },
+				telemetry: { reasoningModelTokens: 100, handsModelTokens: 50, totalTokens: 150, cacheRead: c.cacheRead, cacheWrite: c.cacheWrite, peakParentContext: 80, delegationCount: 1, cost: 0.01 },
 				critical: { pass: true, outcomes: [] },
 				artifacts: { changes: [], prepared: [] },
 				commandResults: [],
@@ -550,6 +561,48 @@ test("blind review and summary CLIs accept only a complete matched matrix", asyn
 		assert.match(scorecard, /Hands Used/);
 		assert.match(scorecard, /Matrix Token Totals/);
 		assert.match(scorecard, /Reasoning Share/);
+		// Cache columns present in overall, matrix totals, and scenario results
+		assert.match(scorecard, /Cache Reads/);
+		assert.match(scorecard, /Cache Writes/);
+		assert.match(scorecard, /Cache observations/);
+		const sectionRows = (heading, nextHeading) => {
+			const start = scorecard.indexOf(heading);
+			const end = nextHeading ? scorecard.indexOf(nextHeading, start + heading.length) : scorecard.length;
+			return scorecard.slice(start, end).split("\n");
+		};
+		const cells = (row) => row.split("|").slice(1, -1).map((cell) => cell.trim());
+		const overallRows = sectionRows("## Overall", "## Matrix Token Totals");
+		const totalRows = sectionRows("## Matrix Token Totals", "## Scenario Results");
+		const scenarioRows = sectionRows("## Scenario Results", "## Role-Split Delta");
+		// Fractional cache medians and exact matrix sums are rendered in their specific cells.
+		for (const arm of ["control", "isolation", "role-split"]) {
+			const armJobs = manifest.jobs.filter((j) => j.arm === arm);
+			const reads = armJobs.map((j) => cacheByJob[j.jobID].cacheRead).sort((a, b) => a - b);
+			const writes = armJobs.map((j) => cacheByJob[j.jobID].cacheWrite).sort((a, b) => a - b);
+			const middle = reads.length / 2;
+			const medianRead = reads.length % 2 === 0 ? (reads[middle - 1] + reads[middle]) / 2 : reads[Math.floor(middle)];
+			const medianWrite = writes.length % 2 === 0 ? (writes[middle - 1] + writes[middle]) / 2 : writes[Math.floor(middle)];
+			const overall = cells(overallRows.find((row) => row.startsWith(`| ${arm} |`)));
+			assert.equal(overall[6], medianRead.toFixed(1), `${arm} cache-read median`);
+			assert.equal(overall[7], medianWrite.toFixed(1), `${arm} cache-write median`);
+			const armTotalReads = armJobs.reduce((sum, j) => sum + cacheByJob[j.jobID].cacheRead, 0);
+			const armTotalWrites = armJobs.reduce((sum, j) => sum + cacheByJob[j.jobID].cacheWrite, 0);
+			const totals = cells(totalRows.find((row) => row.startsWith(`| ${arm} |`)));
+			assert.equal(totals[4], String(armTotalReads), `${arm} cache-read total`);
+			assert.equal(totals[5], String(armTotalWrites), `${arm} cache-write total`);
+			for (const scenario of fullScenarios) {
+				const jobs = armJobs.filter((job) => job.scenario === scenario.id);
+				const scenarioRead = median(jobs.map((job) => cacheByJob[job.jobID].cacheRead));
+				const scenarioWrite = median(jobs.map((job) => cacheByJob[job.jobID].cacheWrite));
+				const row = cells(scenarioRows.find((line) => line.startsWith(`| ${scenario.id} | ${arm} |`)));
+				assert.equal(row[7], scenarioRead.toFixed(1), `${scenario.id}/${arm} cache-read median`);
+				assert.equal(row[8], scenarioWrite.toFixed(1), `${scenario.id}/${arm} cache-write median`);
+			}
+		}
+		// No banned cache claims (qualification descriptions may mention these terms in negation)
+		assert.doesNotMatch(scorecard, /cache hit rate/i);
+		assert.doesNotMatch(scorecard, /avoided cost/i);
+		assert.doesNotMatch(scorecard, /savings/i);
 	} finally {
 		await rm(runDirectory, { recursive: true, force: true });
 		await rm(privateDirectory, { recursive: true, force: true });

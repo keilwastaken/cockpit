@@ -8,7 +8,7 @@ It does not assume that delegation reduces total tokens. Provider-reported cost 
 
 - `control`: Cockpit disabled with OpenCode `--pure`; native subagents remain available on the reasoning model.
 - `isolation`: Cockpit enabled with every Cockpit agent on the reasoning model.
-- `role-split`: Cockpit enabled with research and execution on the hands model.
+- `role-split`: Cockpit enabled with research (built-in explore) and execution (built-in general) on the hands model.
 
 ## Protocol
 
@@ -81,6 +81,20 @@ npm run benchmark:summary -- \
 ```
 
 The summary marks a reduction supported only when both arms pass every deterministic gate and blinded quality does not decrease for that scenario.
+
+### Cache observation protocol
+
+Cache observations follow a descriptive protocol — they are not causal claims:
+
+1. Keep the existing complete interleaved matrix and blind quality review as the behavioral acceptance evidence.
+2. Report cache reads and writes by arm and scenario as medians, plus exact matrix totals.
+3. Treat writes as observed cache writes, not guaranteed reusable entries.
+4. Treat reads as provider-normalized observations, not avoided cost.
+5. Do not compute a hit rate without a provider-specific eligible-token denominator and counter contract.
+6. Treat model, provider state, cache lifetime, tool schemas, run ordering, and delegation as confounders.
+7. Keep deterministic gates and blind quality as the behavioral acceptance evidence.
+8. Cache counters and concise output cannot establish semantic parent/worker non-duplication; that claim requires trace-capable evidence.
+9. Any paid benchmark run requires separate approval.
 
 ## Security And Retention
 
