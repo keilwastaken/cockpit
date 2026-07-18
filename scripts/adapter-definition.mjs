@@ -38,7 +38,7 @@ export const roles = [
 export const actionMappings = {
   opencode: [
     "Invoke a skill: use the native skill tool.",
-    "Dispatch independent work: use the task tool. Built-in explore (hands model) handles broad/noisy hands research. Built-in general (hands model) handles approved bounded execution. Every execution delegation to general must instruct it: Load the cockpit-execute skill before acting and follow it. Reasoning specialists (strategist, planner, reviewer) are optional for independent analysis.",
+    "Dispatch independent work with the task tool. Broad/noisy research delegates to built-in explore. Approved bounded execution delegates to built-in general and must instruct it: Load the cockpit-execute skill before acting and follow it. Use cockpit-strategist for unresolved consequential direction; ordinary approved planning and review stay in the oracle unless independent isolated analysis is explicitly valuable.",
     "Inspect files: use read, grep, and glob.",
     "Change files: use apply_patch.",
     "Run commands: use bash.",

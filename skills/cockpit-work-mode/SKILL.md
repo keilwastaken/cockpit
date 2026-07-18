@@ -38,13 +38,13 @@ Delegate to a hands worker only when expected isolation savings exceed the reque
 - Outcome explicit and low-risk; location known or one narrow inspection; change small and deterministic; validation obvious.
 
 ### Bounded execution — direction approved
-- Needs targeted discovery, multiple edits, or context isolation. Plan first when scope is unclear. Delegate to executor when low-risk and independently executable.
+- Needs targeted discovery, multiple edits, or context isolation. Plan first when scope is unclear. Delegate approved low-risk execution to built-in `general` with instructions to load `cockpit-execute`.
 
 ### Explore options — direction unresolved
 - Behavior, tradeoffs, architecture, or migration strategy is ambiguous. Stop for human approval before implementation.
 
 ### Research — facts unknown
-- Read-only evidence gathering. Delegate when broad or noisy; keep narrow lookups direct.
+- Read-only evidence gathering. Delegate broad/noisy research to built-in `explore`; keep narrow lookups direct.
 
 ### Parallel work — genuinely independent
 - Explicit ownership, no shared mutable files, no unresolved shared decisions.
@@ -54,7 +54,7 @@ Delegate to a hands worker only when expected isolation savings exceed the reque
 
 ## Delegation boundaries
 
-- **Hands workers** (research, executor): evidence gathering and approved bounded execution. They do not choose direction, redesign, or assign severity.
+- **Hands workers:** built-in `explore` gathers evidence; built-in `general` performs approved bounded execution under `cockpit-execute`. They do not choose direction, redesign, or assign severity.
 - **Reasoning specialists** (strategist, planner, reviewer): independent analysis only. The oracle integrates their output and retains approval, severity, and final-claim judgment.
 - **Mechanical evidence collection** for review or verification may be delegated when noisy. The oracle decides whether the collected evidence proves the claim.
 

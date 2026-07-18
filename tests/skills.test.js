@@ -96,9 +96,20 @@ test("using-cockpit identifies the reading agent as the oracle", async () => {
 
 test("using-cockpit limits hands workers to evidence gathering and approved bounded execution", async () => {
   const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
-  assert.match(content, /hands worker.*isolation/i);
-  assert.match(content, /executor.*plan.*explicit.*low-risk/i);
+  assert.match(content, /Broad research.*built-in `explore`/i);
+  assert.match(content, /Approved bounded execution.*built-in `general`.*cockpit-execute/i);
   assert.doesNotMatch(content, /delegate.*every nontrivial/i);
+});
+
+test("using-cockpit keeps ordinary planning and review direct", async () => {
+  const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+  assert.match(content, /keep ordinary approved planning and review direct/i);
+  assert.match(content, /use the strategist for unresolved consequential direction/i);
+});
+
+test("review routes abandoned approved behavior to planning", async () => {
+  const content = await readFile(path.join(skillsRoot, "cockpit-review", "SKILL.md"), "utf8");
+  assert.match(content, /heavy.*approved contract or behavior was abandoned.*return to planning/i);
 });
 
 test("using-cockpit requires compact non-repeating handoffs", async () => {

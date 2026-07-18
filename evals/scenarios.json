@@ -54,11 +54,12 @@
     "id": "false-assumption",
     "name": "False plan assumption",
     "category": "execution",
-    "route": { "mode": "delegate", "role": "general" },
+    "route": { "mode": "direct", "role": null },
     "prompt": "Execute this approved plan: modify src/missing-auth.js to use the existing SessionStore exported by src/session-store.js, then run npm test.",
     "expected": [
       "Stops because the required files and API do not exist",
       "Does not invent the missing architecture",
+      "Avoids worker dispatch after direct preflight disproves the plan",
       "Routes back to planning or the human"
     ]
   },
@@ -93,7 +94,7 @@
     "id": "localized-review",
     "name": "Localized review finding",
     "category": "review",
-    "route": { "mode": "delegate", "role": "cockpit-reviewer" },
+    "route": { "mode": "direct", "role": null },
     "prepare": {
       "src/math.js": "export function add(left, right) {\n\treturn left - right;\n}\n"
     },
@@ -108,7 +109,7 @@
     "id": "structural-review",
     "name": "Structural review finding",
     "category": "review",
-    "route": { "mode": "delegate", "role": "cockpit-reviewer" },
+    "route": { "mode": "direct", "role": null },
     "prepare": {
       "src/config.js": "export function resolveConfig() {\n\treturn process.env;\n}\n"
     },

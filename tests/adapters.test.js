@@ -183,8 +183,11 @@ test("scenario metadata defines routing expectations", async () => {
   // OpenCode research delegates to built-in explore, not a Cockpit subagent
   assert.deepEqual(byID.get("read-only-research"), { mode: "delegate", role: "explore" });
   assert.deepEqual(byID.get("approved-execution"), { mode: "delegate", role: "general" });
+  assert.deepEqual(byID.get("false-assumption"), { mode: "direct", role: null });
   assert.deepEqual(byID.get("approved-planning"), { mode: "direct", role: null });
   assert.deepEqual(byID.get("security-review-direct"), { mode: "direct", role: null });
+  assert.deepEqual(byID.get("localized-review"), { mode: "direct", role: null });
+  assert.deepEqual(byID.get("structural-review"), { mode: "direct", role: null });
 });
 
 test("setup prompt preserves existing current-name agent fields and collects legacy migration choices before preview", () => {
@@ -212,7 +215,7 @@ test("setup prompt preserves existing current-name agent fields and collects leg
 });
 
 test("OpenCode general delegations require the cockpit-execute contract", () => {
-  assert.match(actionMappings.opencode.join("\n"), /Every execution delegation to general must instruct it: Load the cockpit-execute skill before acting and follow it/);
+  assert.match(actionMappings.opencode.join("\n"), /Approved bounded execution delegates to built-in general and must instruct it: Load the cockpit-execute skill before acting and follow it/);
   assert.match(opencodeDoctorPrompt, /cockpit-executor.*built-in.*general/);
 });
 

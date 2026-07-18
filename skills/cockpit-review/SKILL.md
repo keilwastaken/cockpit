@@ -40,7 +40,7 @@ Review the work product, not the implementer's narrative.
 - `none`: no blocking issue; approve.
 - `light`: one or two localized corrections; return to execution.
 - `medium`: several localized corrections while the plan remains valid; return to execution, but replan after repeated failed fixes.
-- `heavy`: invalid assumption, plan mismatch, or structural problem; return to planning.
+- `heavy`: an approved contract or behavior was abandoned, an assumption is invalid, or structure no longer matches the plan; return to planning.
 - `blocker`: consequential ambiguity, credentials, destructive risk, security concern, or external decision; return to the human.
 
 ## Output
