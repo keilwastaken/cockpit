@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { roles } from "./adapter-definition.mjs";
+import { opencodeRoles } from "./adapter-definition.mjs";
 import {
 	ALL_ARMS,
 	REQUIRED_NODE_MAJOR,
@@ -185,7 +185,7 @@ const seed = sha256({ runID, provenance, reasoningModel, handsModel });
 const jobs = generateJobs(scenarios, arms, repetitions, seed);
 
 async function resolveArmConfig(arm) {
-	const intended = armConfig(arm, cockpitRoot, reasoningModel, handsModel, roles);
+	const intended = armConfig(arm, cockpitRoot, reasoningModel, handsModel, opencodeRoles);
 	if (options.has("--dry-run")) return { intended: sanitizeConfig(intended, [[cockpitRoot, "<COCKPIT_ROOT>"]]), resolvedHash: "unchecked-dry-run" };
 	const configDir = await mkdtemp(path.join(os.tmpdir(), "cockpit-cost-resolve-"));
 	try {
@@ -259,7 +259,7 @@ for (const job of jobs) {
 		}
 		const initialStatus = run("git", ["status", "--porcelain"], workspace, runEnv).stdout.trim();
 		const initialSnapshot = await snapshotDirectory(workspace);
-		const config = armConfig(job.arm, cockpitRoot, reasoningModel, handsModel, roles);
+		const config = armConfig(job.arm, cockpitRoot, reasoningModel, handsModel, opencodeRoles);
 		await writeFile(path.join(configDirectory, "opencode.json"), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 		const startedAt = Date.now();
 		const started = performance.now();
@@ -277,7 +277,10 @@ for (const job of jobs) {
 		const messageRows = rows.flatMap((row) => messageQuery.all(row.id));
 		database.close();
 		const expectedModels = job.arm === "role-split" ? [reasoningModel, handsModel] : [reasoningModel];
-		const agentModels = Object.fromEntries(roles.map((role) => [role.name, job.arm === "role-split" && ["cockpit-research", "cockpit-executor"].includes(role.name) ? handsModel : reasoningModel]));
+		const agentModels = Object.fromEntries([
+			...opencodeRoles.map((role) => [role.name, job.arm === "role-split" && role.name === "cockpit-executor" ? handsModel : reasoningModel]),
+			["explore", job.arm === "role-split" ? handsModel : reasoningModel],
+		]);
 		const collected = collectSessionTree(rows, messageRows, parentSessionID, workspace, startedAt, expectedModels, reasoningModel, agentModels);
 		const telemetry = collected.valid ? aggregateTelemetry(collected.sessions, reasoningModel, handsModel) : null;
 		const finalStatus = run("git", ["status", "--porcelain"], workspace, runEnv).stdout.trim();

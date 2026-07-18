@@ -62,7 +62,7 @@ See [`docs/README.pi.md`](docs/README.pi.md).
 
 ### Claude Code
 
-The repository is a native Claude Code plugin with automatically discovered skills, `/cockpit:cockpit-setup`, `/cockpit:cockpit-doctor`, a `SessionStart` bootstrap hook, and five scoped agents. Agents inherit the active model; explorer, planner, reviewer, and research deny `Write` and `Edit`.
+The repository is a native Claude Code plugin with automatically discovered skills, `/cockpit:cockpit-setup`, `/cockpit:cockpit-doctor`, a `SessionStart` bootstrap hook, and five scoped agents. Agents inherit the active model; strategist, planner, reviewer, and research deny `Write` and `Edit`.
 
 See [`docs/README.claude.md`](docs/README.claude.md).
 

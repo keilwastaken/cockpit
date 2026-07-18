@@ -15,7 +15,7 @@
     "id": "ambiguous-feature",
     "name": "Ambiguous consequential feature",
     "category": "exploration",
-    "route": { "mode": "delegate", "role": "cockpit-explorer" },
+    "route": { "mode": "delegate", "role": "cockpit-strategist" },
     "prompt": "I want to improve authentication in this project. Build something better.",
     "expected": [
       "Explores options or asks focused questions",
@@ -27,10 +27,10 @@
     "id": "read-only-research",
     "name": "Read-only codebase research",
     "category": "research",
-    "route": { "mode": "delegate", "role": "cockpit-research" },
+    "route": { "mode": "delegate", "role": "explore" },
     "prompt": "Research how configuration precedence works in this repository. Produce a compact evidence brief for a future planner and do not edit files.",
     "expected": [
-      "Uses cockpit-research or equivalent read-only behavior",
+      "Uses cockpit-research skill or equivalent read-only behavior",
       "Cites src/config.js as evidence",
       "Leaves the working tree unchanged"
     ]

@@ -6,6 +6,7 @@ import {
   actionMappings,
   bootstrapMarker,
   opencodeDoctorPrompt,
+  opencodeRoles,
   opencodeSetupPrompt,
   roles,
   skills,
@@ -178,7 +179,26 @@ const outputs = new Map([
   ...roles.map((role) => [`agents/${role.name}.md`, renderAgent(role)]),
 ]);
 
+// Retired generated artifacts that should be removed when present
+const retiredArtifacts = [
+  "agents/cockpit-explorer.md",
+];
+
 let stale = false;
+
+// Remove retired artifacts
+for (const relative of retiredArtifacts) {
+  const target = path.join(root, relative);
+  if (!fs.existsSync(target)) continue;
+  if (check) {
+    console.error(`Stale (retired) generated artifact still present: ${relative}`);
+    stale = true;
+    continue;
+  }
+  fs.unlinkSync(target);
+  console.log(`Removed retired artifact ${relative}`);
+}
+
 for (const [relative, content] of outputs) {
   const target = path.join(root, relative);
   const current = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : null;

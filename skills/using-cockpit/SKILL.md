@@ -52,7 +52,7 @@ Skills compose, but not every task needs the full sequence.
 - Keep raw search results, long logs, broad diffs, and failed attempts out of handoffs.
 - Pass compact findings with file, line, command, or URL evidence.
 - Prefer a fresh worker for noisy independent work when the harness supports it.
-- Before dispatching, emit one concise line such as `Cockpit: research → cockpit-research (Luna)` so model use is visible. Do not announce routing for direct work.
+- Before dispatching, emit one concise line such as `Cockpit: research → explore (hands)` or `Cockpit: strategy → strategist` so model use is visible. Do not announce routing for direct work.
 - If workers are unavailable, follow the same boundaries sequentially in the current agent.
 - Never hide decisions or uncertainty merely to keep the handoff short.
 - Never build a custom dispatch, queue, retry loop, or state machine to implement Cockpit routing.
@@ -71,5 +71,5 @@ User instructions override the default workflow. They do not justify false claim
 ## Harness distinctions
 
 - **Pi:** No subagent or dispatch mechanism. All Cockpit work runs sequentially in the current agent using Pi's native skill and extension system. Model selection is per-session.
-- **OpenCode:** Native subagents and the task tool provide dispatch. Reasoning-sensitive roles (explorer, planner, reviewer) should use the configured reasoning model. Hands roles (research, executor) should use the configured hands model. No custom routing engine.
+- **OpenCode:** Native subagents and the task tool provide dispatch. The built-in `explore` agent (configured with hands model) handles broad/noisy research, using the `cockpit-research` skill when an evidence brief is needed. Reasoning-sensitive roles (strategist, planner, reviewer) use the configured reasoning model. The executor uses the hands model. No custom routing engine. There is no `cockpit-research` subagent; research routes through `explore` instead.
 - **Claude Code:** Native Agent tool provides dispatch. Agents inherit the current model. SessionStart hook loads `using-cockpit`. No custom routing or orchestration.

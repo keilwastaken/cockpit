@@ -28,7 +28,7 @@ choose work mode ----> direct maneuver ----> verify
   +--> unclear direction --> explore options --> human approval
   |                           (reasoning agent)
   +--> missing facts ------> research <--------+
-  |                           (hands agent)
+  |                    (hands agent / explore)
   +--> approved nontrivial work --> plan --> execute --> review
   |                               (reasoning)  (hands)  (reasoning)
   |                                           ^       |
@@ -38,7 +38,7 @@ choose work mode ----> direct maneuver ----> verify
   |                                             |
   |                                      human decision
   |
-  +--> broad/noisy research --------> research (hands agent)
+  +--> broad/noisy research --------> research (hands agent / explore)
   +--> low-risk bounded exec -------> execute (hands agent)
 ```
 
@@ -47,7 +47,7 @@ Not every task traverses every stage. The work-mode decision selects the shortes
 ### Host-specific behavior
 
 - **Pi:** All Cockpit work runs sequentially in the current agent. No dispatch, no subagents, no model routing. Setup selects a single per-session model.
-- **OpenCode:** Native subagents and the task tool provide dispatch. Reasoning roles (explorer/planner/reviewer) use the reasoning model; hands roles (research/executor) use the hands model. Orchestration-free: no custom route engine, dispatch function, queue, retry loop, or automatic invocation.
+- **OpenCode:** Native subagents and the task tool provide dispatch. The built-in \`explore\` agent (configured with the hands model) handles broad/noisy research, using the \`cockpit-research\` skill when an evidence brief is needed. Reasoning-sensitive roles (strategist/planner/reviewer) use the reasoning model. The executor uses the hands model. There is no \`cockpit-research\` subagent in OpenCode; factual research routes through the built-in \`explore\` agent instead. Orchestration-free: no custom route engine, dispatch function, queue, retry loop, or automatic invocation.
 - **Claude Code:** Native Agent tool provides dispatch. Agents inherit the current model. SessionStart hook loads `using-cockpit`. No custom routing or orchestration.
 
 ### Worker fallback

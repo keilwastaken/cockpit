@@ -42,7 +42,7 @@ Run this slash command inside OpenCode:
 /cockpit-setup
 ```
 
-The conversational wizard uses OpenCode's native question UI with keyboard-navigable, scrollable lists. It asks for a provider and then an exact model ID for the reasoning and hands roles, previews the change, and updates the global OpenCode config only after confirmation. It configures native Cockpit subagents for exploration, research, planning, execution, and review, then validates the resulting config.
+The conversational wizard uses OpenCode's native question UI with keyboard-navigable, scrollable lists. It asks for a provider and then an exact model ID for the reasoning and hands roles, previews the change, and updates the global OpenCode config only after confirmation. It overrides the built-in `explore` agent (hands model for broad research), creates four native Cockpit subagents (strategist, planner, reviewer, executor), safely handles legacy `cockpit-explorer` and `cockpit-research` entries, then validates the resulting config.
 
 Restart OpenCode after setup so the new model assignments take effect.
 
@@ -78,14 +78,14 @@ Cockpit still works sequentially when a particular agent or model cannot dispatc
 
 ## Native subagents (optional)
 
-Run `/cockpit-setup` to create five native OpenCode subagents:
+Run `/cockpit-setup` to override the built-in `explore` agent and create four native OpenCode subagents:
 
-| Subagent | Model Role | Skill | Permissions |
-|----------|------------|-------|-------------|
-| `cockpit-explorer` | reasoning | `cockpit-explore` | read-only |
+| Agent / Subagent | Model Role | Skill | Permissions |
+|---|---|---|---|
+| `explore` (built-in override) | hands | `cockpit-research` (for evidence briefs) | inherited |
+| `cockpit-strategist` | reasoning | `cockpit-explore` | read-only |
 | `cockpit-planner` | reasoning | `cockpit-plan` | read-only |
 | `cockpit-reviewer` | reasoning | `cockpit-review` | read-only |
-| `cockpit-research` | hands | `cockpit-research` | read-only |
 | `cockpit-executor` | hands | `cockpit-execute` | edit allowed |
 
 These are ordinary OpenCode subagent definitions in your config. You can invoke them via the `task` tool or let the workflow skills delegate to them.

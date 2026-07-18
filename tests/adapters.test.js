@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import cockpitPi from "../extensions/cockpit.js";
-import { bootstrapMarker, roles, skills } from "../scripts/adapter-definition.mjs";
+import { bootstrapMarker, opencodeRoles, opencodeSetupPrompt, roles, skills } from "../scripts/adapter-definition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -121,10 +121,16 @@ test("Claude plugin manifest, hook, and agents follow native contracts", async (
 test("shared adapter inventory matches canonical skills and role mappings", () => {
   assert.equal(skills.length, 11);
   assert.deepEqual(roles.map((role) => role.name), [
-    "cockpit-explorer",
+    "cockpit-strategist",
     "cockpit-planner",
     "cockpit-reviewer",
     "cockpit-research",
+    "cockpit-executor",
+  ]);
+  assert.deepEqual(opencodeRoles.map((role) => role.name), [
+    "cockpit-strategist",
+    "cockpit-planner",
+    "cockpit-reviewer",
     "cockpit-executor",
   ]);
   assert.ok(roles.every((role) => skills.includes(role.skill)));
@@ -166,7 +172,7 @@ test("scenario metadata defines routing expectations", async () => {
 		assert.ok(Array.isArray(scenario.expected) && scenario.expected.length > 0,
 			`scenario ${scenario.id} missing expected behaviors`);
 		assert.ok(["direct", "delegate"].includes(scenario.route?.mode), `scenario ${scenario.id} has invalid route mode`);
-		if (scenario.route.mode === "delegate") assert.ok(roles.some((role) => role.name === scenario.route.role), `scenario ${scenario.id} has unknown route role`);
+		if (scenario.route.mode === "delegate") assert.ok(roles.some((role) => role.name === scenario.route.role) || scenario.route.role === "explore", `scenario ${scenario.id} has unknown route role`);
 		else assert.equal(scenario.route.role, null, `direct scenario ${scenario.id} must not name a role`);
 		categories.add(scenario.category);
 	}
@@ -175,10 +181,38 @@ test("scenario metadata defines routing expectations", async () => {
 		assert.ok(categories.has(category), `missing scenarios for category: ${category}`);
 	}
 	assert.deepEqual(byID.get("tiny-direct"), { mode: "direct", role: null });
-	assert.deepEqual(byID.get("ambiguous-feature"), { mode: "delegate", role: "cockpit-explorer" });
-	assert.deepEqual(byID.get("read-only-research"), { mode: "delegate", role: "cockpit-research" });
+	assert.deepEqual(byID.get("ambiguous-feature"), { mode: "delegate", role: "cockpit-strategist" });
+	// OpenCode research delegates to built-in explore, not a Cockpit subagent
+	assert.deepEqual(byID.get("read-only-research"), { mode: "delegate", role: "explore" });
 	assert.deepEqual(byID.get("approved-execution"), { mode: "delegate", role: "cockpit-executor" });
 	assert.deepEqual(byID.get("localized-review"), { mode: "delegate", role: "cockpit-reviewer" });
+});
+
+test("setup prompt preserves existing current-name agent fields and collects legacy migration choices before preview", () => {
+	const prompt = opencodeSetupPrompt;
+	// Must preserve existing fields on current-name agents — only update model
+	assert.match(prompt, /current-name Cockpit subagents.*preserve all existing fields/);
+	assert.match(prompt, /model.*value will be updated/);
+	// Must handle BOTH legacy explorer and current strategist existing: three-way choice
+	assert.match(prompt, /BOTH.*cockpit-explorer.*AND.*cockpit-strategist/);
+	assert.match(prompt, /Keep current.*cockpit-strategist/);
+	assert.match(prompt, /Replace current.*cockpit-strategist.*with legacy.*cockpit-explorer/);
+	assert.match(prompt, /Retain both/);
+	assert.match(prompt, /Do not silently merge/);
+	// Must inspect solo legacy entries and ask before replacing
+	assert.match(prompt, /only.*cockpit-explorer.*rename it to.*cockpit-strategist/);
+	assert.match(prompt, /cockpit-research.*ask whether to remove/);
+	assert.match(prompt, /Do not silently delete/);
+	assert.match(prompt, /Do not silently overwrite/);
+	// Must collect choices first, then show one preview with Apply/Cancel
+	assert.match(prompt, /Collect all choices without modifying/);
+	assert.match(prompt, /show one exact preview.*Apply configuration.*Cancel/);
+	// Must not write before user selects Apply
+	assert.match(prompt, /Do not write before the user selects Apply/);
+});
+
+test("setup prompt forbids Scout configuration", () => {
+	assert.match(opencodeSetupPrompt, /Scout configuration/);
 });
 
 test("behavioral eval uses a standalone native OpenCode configuration", async () => {
@@ -190,7 +224,9 @@ test("behavioral eval uses a standalone native OpenCode configuration", async ()
 	assert.match(runner, /\["debug", "config"\]/);
 	assert.match(runner, /unexpected plugins/);
 	assert.match(runner, /\.opencode\/plugins\/cockpit\.js/);
-	assert.match(runner, /agent,/);
+	assert.match(runner, /opencodeRoles/);
+	assert.match(runner, /agent\.explore/);
+	assert.match(runner, /cockpit-research.*subagent/);
 	assert.doesNotMatch(runner, /subAgents|readUserOpenCodeConfig|OPENCODE_DISABLE_PROJECT_CONFIG|\.config["',]/);
 });
 
@@ -201,8 +237,13 @@ test("role descriptions distinguish reasoning-sensitive and hands work", () => {
 	}
 });
 
+test("opencodeRoles excludes cockpit-research", () => {
+	assert.ok(opencodeRoles.every((role) => role.name !== "cockpit-research"));
+	assert.equal(opencodeRoles.length, 4);
+});
+
 test("role permissions are correctly set", () => {
-	const readOnlyRoles = ["cockpit-explorer", "cockpit-planner", "cockpit-reviewer", "cockpit-research"];
+	const readOnlyRoles = ["cockpit-strategist", "cockpit-planner", "cockpit-reviewer", "cockpit-research"];
 	for (const role of roles) {
 		if (readOnlyRoles.includes(role.name)) {
 			assert.equal(role.readOnly, true, `${role.name} should be read-only`);

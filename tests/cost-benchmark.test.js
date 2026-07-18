@@ -6,8 +6,10 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { opencodeRoles } from "../scripts/adapter-definition.mjs";
 import {
 	aggregateTelemetry,
+	armConfig,
 	changedSnapshotFiles,
 	collectSessionTree,
 	createManifest,
@@ -64,6 +66,27 @@ test("OpenCode JSONL parsing rejects malformed non-empty records", () => {
 	assert.throws(() => parseJsonLines('{"type":"text"}\nnot-json\n'), /malformed OpenCode JSONL/);
 });
 
+test("armConfig sets small_model and explore model per arm semantics", () => {
+	const cockpitRoot = "/tmp/test";
+	const reasoning = "openai/reasoner";
+	const hands = "opencode/hands";
+	const control = armConfig("control", cockpitRoot, reasoning, hands, opencodeRoles);
+	assert.equal(control.model, reasoning);
+	assert.equal(control.small_model, reasoning);
+	assert.equal(control.agent.explore.model, reasoning);
+	assert.equal(control.plugin, undefined);
+
+	const isolation = armConfig("isolation", cockpitRoot, reasoning, hands, opencodeRoles);
+	assert.equal(isolation.small_model, reasoning);
+	assert.equal(isolation.agent.explore.model, reasoning);
+	assert.ok(isolation.plugin);
+
+	const roleSplit = armConfig("role-split", cockpitRoot, reasoning, hands, opencodeRoles);
+	assert.equal(roleSplit.small_model, hands);
+	assert.equal(roleSplit.agent.explore.model, hands);
+	assert.ok(roleSplit.plugin);
+});
+
 test("generateJobs interleaves all arms in deterministic scenario-repetition blocks", () => {
 	const arms = ["control", "isolation", "role-split"];
 	const jobs = generateJobs(scenarios, arms, 2, "run-seed");
@@ -115,9 +138,14 @@ test("telemetry invalidates provenance, malformed counters, unknown models, and 
 	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0)], [], "parent", "/workspace", 2_000).valid, false);
 	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0)], [{ session_id: "parent", data: "{" }], "parent", "/workspace", 2_000).valid, false);
 	assert.equal(collectSessionTree([session("parent", null, "opencode", "hands", 1, 1, 0, 0, 0)], [message("parent", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner").valid, false);
-	const wrongAgent = session("child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
-	wrongAgent.agent = "cockpit-executor";
-	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0), wrongAgent], [message("parent", 1, 0, 0), message("child", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner", { "cockpit-executor": "opencode/hands" }).valid, false);
+	// Agent model mismatches are invalid: cockpit-executor must use hands model
+	const wrongExecutor = session("child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
+	wrongExecutor.agent = "cockpit-executor";
+	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0), wrongExecutor], [message("parent", 1, 0, 0), message("child", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner", { "cockpit-executor": "opencode/hands" }).valid, false);
+	// Agent model mismatches are invalid: built-in explore must use hands model in role-split
+	const wrongExplore = session("explore-child", "parent", "openai", "reasoner", 1, 1, 0, 0, 0);
+	wrongExplore.agent = "explore";
+	assert.equal(collectSessionTree([session("parent", null, "openai", "reasoner", 1, 1, 0, 0, 0), wrongExplore], [message("parent", 1, 0, 0), message("explore-child", 1, 0, 0)], "parent", "/workspace", 2_000, ["openai/reasoner", "opencode/hands"], "openai/reasoner", { "explore": "opencode/hands" }).valid, false);
 });
 
 test("workspace snapshots detect modes and symlink targets", async () => {

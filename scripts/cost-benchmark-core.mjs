@@ -75,13 +75,16 @@ export function agentConfig(reasoningModel, handsModel, roles) {
 }
 
 export function armConfig(arm, cockpitRoot, reasoningModel, handsModel, roles) {
-	const config = { $schema: "https://opencode.ai/config.json", model: reasoningModel, small_model: reasoningModel };
+	const config = { $schema: "https://opencode.ai/config.json", model: reasoningModel, small_model: arm === "role-split" ? handsModel : reasoningModel };
 	if (arm === "control") {
 		config.agent = Object.fromEntries(roles.map((role) => [role.name, { disable: true }]));
+		config.agent.explore = { model: reasoningModel };
 		return config;
 	}
 	config.plugin = [pathToFileURL(`${cockpitRoot}/.opencode/plugins/cockpit.js`).href];
 	config.agent = agentConfig(reasoningModel, arm === "isolation" ? reasoningModel : handsModel, roles);
+	// Override built-in explore with appropriate model for OpenCode
+	config.agent.explore = { model: arm === "role-split" ? handsModel : reasoningModel };
 	return config;
 }
 

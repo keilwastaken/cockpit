@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { roles } from "./adapter-definition.mjs";
+import { opencodeRoles } from "./adapter-definition.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const scenarios = JSON.parse(await readFile(path.join(root, "evals/scenarios.json"), "utf8"));
@@ -71,13 +71,16 @@ for (const scenario of selected) {
 			await writeFile(destination, content);
 		}
 
-		const agent = Object.fromEntries(roles.map((role) => [role.name, {
+		// OpenCode evals use 4 Cockpit subagents (no cockpit-research) plus built-in explore override
+		const agent = Object.fromEntries(opencodeRoles.map((role) => [role.name, {
 			mode: "subagent",
 			model,
 			description: role.description,
 			prompt: `Load the ${role.skill} skill before acting and follow it. Return only the requested handoff.`,
 			permission: { edit: role.readOnly ? "deny" : "allow" },
 		}]));
+		// Override built-in explore with the hands model for broad research
+		agent.explore = { model };
 		const config = {
 			$schema: "https://opencode.ai/config.json",
 			model,
@@ -98,10 +101,14 @@ for (const scenario of selected) {
 		const resolved = JSON.parse(resolvedResult.stdout);
 		const unexpectedPlugins = (resolved.plugin ?? []).filter((plugin) => plugin !== config.plugin[0]);
 		if (unexpectedPlugins.length) throw new Error(`Isolated OpenCode config loaded unexpected plugins: ${unexpectedPlugins.join(", ")}`);
-		for (const role of roles) {
+		for (const role of opencodeRoles) {
 			const actual = resolved.agent?.[role.name];
 			if (!actual || actual.model !== model || actual.description !== role.description) throw new Error(`Isolated OpenCode config mismatch for ${role.name}`);
 		}
+		// Verify no cockpit-research subagent in OpenCode config
+		if (resolved.agent?.["cockpit-research"]) throw new Error("Isolated OpenCode config must not contain cockpit-research subagent");
+		// Verify built-in explore is overridden with hands model
+		if (!resolved.agent?.explore || resolved.agent.explore.model !== model) throw new Error("Isolated OpenCode config must override built-in explore with hands model");
 		if (validateConfig) {
 			console.log(`Validated isolated OpenCode config for ${model}`);
 			break;
