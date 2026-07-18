@@ -236,6 +236,12 @@ test("behavioral eval uses a standalone native OpenCode configuration", async ()
   assert.doesNotMatch(runner, /subAgents|readUserOpenCodeConfig|OPENCODE_DISABLE_PROJECT_CONFIG|\.config["',]/);
 });
 
+test("behavioral eval CLI loads after role inventory changes", () => {
+  const result = spawnSync(process.execPath, ["scripts/run-behavioral-evals.mjs", "--model", "openai/test", "--dry-run"], { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /tiny-direct/);
+});
+
 test("role descriptions distinguish reasoning-sensitive work", () => {
   for (const role of roles) {
     assert.match(role.description, /do not use/i, `${role.name}: description missing "do not use"`);

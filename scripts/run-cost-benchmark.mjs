@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { opencodeRoles } from "./adapter-definition.mjs";
+import { roles as opencodeRoles } from "./adapter-definition.mjs";
 import {
 	ALL_ARMS,
 	REQUIRED_NODE_MAJOR,

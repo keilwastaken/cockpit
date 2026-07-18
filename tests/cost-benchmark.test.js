@@ -63,6 +63,12 @@ test("argument parsing rejects unknown and duplicate options", () => {
 	assert.throws(() => parseArgs(["--unknown"]), /Unknown/);
 });
 
+test("cost benchmark CLI loads after role inventory changes", () => {
+	const result = spawnSync(process.execPath, ["scripts/run-cost-benchmark.mjs", "--run-id", "cli-smoke", "--dry-run", "--repetitions", "1", "--max-runs", "1"], { cwd: root, encoding: "utf8" });
+	assert.equal(result.status, 0, result.stderr);
+	assert.match(result.stdout, /config-research/);
+});
+
 test("OpenCode JSONL parsing rejects malformed non-empty records", () => {
 	assert.deepEqual(parseJsonLines('{"type":"text"}\n'), [{ type: "text" }]);
 	assert.throws(() => parseJsonLines('{"type":"text"}\nnot-json\n'), /malformed OpenCode JSONL/);
