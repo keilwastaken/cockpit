@@ -45,6 +45,9 @@ export const CockpitPlugin = async () => ({
     config.agent ??= {};
     const existingWorker = config.agent["cockpit-worker"] ?? {};
     const workerModel = existingWorker.model ?? config.small_model;
+    const existingPermission = typeof existingWorker.permission === "string"
+      ? { "*": existingWorker.permission }
+      : (existingWorker.permission ?? {});
     config.agent["cockpit-worker"] = {
       ...existingWorker,
       description: existingWorker.description ?? workerDescription,
@@ -53,7 +56,7 @@ export const CockpitPlugin = async () => ({
       mode: "subagent",
       prompt: workerPrompt,
       steps: 20,
-      permission: { ...(existingWorker.permission ?? {}), ...(workerModel ? {} : { edit: "deny", bash: "deny" }), ...workerPermission },
+      permission: { ...existingPermission, ...(workerModel ? {} : { edit: "deny", bash: "deny" }), ...workerPermission },
     };
     config.command ??= {};
     config.command["cockpit-setup"] ??= { description: "Choose strong and hands models for Cockpit", template: setupPrompt };

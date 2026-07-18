@@ -250,6 +250,22 @@ test("OpenCode adapter preserves safe worker customization and enforces contract
   assert.match(worker.prompt, /# Execution Contract/);
 });
 
+test("OpenCode adapter preserves worker permission shorthand as a wildcard", async () => {
+  const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
+  const hooks = await CockpitPlugin();
+  for (const action of ["deny", "ask", "allow"]) {
+    const config = { agent: { "cockpit-worker": { model: "provider/hands", permission: action } } };
+    await hooks.config(config);
+    const permission = config.agent["cockpit-worker"].permission;
+    assert.equal(permission["*"], action);
+    assert.equal(permission.task, "deny");
+    assert.equal(permission.question, "deny");
+    assert.equal(permission.webfetch, "deny");
+    assert.equal(permission.skill, "deny");
+    assert.equal(permission[0], undefined);
+  }
+});
+
 test("OpenCode worker defaults to small_model without overriding an explicit model", async () => {
   const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
   const hooks = await CockpitPlugin();
