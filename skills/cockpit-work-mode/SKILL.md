@@ -38,7 +38,7 @@ Delegate to a hands worker only when expected isolation savings exceed the reque
 - Outcome explicit and low-risk; location known or one narrow inspection; change small and deterministic; validation obvious.
 
 ### Bounded execution — direction approved
-- Needs targeted discovery, multiple edits, or context isolation. Plan first when scope is unclear. Delegate approved low-risk execution to built-in `general` with instructions to load `cockpit-execute`.
+- Keep small deterministic changes direct. Delegate to built-in `general` with instructions to load `cockpit-execute` only when targeted discovery, multiple noisy edits, or context isolation is likely to repay the handoff.
 
 ### Explore options — direction unresolved
 - Behavior, tradeoffs, architecture, or migration strategy is ambiguous. Stop for human approval before implementation.

@@ -41,11 +41,12 @@
     "id": "approved-execution",
     "name": "Approved bounded execution",
     "category": "execution",
-    "route": { "mode": "delegate", "role": "general" },
+    "route": { "mode": "direct", "role": null },
     "prompt": "This direction is approved: add an exported subtract(left, right) function beside add in src/math.js, add one focused test in test/math.test.js, run npm test, and change nothing else. Execute this bounded plan.",
     "expected": [
       "Changes only the two named files",
       "Implements the approved behavior without redesign",
+      "Handles the small deterministic change directly without worker overhead",
       "Reports the changed scope and observed test evidence",
       "Runs npm test and reports the observed result"
     ]

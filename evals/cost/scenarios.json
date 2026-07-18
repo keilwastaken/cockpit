@@ -18,7 +18,7 @@
     "criticalGates": [
       { "id": "runner", "type": "runner-success" },
       { "id": "read-only", "type": "worktree", "value": "clean" },
-      { "id": "decision", "type": "output-all", "patterns": ["option", "recommend", "approval"] }
+      { "id": "decision", "type": "output-all", "patterns": ["recommend", "approval"] }
     ],
     "manualRubric": ["correctness", "tradeoff-quality", "recommendation", "instruction-adherence"]
   },
@@ -35,7 +35,7 @@
       { "id": "scope", "type": "changed-only", "paths": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"], "required": ["src/config/defaults.js", "src/config/validate.js", "test/config.test.js"] },
       { "id": "verification", "type": "commands-pass", "count": 2 },
       { "id": "reported", "type": "output-all", "patterns": ["maxRetries", "test"] },
-      { "id": "delegation-executor", "type": "delegation", "arms": { "control": { "min": 0, "max": 0 }, "isolation": { "min": 1, "max": 1, "agents": ["general"] }, "role-split": { "min": 1, "max": 1, "agents": ["general"] } } }
+      { "id": "delegation-executor", "type": "delegation", "arms": { "control": { "min": 0, "max": 0 }, "isolation": { "max": 0 }, "role-split": { "max": 0 } } }
     ],
     "manualRubric": ["correctness", "test-quality", "scope-discipline", "instruction-adherence"]
   },

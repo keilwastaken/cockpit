@@ -94,10 +94,10 @@ test("using-cockpit identifies the reading agent as the oracle", async () => {
   assert.match(content, /certifies completion/i);
 });
 
-test("using-cockpit limits hands workers to evidence gathering and approved bounded execution", async () => {
+test("using-cockpit delegates execution only when isolation repays the handoff", async () => {
   const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
   assert.match(content, /Broad research.*built-in `explore`/i);
-  assert.match(content, /Approved bounded execution.*built-in `general`.*cockpit-execute/i);
+  assert.match(content, /Approved bounded execution.*small deterministic changes direct.*built-in `general`.*cockpit-execute/i);
   assert.doesNotMatch(content, /delegate.*every nontrivial/i);
 });
 

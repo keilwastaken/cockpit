@@ -13,7 +13,7 @@ Select the smallest safe workflow that preserves correctness and keeps noisy wor
 ## Scope
 - Decide: is the request clear enough to implement? What evidence proves completion?
 - Choose direct work, research, plan-then-execute, parallel work, or human escalation.
-- Delegate broad research to built-in `explore` and approved bounded execution to built-in `general`.
+- Delegate broad research to built-in `explore`; delegate approved execution to built-in `general` only when context isolation is likely to repay the handoff.
 
 ## Required Evidence or Edits
 - One compact handoff or direct result suffices.
@@ -29,7 +29,7 @@ Stop for human input on any unapproved product, architecture, migration, securit
 ## Core rules
 1. **Tiny deterministic work** — handle directly, validate, report.
 2. **Broad research** — delegate to built-in `explore` when isolation saves context.
-3. **Approved bounded execution** — delegate to built-in `general` with a SOW that says to load and follow `cockpit-execute`.
+3. **Approved bounded execution** — keep small deterministic changes direct. When targeted discovery, multiple noisy edits, or context isolation makes delegation worthwhile, use built-in `general` with a SOW that says to load and follow `cockpit-execute`.
 4. **Reasoning-sensitive work** — use the strategist for unresolved consequential direction; keep ordinary approved planning and review direct unless independent isolated analysis is explicitly valuable. The oracle integrates and retains approval, severity, escalation, and completion judgment.
 5. **Worker unavailable** — perform sequentially. Never build a custom runtime, queue, or state machine.
 

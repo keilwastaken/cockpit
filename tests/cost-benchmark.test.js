@@ -387,6 +387,17 @@ test("actual config-research delegation requires exactly one explore child in Co
 	assert.match(failResult.outcomes[0].detail, /2 > max 1/);
 });
 
+test("bounded implementation remains direct in every arm", async () => {
+	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
+	const bounded = scenarios.find((scenario) => scenario.id === "bounded-implementation");
+	const gate = bounded.criticalGates.find((candidate) => candidate.type === "delegation");
+	assert.deepEqual(gate.arms, {
+		control: { min: 0, max: 0 },
+		isolation: { max: 0 },
+		"role-split": { max: 0 },
+	});
+});
+
 test("config-research manualRubric includes handoff-concision", async () => {
 	const scenarios = JSON.parse(await readFile(path.join(root, "evals/cost/scenarios.json"), "utf8"));
 	const configResearch = scenarios.find((s) => s.id === "config-research");
