@@ -121,6 +121,12 @@ test("sanitizeEnvironment excludes inherited OpenCode and credential variables",
 	assert.deepEqual(child, { HOME: "/home/tester", PATH: "/bin", CUSTOM_TOKEN: "allowed" });
 });
 
+test("cost runner isolates global OpenCode configuration", async () => {
+	const source = await readFile(path.join(root, "scripts/run-cost-benchmark.mjs"), "utf8");
+	assert.match(source, /XDG_CONFIG_HOME: path\.join\(configDir, "xdg-config"\)/);
+	assert.match(source, /XDG_CONFIG_HOME: path\.join\(configDirectory, "xdg-config"\)/);
+});
+
 test("recursive telemetry selects descendants and excludes unrelated sessions", () => {
 	const rows = [
 		session("parent", null, "openai", "reasoner", 100, 20, 5, 1, 0.5),

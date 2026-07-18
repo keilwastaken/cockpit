@@ -190,7 +190,7 @@ async function resolveArmConfig(arm) {
 	const configDir = await mkdtemp(path.join(os.tmpdir(), "cockpit-cost-resolve-"));
 	try {
 		await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify(intended, null, 2)}\n`, { mode: 0o600 });
-		const env = { ...baseEnv, PWD: path.join(root, "evals/cost/fixture"), OPENCODE_CONFIG_DIR: configDir, OPENCODE_DISABLE_PROJECT_CONFIG: "1" };
+		const env = { ...baseEnv, PWD: path.join(root, "evals/cost/fixture"), XDG_CONFIG_HOME: path.join(configDir, "xdg-config"), OPENCODE_CONFIG_DIR: configDir, OPENCODE_DISABLE_PROJECT_CONFIG: "1" };
 		const args = ["debug", "config"];
 		if (arm === "control") args.push("--pure");
 		const result = run("opencode", args, root, env);
@@ -247,7 +247,7 @@ for (const job of jobs) {
 	const configDirectory = await mkdtemp(path.join(os.tmpdir(), "cockpit-cost-config-"));
 	try {
 		await cp(path.join(root, "evals/cost/fixture"), workspace, { recursive: true });
-		const runEnv = { ...baseEnv, PWD: workspace, OPENCODE_CONFIG_DIR: configDirectory, OPENCODE_DISABLE_PROJECT_CONFIG: "1" };
+		const runEnv = { ...baseEnv, PWD: workspace, XDG_CONFIG_HOME: path.join(configDirectory, "xdg-config"), OPENCODE_CONFIG_DIR: configDirectory, OPENCODE_DISABLE_PROJECT_CONFIG: "1" };
 		for (const command of [["init", "-q"], ["config", "user.email", "cockpit-eval@example.invalid"], ["config", "user.name", "Cockpit Eval"], ["add", "."], ["commit", "-qm", "fixture baseline"]]) {
 			const result = run("git", command, workspace, runEnv);
 			if (result.status !== 0) throw new Error(`fixture command failed: git ${command.join(" ")}`);
