@@ -2,6 +2,35 @@
 
 Handoffs carry decisions and evidence between workflow stages without carrying the entire working context. Include only applicable sections and keep each section concise.
 
+## Execution Contract
+
+An explicit contract is the complete authority for a bounded worker run:
+
+```markdown
+# Execution Contract
+## Goal
+## Allowed Files
+## Required Changes
+## Acceptance Checks
+## Stop Conditions
+```
+
+`Allowed Files` is an edit allowlist. `Acceptance Checks` must be exact commands or observable assertions. Missing sections, invalid assumptions, out-of-scope edits, consequential ambiguity, or repeated validation failure require escalation rather than redesign.
+
+## Worker Escalation
+
+```markdown
+# Worker Escalation
+## Status
+## Work Completed
+## Evidence
+## Failed Checks
+## Scope Pressure or Ambiguity
+## Decision Needed
+```
+
+The packet is factual exception evidence for a strong agent or human. It is not a completion claim or permission to continue.
+
 ## Worker Request (Statement of Work)
 
 ```markdown
@@ -14,7 +43,7 @@ Handoffs carry decisions and evidence between workflow stages without carrying t
 ```
 
 - **Use only applicable sections.** Do not emit empty boilerplate.
-- Do not copy the full user prompt, bootstrap, methodology, plan, or known context.
+- Do not copy the full user prompt, global methodology, plan, or known context.
 - Distinguish observed evidence from inference.
 - When Cockpit controls prompt composition, the SOW is the final variable payload: stable role instructions precede it, and the task-specific content comes last.
 - JSON Schema should be used only when the host actually enforces structured output. No current Cockpit worker-return path does, so no JSON schema is added.
@@ -85,7 +114,9 @@ The final field is a proposed prompt, not evidence of approval.
 
 Steps should be ordered, concrete, and independently verifiable where practical. Omit irrelevant prose. The Execution Handoff must be compact — a summary with file list, commands, and known risks.
 
-## Execution Result
+## Generic Execution Result
+
+Direct execution workflows use this result. Contract workers use the specialized untrusted handoff below.
 
 ```markdown
 # Execution Result
@@ -99,6 +130,21 @@ Steps should be ordered, concrete, and independently verifiable where practical.
 ```
 
 Omit Deviations and Remaining Risks when none exist rather than emitting empty sections. Report command outcomes honestly. A command that was not run is a validation gap, not a pass.
+
+## Worker Execution Result
+
+```markdown
+# Execution Result
+## Status
+## Summary
+## Files Changed
+## Acceptance Checks
+- <command or assertion>: <observed outcome>
+## Deviations
+## Remaining Risks
+```
+
+This result is an untrusted worker handoff. The strong parent inspects actual repository state and runs fresh validation before making a completion claim.
 
 ## Review Result
 

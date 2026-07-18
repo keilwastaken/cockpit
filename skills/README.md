@@ -5,8 +5,8 @@ Cockpit is an OpenCode-native, oracle-and-worker methodology for context-efficie
 ## Workflow skills
 
 - `using-cockpit` — oracle entry policy: selects the shortest safe workflow, retains decisions, certifies completion.
-- `cockpit-work-mode` — resolve ambiguous mode choices when the bootstrap does not make the path obvious.
-- `cockpit-strategy` — compare unresolved directions and stop for human approval; used by the `cockpit-strategist` agent.
+- `cockpit-work-mode` — resolve ambiguous mode choices after Cockpit workflow selection is explicitly requested.
+- `cockpit-strategy` — help the strong parent compare unresolved directions and stop for human approval.
 - `cockpit-research` — gather compact read-only evidence (hands worker).
 - `cockpit-plan` — turn an approved direction into an executable plan.
 - `cockpit-execute` — implement without silently redesigning or expanding scope (hands worker).

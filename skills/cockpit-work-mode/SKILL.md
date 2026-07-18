@@ -5,7 +5,7 @@ description: Use when deciding whether a task should be handled directly, resear
 
 # Choosing a Work Mode
 
-Select the shortest safe path when the bootstrap does not make it obvious.
+Select the shortest safe path when an explicit Cockpit request does not make it obvious.
 
 ## When to use
 
@@ -38,7 +38,7 @@ Delegate to a hands worker only when expected isolation savings exceed the reque
 - Outcome explicit and low-risk; location known or one narrow inspection; change small and deterministic; validation obvious.
 
 ### Bounded execution — direction approved
-- Keep small deterministic changes direct. Delegate to built-in `general` with instructions to load `cockpit-execute` only when targeted discovery, multiple noisy edits, or context isolation is likely to repay the handoff.
+- Keep ordinary work on native `build`. Use `cockpit-worker` only for an explicit approved Execution Contract with file scope, checks, and stop conditions.
 
 ### Explore options — direction unresolved
 - Behavior, tradeoffs, architecture, or migration strategy is ambiguous. Stop for human approval before implementation.
@@ -54,8 +54,8 @@ Delegate to a hands worker only when expected isolation savings exceed the reque
 
 ## Delegation boundaries
 
-- **Hands workers:** built-in `explore` gathers evidence; built-in `general` performs approved bounded execution under `cockpit-execute`. They do not choose direction, redesign, or assign severity.
-- **Reasoning specialists** (strategist, planner, reviewer): independent analysis only. The oracle integrates their output and retains approval, severity, and final-claim judgment.
+- **Hands workers:** built-in `explore` gathers evidence; explicit `cockpit-worker` contracts perform mechanical execution. They do not choose direction, redesign, or assign severity.
+- **Reasoning-sensitive skills:** the strong parent uses exploration, planning, and review guidance directly and retains approval, severity, and final-claim judgment.
 - **Mechanical evidence collection** for review or verification may be delegated when noisy. The oracle decides whether the collected evidence proves the claim.
 
 ## Output

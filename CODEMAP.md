@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Cockpit is an OpenCode-native, skills-first software-development methodology. Canonical workflow behavior lives in Markdown skills. The OpenCode adapter registers skills and injects the bootstrap.
+Cockpit is an OpenCode-native, skills-first software-development methodology with explicit on-demand contracts. Canonical workflow behavior lives in Markdown skills. The OpenCode adapter registers skills, an explicit subagent worker, and commands without modifying ordinary user messages.
 
 ## Structure
 
@@ -54,12 +54,12 @@ Cockpit is an OpenCode-native, skills-first software-development methodology. Ca
 `package.json#main` points to `.opencode/plugins/cockpit.js`. The plugin:
 
 1. adds `skills/` to OpenCode's skill paths;
-2. injects `using-cockpit` once into the first user message;
+2. registers `cockpit-worker` as a subagent with canonical instructions, bounded steps, and denied task/question/webfetch/skill permissions, invokable by `build` via native Task calls;
 3. registers `/cockpit-setup` for confirmed native model/agent configuration;
 4. registers read-only `/cockpit-doctor` diagnostics;
-5. supplies a small OpenCode action mapping.
+5. registers `/cockpit-contract` (on build) and `/cockpit-run` (on build, dispatches to cockpit-worker).
 
-It does not implement jobs, model invocation, routing state, or execution loops.
+It does not implement jobs, model invocation, routing state, or execution loops. It does not inject instructions into ordinary user messages.
 
 ### Generation
 

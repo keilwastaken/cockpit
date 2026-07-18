@@ -37,7 +37,7 @@ test("canonical skills have valid, unique, namespaced metadata", async () => {
 });
 
 test("skill references resolve to canonical skill IDs", async () => {
-  const canonical = new Set(expectedSkills);
+  const canonical = new Set([...expectedSkills, "cockpit-worker"]);
   for (const directory of expectedSkills) {
     const markdown = await readFile(path.join(skillsRoot, directory, "SKILL.md"), "utf8");
     for (const match of markdown.matchAll(/`((?:using-)?cockpit(?:-[a-z]+)+)`/g)) {
@@ -94,17 +94,25 @@ test("using-cockpit identifies the reading agent as the oracle", async () => {
   assert.match(content, /certifies completion/i);
 });
 
-test("using-cockpit delegates execution only when isolation repays the handoff", async () => {
+test("using-cockpit reserves cheap execution for explicit worker contracts", async () => {
   const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
   assert.match(content, /Broad research.*built-in `explore`/i);
-  assert.match(content, /Approved bounded execution.*small deterministic changes direct.*built-in `general`.*cockpit-execute/i);
+  assert.match(content, /Approved bounded execution.*native `build`.*`cockpit-worker`.*Allowed Files.*Acceptance Checks.*Stop Conditions/i);
+  assert.doesNotMatch(content, /built-in `general`/i);
   assert.doesNotMatch(content, /delegate.*every nontrivial/i);
 });
 
-test("using-cockpit keeps ordinary planning and review direct", async () => {
+test("using-cockpit is not advertised for ordinary work", async () => {
   const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
-  assert.match(content, /keep ordinary approved planning and review direct/i);
-  assert.match(content, /use the strategist for unresolved consequential direction/i);
+  const description = content.match(/description:\s*(.+)/)?.[1] ?? "";
+  assert.match(description, /explicitly asks/i);
+  assert.match(description, /Do not load for ordinary coding/i);
+});
+
+test("using-cockpit keeps reasoning-sensitive work with the strong parent", async () => {
+  const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
+  assert.match(content, /keep consequential exploration, planning, and review with the strong parent/i);
+  assert.match(content, /using the relevant on-demand skill/i);
 });
 
 test("review routes abandoned approved behavior to planning", async () => {
@@ -134,7 +142,7 @@ test("using-cockpit references cockpit-work-mode for ambiguous mode selection", 
 test("using-cockpit requires human stop for unapproved consequential decisions", async () => {
   const content = await readFile(path.join(skillsRoot, "using-cockpit", "SKILL.md"), "utf8");
   assert.match(content, /human input.*unapproved product, architecture, migration, security, persistence, or deployment decision/i);
-  assert.match(content, /oracle integrates and retains approval, severity, escalation, and completion judgment/i);
+  assert.match(content, /parent retains approval, severity, escalation, and completion judgment/i);
 });
 
 test("using-cockpit says research does not choose direction", async () => {
@@ -160,7 +168,7 @@ test("parallel skill uses canonical SOW fields and has no superseded aliases", a
   assert.doesNotMatch(content, /## Required handoff/i);
 });
 
-test("OpenCode adapter registers skills, setup, doctor, and bootstrap", async () => {
+test("OpenCode adapter registers skills, explicit worker, and commands without bootstrap", async () => {
   const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
   const hooks = await CockpitPlugin();
   const config = {};
@@ -169,7 +177,7 @@ test("OpenCode adapter registers skills, setup, doctor, and bootstrap", async ()
   assert.match(config.skills.paths[0], /\/skills$/);
 
   const setup = config.command["cockpit-setup"];
-  assert.match(setup.description, /reasoning and hands models/);
+  assert.match(setup.description, /strong and hands models/);
   assert.match(setup.template, /scrollable option list/i);
   assert.match(setup.template, /Apply configuration/);
   assert.match(setup.template, /opencode debug config/);
@@ -179,14 +187,24 @@ test("OpenCode adapter registers skills, setup, doctor, and bootstrap", async ()
   assert.match(doctor.template, /PASS, WARN, or FAIL/);
   assert.match(doctor.template, /without changing any files/);
 
-  const output = {
-    messages: [{ info: { role: "user" }, parts: [{ type: "text", text: "hello" }] }],
-  };
-  await hooks["experimental.chat.messages.transform"]({}, output);
-  await hooks["experimental.chat.messages.transform"]({}, output);
-  const bootstrapParts = output.messages[0].parts.filter((part) => part.text.includes("COCKPIT_BOOTSTRAP_V2"));
-  assert.equal(bootstrapParts.length, 1);
-  assert.match(bootstrapParts[0].text, /# Using Cockpit/);
+  assert.equal(hooks["experimental.chat.messages.transform"], undefined);
+  assert.equal(config.agent["cockpit-worker"].mode, "subagent");
+  assert.equal(config.agent["cockpit-worker"].steps, 20);
+  assert.equal(config.agent["cockpit-worker"].permission.task, "deny");
+  assert.equal(config.agent["cockpit-worker"].permission.edit, "deny");
+  assert.equal(config.agent["cockpit-worker"].permission.bash, "deny");
+  assert.equal(config.agent["cockpit-worker"].disable, true);
+  assert.match(config.agent["cockpit-worker"].prompt, /# Execution Contract/);
+  assert.match(config.agent["cockpit-worker"].prompt, /# Worker Escalation/);
+
+  assert.deepEqual(
+    ["cockpit-contract", "cockpit-run"].map((name) => [name, config.command[name].agent, config.command[name].subtask]),
+    [
+      ["cockpit-contract", "build", false],
+      ["cockpit-run", "build", false],
+    ],
+  );
+  assert.equal(config.command["cockpit-escalate"], undefined);
 });
 
 test("OpenCode adapter preserves user-defined Cockpit commands", async () => {
@@ -196,9 +214,91 @@ test("OpenCode adapter preserves user-defined Cockpit commands", async () => {
     command: {
       "cockpit-setup": { description: "custom setup", template: "custom setup template" },
       "cockpit-doctor": { description: "custom doctor", template: "custom doctor template" },
+      "cockpit-run": { description: "custom run", template: "custom run template" },
     },
   };
   await hooks.config(config);
   assert.equal(config.command["cockpit-setup"].template, "custom setup template");
   assert.equal(config.command["cockpit-doctor"].template, "custom doctor template");
+  assert.equal(config.command["cockpit-run"].template, "custom run template");
+});
+
+test("OpenCode adapter preserves safe worker customization and enforces contract boundaries", async () => {
+  const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
+  const hooks = await CockpitPlugin();
+  const config = {
+    agent: {
+      "cockpit-worker": {
+        model: "provider/hands",
+        description: "custom worker",
+        disable: true,
+        mode: "subagent",
+        steps: 99,
+        permission: { edit: "deny", task: "allow" },
+      },
+    },
+  };
+  await hooks.config(config);
+  const worker = config.agent["cockpit-worker"];
+  assert.equal(worker.model, "provider/hands");
+  assert.equal(worker.description, "custom worker");
+  assert.equal(worker.disable, true);
+  assert.equal(worker.permission.edit, "deny");
+  assert.equal(worker.mode, "subagent");
+  assert.equal(worker.steps, 20);
+  assert.equal(worker.permission.task, "deny");
+  assert.match(worker.prompt, /# Execution Contract/);
+});
+
+test("OpenCode worker defaults to small_model without overriding an explicit model", async () => {
+  const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
+  const hooks = await CockpitPlugin();
+  const inherited = { small_model: "provider/small" };
+  await hooks.config(inherited);
+  assert.equal(inherited.agent["cockpit-worker"].model, "provider/small");
+  assert.equal(inherited.agent["cockpit-worker"].disable, undefined);
+
+  const explicit = { small_model: "provider/small", agent: { "cockpit-worker": { model: "provider/worker" } } };
+  await hooks.config(explicit);
+  assert.equal(explicit.agent["cockpit-worker"].model, "provider/worker");
+  assert.equal(explicit.agent["cockpit-worker"].disable, undefined);
+});
+
+test("run prompt refuses worker dispatch without an explicit hands model", async () => {
+  const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
+  const hooks = await CockpitPlugin();
+  const config = {};
+  await hooks.config(config);
+  assert.equal(config.agent["cockpit-worker"].model, undefined);
+  assert.equal(config.agent["cockpit-worker"].disable, true);
+  assert.equal(config.agent["cockpit-worker"].permission.edit, "deny");
+  assert.equal(config.agent["cockpit-worker"].permission.bash, "deny");
+  assert.match(config.command["cockpit-run"].template, /If neither is configured, stop/i);
+  assert.match(config.command["cockpit-run"].template, /do not let the worker inherit build's strong model/i);
+});
+
+test("run prompt requires all-task join, actual-state inspection, fresh checks, and untrusted reports", async () => {
+  const { CockpitPlugin } = await import("../.opencode/plugins/cockpit.js");
+  const hooks = await CockpitPlugin();
+  const config = {};
+  await hooks.config(config);
+  const runTemplate = config.command["cockpit-run"].template;
+  assert.match(runTemplate, /Await all task returns/);
+  assert.match(runTemplate, /Inspect the actual combined repository state/);
+  assert.match(runTemplate, /Run fresh validation checks/);
+  assert.match(runTemplate, /Treat worker reports as untrusted/);
+  assert.match(runTemplate, /do not delegate certification/);
+  assert.match(runTemplate, /No custom listener/);
+  assert.equal(config.command["cockpit-run"].agent, "build");
+  assert.equal(config.command["cockpit-run"].subtask, false);
+});
+
+test("execute skill defines contract, correction budget, and escalation packet", async () => {
+  const content = await readFile(path.join(skillsRoot, "cockpit-execute", "SKILL.md"), "utf8");
+  for (const heading of ["## Goal", "## Allowed Files", "## Required Changes", "## Acceptance Checks", "## Stop Conditions"]) {
+    assert.match(content, new RegExp(heading));
+  }
+  assert.match(content, /at most one focused correction/i);
+  assert.match(content, /# Worker Escalation/);
+  assert.match(content, /Do not invoke subagents/i);
 });

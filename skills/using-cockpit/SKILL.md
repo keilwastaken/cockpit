@@ -1,6 +1,6 @@
 ---
 name: using-cockpit
-description: Use at the start of coding, debugging, planning, or review work to select the smallest safe Cockpit workflow before taking action. Do not use as a routing engine or dispatcher.
+description: Use when the user explicitly asks to select a Cockpit workflow or decide whether an explicit contract should run on cockpit-worker. Do not load for ordinary coding, debugging, planning, or review.
 ---
 
 # Using Cockpit
@@ -13,7 +13,7 @@ Select the smallest safe workflow that preserves correctness and keeps noisy wor
 ## Scope
 - Decide: is the request clear enough to implement? What evidence proves completion?
 - Choose direct work, research, plan-then-execute, parallel work, or human escalation.
-- Delegate broad research to built-in `explore`; delegate approved execution to built-in `general` only when context isolation is likely to repay the handoff.
+- Delegate broad research to built-in `explore`; use `cockpit-worker` only for an explicit approved Execution Contract.
 
 ## Required Evidence or Edits
 - One compact handoff or direct result suffices.
@@ -29,8 +29,8 @@ Stop for human input on any unapproved product, architecture, migration, securit
 ## Core rules
 1. **Tiny deterministic work** — handle directly, validate, report.
 2. **Broad research** — delegate to built-in `explore` when isolation saves context.
-3. **Approved bounded execution** — keep small deterministic changes direct. When targeted discovery, multiple noisy edits, or context isolation makes delegation worthwhile, use built-in `general` with a SOW that says to load and follow `cockpit-execute`.
-4. **Reasoning-sensitive work** — use the strategist for unresolved consequential direction; keep ordinary approved planning and review direct unless independent isolated analysis is explicitly valuable. The oracle integrates and retains approval, severity, escalation, and completion judgment.
+3. **Approved bounded execution** — keep ordinary work on native `build`. Use `cockpit-worker` only when an explicit contract supplies Allowed Files, Required Changes, Acceptance Checks, and Stop Conditions.
+4. **Reasoning-sensitive work** — keep consequential exploration, planning, and review with the strong parent using the relevant on-demand skill. The parent retains approval, severity, escalation, and completion judgment.
 5. **Worker unavailable** — perform sequentially. Never build a custom runtime, queue, or state machine.
 
 ## Handoff discipline

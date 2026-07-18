@@ -2,28 +2,32 @@
 
 # Cockpit
 
-Cockpit is an OpenCode-native, skills-first methodology for context-efficient and evidence-driven software development with coding agents.
+Cockpit is an OpenCode-native library of on-demand engineering skills and explicit execution contracts.
 
-The reading agent is the oracle: it selects the shortest safe workflow, retains consequential decisions, and certifies completion. Hands workers and reasoning specialists provide bounded evidence or analysis without replacing oracle judgment.
+OpenCode's native `build` agent is the strong parent. A `cockpit-worker` subagent executes mechanical contracts on a configured hands model and returns untrusted results to the parent, which verifies actual state and owns the completion claim.
 
 ## Core workflow
 
 ```text
-request -> oracle decision -> direct / worker / specialist -> oracle integration
-                                                          -> human decision or certified result
+normal request -> native build agent
+
+explicit contract -> build dispatches via Task tool
+                      └── cockpit-worker (subagent) executes
+                      └── parent awaits, inspects, verifies
+                      └── parent certifies or escalates
 ```
 
-Tiny deterministic changes skip directly to action and verification. Nontrivial work uses compact evidence handoffs instead of carrying raw searches, logs, and failed attempts through the primary conversation.
+Cockpit does not inject a workflow into ordinary conversations or automatically route work. Skills load on demand, and cheap execution begins only when an explicit contract is supplied.
 
 ## Principles
 
-- The oracle selects the shortest safe workflow.
-- Context is a budget; delegate when isolation saves more than the handoff costs.
+- Native strong-model work is the default.
+- Cheap execution requires an explicit file allowlist, acceptance checks, and stop conditions.
 - Recommendation is not human approval.
 - Evidence precedes commitment; distinguish facts from inference.
 - Plans are bounded contracts with validation and stop conditions.
 - Executors stop rather than silently redesign.
-- The oracle retains severity, escalation, and completion judgment.
+- The strong model handles ambiguity, recovery, and consequential judgment only when needed.
 - Fresh verification precedes completion claims.
 
 Read [`docs/methodology.md`](docs/methodology.md) and [`docs/handoff-contracts.md`](docs/handoff-contracts.md).
@@ -34,7 +38,7 @@ Canonical behavior lives in namespaced Markdown skills under [`skills/`](skills/
 
 ## Adapter
 
-The OpenCode adapter registers the skills and bootstrap. It is generated from [`scripts/adapter-definition.mjs`](scripts/adapter-definition.mjs).
+The OpenCode adapter registers skills, the explicit subagent worker, and commands without modifying ordinary user messages. It is generated from [`scripts/adapter-definition.mjs`](scripts/adapter-definition.mjs).
 
 ```bash
 npm run generate         # regenerate the OpenCode plugin
@@ -46,6 +50,8 @@ It adds two commands:
 ```text
 /cockpit-setup   # choose reasoning and hands models using scrollable lists
 /cockpit-doctor  # diagnose skills, models, agents, and config read-only
+/cockpit-contract # create a bounded contract on build
+/cockpit-run      # orchestrate contract execution on cockpit-worker from build
 ```
 
 See [`docs/README.opencode.md`](docs/README.opencode.md).

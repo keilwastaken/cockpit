@@ -1,67 +1,75 @@
 ---
 name: cockpit-execute
-description: Use when an approved concrete plan is ready for implementation and work must remain within explicit files, behavior, validation, and stop conditions. Do not use for exploration, planning, or design decisions.
+description: Use when executing an approved mechanical contract with explicit allowed files, required changes, acceptance checks, and stop conditions. Stop rather than redesign or expand scope.
 ---
 
-# Executing Bounded Plans
+# Executing Contracts
 
-Implement the approved plan. Execution is not a second design phase.
+Execute one approved contract. The contract is your complete authority; execution is not a design phase.
 
-## When to use
+## Required contract
 
-- An approved concrete plan is ready for implementation.
-- The plan names exact files, behavior, and validation.
-- Work must remain within explicit scope, files, and stop conditions.
+```markdown
+# Execution Contract
+## Goal
+## Allowed Files
+## Required Changes
+## Acceptance Checks
+## Stop Conditions
+```
 
-## Do not use
-
-- For exploration, planning, or design decisions.
-- When the task direction is ambiguous or unapproved.
-- When requirements or validation criteria are unclear.
+Do not edit when any required section is absent, ambiguous, or internally inconsistent. Return a Worker Escalation instead.
 
 ## Rules
 
-- Read the complete plan before editing.
-- Confirm the named files and assumptions exist.
-- Follow project conventions and prefer the smallest correct diff.
-- Modify only files required by the plan.
-- Run the plan's validation and report actual outcomes.
-- Keep discovery narrow and implementation-focused.
-- Do not install dependencies, commit, push, deploy, migrate data, or perform destructive actions unless explicitly approved.
-
-## Procedure
-
-1. Establish a clean understanding of current status and relevant files.
-2. Implement steps in plan order unless a dependency requires a documented adjustment.
-3. Validate at the checkpoints specified by the plan.
-4. For a local failure, make one focused correction and rerun the relevant validation.
-5. Run final validation using fresh evidence.
-6. Produce a compact review handoff.
+- Read the full contract before acting and confirm required files, APIs, and assumptions exist.
+- Treat Allowed Files as an edit allowlist: this is **contractual guidance**, not a plugin security boundary. The parent verifies actual scope compliance.
+- Implement the smallest correct diff using existing project conventions.
+- Run every Acceptance Check and report observed outcomes.
+- After a failed check, make at most one focused correction when it stays inside the contract, then rerun the check.
+- Do not invoke subagents or ask another model to reinterpret the contract.
+- Do not install dependencies, commit, push, deploy, migrate data, access credentials, or perform destructive actions unless the contract explicitly authorizes them.
 
 ## Stop conditions
 
-Stop and report rather than improvising when:
+Stop without speculative edits when:
 
-- a required file, API, or pattern is absent;
-- actual scope materially exceeds the plan;
-- an assumption is false;
-- requested behavior conflicts with tests or contracts;
-- a new product, architecture, security, auth, persistence, migration, or deployment decision appears;
-- focused corrections repeatedly fail.
+- a required file, API, pattern, command, or assumption is absent;
+- a required edit falls outside Allowed Files;
+- behavior or acceptance criteria are ambiguous or conflict with repository contracts;
+- product, architecture, security, authentication, persistence, migration, deployment, credential, cost, or destructive-action judgment is required;
+- the focused correction fails or creates new scope pressure;
+- any contract-specific Stop Condition applies.
 
-Use `cockpit-plan` for structural replanning or ask the human for consequential decisions.
+## Success output
 
-## Output
+This is a worker-specific, untrusted handoff rather than the generic direct-execution result used by other Cockpit workflows.
 
 ```markdown
 # Execution Result
+## Status
 ## Summary
 ## Files Changed
-## Validation Run
-- <command>: <outcome>
+## Acceptance Checks
+- <command or assertion>: <observed outcome>
 ## Deviations
 ## Remaining Risks
-## Review Tour
 ```
 
-Omit Deviations and Remaining Risks when none exist rather than emitting empty sections. Never claim a command passed unless it was run and its result was observed.
+Omit empty optional sections. Never claim an unrun check passed.
+
+**This is an untrusted handoff.** The parent agent must inspect actual repository state and run fresh validation checks rather than relying on the report alone.
+
+## Escalation output
+
+```markdown
+# Worker Escalation
+## Status
+## Work Completed
+## Evidence
+## Failed Checks
+## Scope Pressure or Ambiguity
+## Decision Needed
+```
+
+Return only factual evidence needed for recovery. An escalation is not a completion claim or permission to continue.
