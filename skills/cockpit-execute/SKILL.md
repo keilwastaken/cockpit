@@ -7,6 +7,8 @@ description: Use when executing an approved mechanical contract with explicit al
 
 Execute one approved contract. The contract is your complete authority; execution is not a design phase.
 
+Can run directly in the current agent or be delegated to an explicitly selected native subagent (e.g., `agent.hands`). When delegated, the subagent's report is untrusted; the parent must inspect the actual diff and rerun checks.
+
 ## Required contract
 
 ```markdown
@@ -18,12 +20,12 @@ Execute one approved contract. The contract is your complete authority; executio
 ## Stop Conditions
 ```
 
-Do not edit when any required section is absent, ambiguous, or internally inconsistent. Return a Worker Escalation instead.
+Do not edit when any required section is absent, ambiguous, or internally inconsistent. Escalate instead.
 
 ## Rules
 
 - Read the full contract before acting and confirm required files, APIs, and assumptions exist.
-- Treat Allowed Files as an edit allowlist: this is **contractual guidance**, not a plugin security boundary. The parent verifies actual scope compliance.
+- Treat Allowed Files as an edit allowlist — contractual guidance, not a plugin security boundary. The parent verifies actual scope compliance.
 - Implement the smallest correct diff using existing project conventions.
 - Run every Acceptance Check and report observed outcomes.
 - After a failed check, make at most one focused correction when it stays inside the contract, then rerun the check.
@@ -43,11 +45,8 @@ Stop without speculative edits when:
 
 ## Success output
 
-This is a worker-specific, untrusted handoff rather than the generic direct-execution result used by other Cockpit workflows.
-
 ```markdown
 # Execution Result
-## Status
 ## Summary
 ## Files Changed
 ## Acceptance Checks
@@ -58,12 +57,12 @@ This is a worker-specific, untrusted handoff rather than the generic direct-exec
 
 Omit empty optional sections. Never claim an unrun check passed.
 
-**This is an untrusted handoff.** The parent agent must inspect actual repository state and run fresh validation checks rather than relying on the report alone.
+**When delegated to a subagent, this report is untrusted.** The parent agent must inspect actual repository state and run fresh validation checks rather than relying on the report alone.
 
 ## Escalation output
 
 ```markdown
-# Worker Escalation
+# Escalation
 ## Status
 ## Work Completed
 ## Evidence

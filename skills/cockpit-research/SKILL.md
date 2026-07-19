@@ -11,7 +11,7 @@ Produce a compact evidence brief. Research establishes facts and uncertainty; it
 
 - Planning or implementation depends on unknown codebase behavior, tests, configuration, external APIs, or version-specific facts.
 - A claim or assumption needs evidence before it can inform a plan.
-- Broad/noisy search is needed and a dedicated research worker is available.
+- Broad or noisy search is needed and isolation would save primary context.
 
 ## Do not use
 
@@ -26,6 +26,7 @@ Produce a compact evidence brief. Research establishes facts and uncertainty; it
 - Use current official external documentation only when external behavior matters.
 - Distinguish direct evidence, inference, and unresolved gaps.
 - Prefer targeted searches and reads over exhaustive exploration.
+- For broad or noisy research, consider delegating to built-in `explore` or a native subagent to preserve primary context.
 
 ## Procedure
 

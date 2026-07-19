@@ -1,83 +1,85 @@
-<img src="./icon.png" width="150" align="right" alt="Cockpit Logo">
+# Cockpit Lite
 
-# Cockpit
+Cockpit is an on-demand prompt/skill library for OpenCode. Native OpenCode owns routing and execution.
 
-Cockpit is an OpenCode-native library of on-demand engineering skills and explicit execution contracts.
-
-OpenCode's native `build` agent is the strong parent. A `cockpit-worker` subagent executes mechanical contracts on a configured hands model and returns untrusted results to the parent, which verifies actual state and owns the completion claim.
-
-## Core workflow
-
-```text
-normal request -> native build agent
-
-explicit contract -> build dispatches via Task tool
-                      └── cockpit-worker (subagent) executes
-                      └── parent awaits, inspects, verifies
-                      └── parent certifies or escalates
-```
-
-Cockpit does not inject a workflow into ordinary conversations or automatically route work. Skills load on demand, and cheap execution begins only when an explicit contract is supplied.
+Cockpit provides curated workflow skills that load on demand. It does not install agents, mutate configuration, register commands, or inject bootstrap content into ordinary conversations.
 
 ## Principles
 
 - Native strong-model work is the default.
-- Cheap execution requires an explicit file allowlist, acceptance checks, and stop conditions.
+- Cheap execution is optional, untrusted, and reserved for substantial mechanical low-risk work.
 - Recommendation is not human approval.
 - Evidence precedes commitment; distinguish facts from inference.
 - Plans are bounded contracts with validation and stop conditions.
 - Executors stop rather than silently redesign.
-- The strong model handles ambiguity, recovery, and consequential judgment only when needed.
+- The strong model handles ambiguity, recovery, and consequential judgment.
 - Fresh verification precedes completion claims.
-
-Read [`docs/methodology.md`](docs/methodology.md) and [`docs/handoff-contracts.md`](docs/handoff-contracts.md).
 
 ## Skills
 
-Canonical behavior lives in namespaced Markdown skills under [`skills/`](skills/). The entry skill is `using-cockpit`; workflow skills use the `cockpit-*` namespace so Cockpit can coexist with other skill packages.
+Canonical behavior lives in namespaced Markdown skills under [`skills/`](skills/):
 
-## Adapter
+- `cockpit-capture`: package deferred work for a future agent.
+- `cockpit-execute`: execute an approved bounded contract.
+- `cockpit-parallel`: structure genuinely independent work streams.
+- `cockpit-plan`: turn approved direction into an executable plan.
+- `cockpit-research`: gather factual evidence without choosing direction.
+- `cockpit-review`: inspect completed changes for defects and risk.
+- `cockpit-review-response`: verify and respond to review feedback.
+- `cockpit-strategy`: resolve product, architecture, and migration tradeoffs.
+- `cockpit-verify`: gather fresh evidence before completion claims.
 
-The OpenCode adapter registers skills, the explicit subagent worker, and commands without modifying ordinary user messages. It is generated from [`scripts/adapter-definition.mjs`](scripts/adapter-definition.mjs).
+Each skill owns its trigger, procedure, boundaries, and output format. Load only the skill needed for the current task.
 
-```bash
-npm run generate         # regenerate the OpenCode plugin
-npm run check:generated  # fail if the generated plugin is stale
+## Install
+
+The OpenCode plugin at `.opencode/plugins/cockpit.js` adds the `skills/` directory to OpenCode's skill paths. It does not mutate agents, commands, models, permissions, prompts, or steps.
+
+Point OpenCode at this checkout:
+
+```json
+{
+  "plugin": ["file:///absolute/path/to/cockpit/.opencode/plugins/cockpit.js"]
+}
 ```
 
-It adds two commands:
+After publishing or installing the npm package, use `"plugin": ["cockpit"]`. Restart OpenCode after changing configuration.
 
-```text
-/cockpit-setup   # choose reasoning and hands models using scrollable lists
-/cockpit-doctor  # diagnose skills, models, agents, and config read-only
-/cockpit-contract # create a bounded contract on build
-/cockpit-run      # orchestrate contract execution on cockpit-worker from build
+## Optional Native Agents
+
+Model selection remains normal OpenCode configuration. A cheap model can handle cold, broad research through built-in `explore`; an optional `hands` subagent can handle large mechanical work:
+
+```jsonc
+{
+  "agent": {
+    "explore": { "model": "opencode/deepseek-v4-flash-free" },
+    "hands": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "steps": 20,
+      "permission": { "task": "deny", "question": "deny" },
+      "description": "Cheap, untrusted execution agent for large, mechanical, low-risk tasks with clear scope and deterministic validation. Use only when the work is substantial enough to justify delegation. Do not use for product decisions, architecture, security, authentication, migrations, ambiguous debugging, or completion claims. Inspect its changes and validate independently."
+    }
+  }
+}
 ```
 
-See [`docs/README.opencode.md`](docs/README.opencode.md).
+Cockpit does not install, mutate, or select these entries.
 
-## Behavioral evaluations
+The parent remains responsible for consequential decisions, actual-diff inspection, and completion claims. A skill is guidance, not a model router or security boundary.
 
-Cockpit includes disposable behavioral scenarios for comparing strong, cheap, and local models:
+## Historical Evidence
 
-```bash
-npm run eval
-npm run eval -- --model openai/gpt-5.6-luna --scenario tiny-direct
-```
-
-See [`evals/README.md`](evals/README.md). Model calls run only when `--model` is supplied.
+[Historical scorecards](https://github.com/keilwastaken/cockpit/tree/main/history) retain conclusions from the retired routing and worker experiments. Their recorded commits preserve the exact benchmark sources. They do not establish a cost-saving claim for Cockpit Lite.
 
 ## Development
 
 ```bash
-npm test              # Run all tests (including adapter freshness)
-npm run check         # Test + adapter freshness check
-npm run generate      # Regenerate the OpenCode adapter
-npm run check:generated # Verify adapter freshness only
+npm test              # Run all tests
 npm pack --dry-run    # Verify package contents
 ```
 
-The package has no runtime dependencies, and consumers do not need a build step because generated adapters are committed.
+The package has no runtime dependencies.
 
 ## License
 

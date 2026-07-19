@@ -1,7 +1,7 @@
 {
   "name": "cockpit",
   "version": "0.1.0",
-  "description": "OpenCode-native workflow skills for context-efficient, evidence-driven coding agents.",
+  "description": "On-demand prompt/skill library for OpenCode. Native OpenCode owns routing and execution.",
   "type": "module",
   "main": ".opencode/plugins/cockpit.js",
   "keywords": [
@@ -13,23 +13,11 @@
   "license": "MIT",
   "files": [
     ".opencode",
-    "docs",
-    "evals",
-    "!evals/results",
-    "scripts",
     "skills",
-    "icon.png",
     "LICENSE",
     "README.md"
   ],
   "scripts": {
-    "test": "node --test tests/*.test.js",
-    "check": "npm test && npm run check:generated",
-    "check:generated": "node scripts/generate-adapters.mjs --check",
-    "generate": "node scripts/generate-adapters.mjs",
-    "eval": "node scripts/run-behavioral-evals.mjs",
-    "benchmark:cost": "node scripts/run-cost-benchmark.mjs",
-    "benchmark:summary": "node scripts/summarize-cost-benchmark.mjs",
-    "benchmark:prepare-review": "node scripts/prepare-cost-benchmark-review.mjs"
+    "test": "node --test tests/*.test.js"
   }
 }

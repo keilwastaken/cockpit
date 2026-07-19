@@ -26,11 +26,10 @@ If these conditions are false, sequence the work or split it differently.
 2. Assign exclusive ownership and shared read-only context.
 3. Give each worker its goal, scope, required evidence or edits, validation, and stop conditions.
 4. Tell workers not to broaden scope or resolve shared decisions independently.
-5. Dispatch concurrently when the harness supports it; otherwise execute packets sequentially with the same boundaries.
-6. Dispatch using the host's native fan-out mechanism (e.g. OpenCode's Task tool for concurrent agent calls). Do not build a custom parallelizer, queue, or state machine.
-7. Join every dispatched task and await all task returns before proceeding to combined inspection; the last-launched or first-returned task is not a completion signal.
-8. Collect compact results rather than raw transcripts.
-9. Integrate results, inspect the combined diff, run shared validation, and review interaction risks.
+5. Dispatch concurrently using native Task/subagent fan-out (e.g., OpenCode's Task tool for concurrent agent calls). Do not build a custom parallelizer, queue, or state machine. If concurrent dispatch is unavailable, execute packets sequentially with the same boundaries.
+6. Join every dispatched task and await all returns before proceeding to combined inspection; the last-launched or first-returned task is not a completion signal.
+7. Collect compact results rather than raw transcripts.
+8. Integrate results, inspect the combined diff, run shared validation, and review interaction risks.
 
 ## Stop conditions
 
